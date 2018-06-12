@@ -1,0 +1,14 @@
+Package: exactextractr
+Title: Exact implmentation of the "extract" function from the raster package
+Version: 0.1.0
+Authors@R: person("Daniel Baston", email = "dbaston@isciences.com", role = c("aut", "cre", "cph"))
+Description: Provides a replacement for the 'extract' function from the 'raster' package
+    that is suitable for extracting raster values using 'sf' polygons.
+Depends: R (>= 3.4.0)
+License: file LICENSE
+Imports: Rcpp (>= 0.12.12), raster, sf
+LinkingTo: Rcpp
+Suggests: testthat
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1

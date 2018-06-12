@@ -1,0 +1,6 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+.o$
+.git$
+ci$
+.gitlab-ci.yml$

@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+*.swp
+*.o
+*.so
+RcppExports.*
+docs/
+man/
