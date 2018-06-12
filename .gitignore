@@ -4,6 +4,5 @@
 *.swp
 *.o
 *.so
-RcppExports.*
 docs/
 man/
