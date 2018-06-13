@@ -1,0 +1,21 @@
+VERSION = 2.2.3
+COMPILED_BY ?= gcc-4.9.3
+RWINLIB = ../windows/gdal2-$(VERSION)
+TARGET = lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH)
+
+PKG_LIBS = -lgeos_c -lgeos -L$(RWINLIB)/$(TARGET)
+PKG_CXXFLAGS = -std=c++14 -I$(RWINLIB)/include/geos
+
+SOURCES = $(wildcard exactextract/src/*.cpp)
+OBJECTS = RcppExports.o exact_extract.o $(SOURCES:.cpp=.o)
+
+all: clean winlibs
+
+winlibs:
+	mkdir -p ../inst
+	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" --vanilla "../tools/winlibs.R" $(VERSION)
+
+clean:
+	rm -f $(SHLIB) $(OBJECTS)
+
+.PHONY: all winlibs clean
