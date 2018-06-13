@@ -4,5 +4,7 @@
 *.swp
 *.o
 *.so
+*.dll
 docs/
 man/
+windows/
