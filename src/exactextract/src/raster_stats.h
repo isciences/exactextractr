@@ -46,8 +46,7 @@ namespace exactextract {
                 m_weighted_vals{0},
                 m_rows{rci.rows()},
                 m_cols{rci.cols()},
-                m_weights{0},
-                m_weighted_vals{0} {
+                m_nodata{nodata} {
 
             if (rast_cropped) {
                 for (size_t i = 0; i < rci.rows(); i++) {

@@ -105,7 +105,7 @@ double single_stat(const Rcpp::NumericVector & extent,
   const RasterCellIntersection rci(ex, read_wkb(wkb).get());
 
   auto mat = wrap(rast_values);
-  RasterStats<decltype(mat)> stats{rci, mat};
+  RasterStats<decltype(mat)> stats{rci, mat, false};
 
   if (stat == "mean") return stats.mean();
   if (stat == "sum") return stats.sum();
