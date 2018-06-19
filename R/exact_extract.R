@@ -87,22 +87,28 @@ setMethod('exact_extract', signature(x='RasterLayer', y='sf'), function(x, y, fu
       CPP_stat(raster_extent, raster_res, vals, fun, wkb)
     })
   } else {
-    appfn(sf::st_as_binary(y), function(wkb) {
-      ret <- CPP_exact_extract(raster_extent, raster_res, wkb)
+    tryCatch({
+      x <- readStart(x)
 
-      vals <- raster::getValuesBlock(x,
-                                     row=ret$row,
-                                     col=ret$col,
-                                     nrow=nrow(ret$weights),
-                                     ncol=ncol(ret$weights))
+      appfn(sf::st_as_binary(y), function(wkb) {
+        ret <- CPP_exact_extract(raster_extent, raster_res, wkb)
 
-      weightvec <- as.vector(t(ret$weights))
+        vals <- raster::getValuesBlock(x,
+                                       row=ret$row,
+                                       col=ret$col,
+                                       nrow=nrow(ret$weights),
+                                       ncol=ncol(ret$weights))
 
-      if (!is.null(fun)) {
-        return(fun(vals[weightvec > 0], weightvec[weightvec > 0], ...))
-      } else {
-        return(cbind(vals=vals[weightvec > 0], weights=weightvec[weightvec > 0]))
-      }
+        weightvec <- as.vector(t(ret$weights))
+
+        if (!is.null(fun)) {
+          return(fun(vals[weightvec > 0], weightvec[weightvec > 0], ...))
+        } else {
+          return(cbind(vals=vals[weightvec > 0], weights=weightvec[weightvec > 0]))
+        }
+      })
+    }, finally={
+      readStop(x)
     })
   }
 }
