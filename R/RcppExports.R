@@ -5,11 +5,11 @@ CPP_exact_extract <- function(extent, res, wkb) {
     .Call('_exactextractr_CPP_exact_extract', PACKAGE = 'exactextractr', extent, res, wkb)
 }
 
-CPP_stat <- function(extent, res, rast_values, stat, wkb) {
-    .Call('_exactextractr_CPP_stat', PACKAGE = 'exactextractr', extent, res, rast_values, stat, wkb)
-}
-
 CPP_weights <- function(extent, res, wkb) {
     .Call('_exactextractr_CPP_weights', PACKAGE = 'exactextractr', extent, res, wkb)
+}
+
+CPP_stats <- function(rast, wkb, stats) {
+    .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, wkb, stats)
 }
 

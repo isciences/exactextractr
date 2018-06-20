@@ -84,44 +84,6 @@ static geom_ptr read_wkb(const Rcpp::RawVector & wkb) {
   return geom;
 }
 
-// Compute and return a single statistic, given a Matrix 'rast_values'
-// that covers 'extent' at resolution 'res'.
-// This is set up as a templated function so that NumericMatrix and
-// IntegerMatrix can both be accepted. At the moment, we don't do
-// anything intelligent in terms of return type, and all of the stats
-// are returned as doubles, even when an integer would be more
-// appropriate.
-template<typename T>
-double single_stat(const Rcpp::NumericVector & extent,
-                   const Rcpp::NumericVector & res,
-                   const T & rast_values,
-                   const std::string & stat,
-                   const Rcpp::RawVector & wkb)
-{
-  Extent ex = make_extent(extent, res);
-
-  initGEOS(geos_warn, geos_error);
-
-  const RasterCellIntersection rci(ex, read_wkb(wkb).get());
-
-  auto mat = wrap(rast_values);
-  RasterStats<decltype(mat)> stats{rci, mat, false};
-
-  if (stat == "mean") return stats.mean();
-  if (stat == "sum") return stats.sum();
-  if (stat == "count") return stats.count();
-
-  if (stat == "min") return stats.min();
-  if (stat == "max") return stats.max();
-
-  if (stat == "mode") return stats.mode();
-  if (stat == "minority") return stats.minority();
-
-  if (stat == "variety") return stats.variety();
-
-  Rcpp::stop("Unknown stat: " + stat);
-}
-
 // [[Rcpp::export]]
 Rcpp::List CPP_exact_extract(const Rcpp::NumericVector & extent,
                              const Rcpp::NumericVector & res,
@@ -150,16 +112,6 @@ Rcpp::List CPP_exact_extract(const Rcpp::NumericVector & extent,
 }
 
 // [[Rcpp::export]]
-double CPP_stat(const Rcpp::NumericVector & extent,
-                const Rcpp::NumericVector & res,
-                const Rcpp::NumericMatrix & rast_values,
-                const std::string & stat,
-                const Rcpp::RawVector & wkb)
-{
-  return single_stat(extent, res, rast_values, stat, wkb);
-}
-
-// [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_weights(const Rcpp::NumericVector & extent,
                                 const Rcpp::NumericVector & res,
                                 const Rcpp::RawVector & wkb)
@@ -181,4 +133,62 @@ Rcpp::NumericMatrix CPP_weights(const Rcpp::NumericVector & extent,
   }
 
   return weights;
+}
+
+// [[Rcpp::export]]
+SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringVector & stats) {
+  initGEOS(geos_warn, geos_error);
+
+  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+  Rcpp::Function getValuesBlockFn = raster["getValuesBlock"];
+  Rcpp::Function extentFn = raster["extent"];
+  Rcpp::Function resFn = raster["res"];
+
+  Rcpp::S4 extent = extentFn(rast);
+  Rcpp::NumericVector res = resFn(rast);
+
+  Extent ex {
+    extent.slot("xmin"),
+    extent.slot("ymin"),
+    extent.slot("xmax"),
+    extent.slot("ymax"),
+    res[0],
+    res[1]
+  };
+
+  exactextract::RasterCellIntersection rci(ex, read_wkb(wkb).get());
+
+  Rcpp::NumericVector stat_results = Rcpp::no_init(stats.size());
+
+  Rcpp::NumericMatrix rast_values = getValuesBlockFn(rast,
+                                                     1 + rci.min_row(),
+                                                     rci.rows(),
+                                                     1 + rci.min_col(),
+                                                     rci.cols(),
+                                                     "matrix");
+
+  auto mat = wrap(rast_values);
+  RasterStats<decltype(mat)> raster_stats{rci, mat, true};
+
+  int i = 0;
+  for (const auto & stat : stats) {
+    if (stat == std::string("mean")) stat_results[i] = raster_stats.mean();
+
+    else if (stat == std::string("sum")) stat_results[i] = raster_stats.sum();
+    else if (stat == std::string("count")) stat_results[i] = raster_stats.count();
+
+    else if (stat == std::string("min")) stat_results[i] = raster_stats.min();
+    else if (stat == std::string("max")) stat_results[i] = raster_stats.max();
+
+    else if (stat == std::string("mode")) stat_results[i] = raster_stats.mode();
+    else if (stat == std::string("minority")) stat_results[i] = raster_stats.minority();
+
+    else if (stat == std::string("variety")) stat_results[i] = raster_stats.variety();
+
+    else Rcpp::stop("Unknown stat: " + stat);
+
+    i++;
+  }
+
+  return stat_results;
 }

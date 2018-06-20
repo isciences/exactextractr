@@ -46,6 +46,10 @@ test_that("Basic stat functions work", {
   expect_equal(exact_extract(rast, square, fun='mode'), 5)
   expect_equal(exact_extract(rast, square, fun='minority'), 1)
   expect_equal(exact_extract(rast, square, fun='variety'), 9)
+
+  # Can also do multiple stats at once
+  expect_equal(exact_extract(rast, square, fun=c('min', 'max', 'mode')),
+               matrix(c(1, 9, 5), nrow=1))
 })
 
 test_that('MultiPolygons also work', {

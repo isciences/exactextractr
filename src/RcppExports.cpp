@@ -18,21 +18,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// CPP_stat
-double CPP_stat(const Rcpp::NumericVector& extent, const Rcpp::NumericVector& res, const Rcpp::NumericMatrix& rast_values, const std::string& stat, const Rcpp::RawVector& wkb);
-RcppExport SEXP _exactextractr_CPP_stat(SEXP extentSEXP, SEXP resSEXP, SEXP rast_valuesSEXP, SEXP statSEXP, SEXP wkbSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type extent(extentSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type res(resSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type rast_values(rast_valuesSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type stat(statSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
-    rcpp_result_gen = Rcpp::wrap(CPP_stat(extent, res, rast_values, stat, wkb));
-    return rcpp_result_gen;
-END_RCPP
-}
 // CPP_weights
 Rcpp::NumericMatrix CPP_weights(const Rcpp::NumericVector& extent, const Rcpp::NumericVector& res, const Rcpp::RawVector& wkb);
 RcppExport SEXP _exactextractr_CPP_weights(SEXP extentSEXP, SEXP resSEXP, SEXP wkbSEXP) {
@@ -46,11 +31,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// CPP_stats
+SEXP CPP_stats(Rcpp::S4& rast, const Rcpp::RawVector& wkb, const Rcpp::StringVector& stats);
+RcppExport SEXP _exactextractr_CPP_stats(SEXP rastSEXP, SEXP wkbSEXP, SEXP statsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::S4& >::type rast(rastSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::StringVector& >::type stats(statsSEXP);
+    rcpp_result_gen = Rcpp::wrap(CPP_stats(rast, wkb, stats));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 3},
-    {"_exactextractr_CPP_stat", (DL_FUNC) &_exactextractr_CPP_stat, 5},
     {"_exactextractr_CPP_weights", (DL_FUNC) &_exactextractr_CPP_weights, 3},
+    {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 3},
     {NULL, NULL, 0}
 };
 

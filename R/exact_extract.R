@@ -32,9 +32,10 @@ if (!isGeneric("exact_extract")) {
 #' will then return a list of the return values of \code{fun} instead of a
 #' list of matrices.
 #'
-#' The value of \code{fun} may also set to a string representing a common
-#' statistical summary function supported by the exactextract library.
-#' Supported statistical functions include:
+#' The value of \code{fun} may also set to a string (or list of strings)
+#' representing a common statistical summary function supported by the
+#' exactextract library. Supported statistical functions include:
+#'
 #' \itemize{
 #'  \item{\code{min} - the minimum defined value in any raster cell wholly or
 #'                     partially covered by the polygon}
@@ -74,22 +75,20 @@ setMethod('exact_extract', signature(x='RasterLayer', y='sf'), function(x, y, fu
   if (is.null(fun)) {
     appfn <- lapply # return list of matrices
   } else {
-    appfn <- sapply # return vector of function results
+    appfn <- sapply
   }
 
   raster_extent <- as.vector(raster::extent(x))
   raster_res <- raster::res(x)
 
-  if (is.character(fun)) {
-    vals <- raster::as.matrix(x)
+  ret <- tryCatch({
+    x <- readStart(x)
 
-    appfn(sf::st_as_binary(y), function(wkb) {
-      CPP_stat(raster_extent, raster_res, vals, fun, wkb)
-    })
-  } else {
-    tryCatch({
-      x <- readStart(x)
-
+    if (is.character(fun)) {
+      appfn(sf::st_as_binary(y), function(wkb) {
+        CPP_stats(x, wkb, fun)
+      })
+    } else {
       appfn(sf::st_as_binary(y), function(wkb) {
         ret <- CPP_exact_extract(raster_extent, raster_res, wkb)
 
@@ -107,9 +106,15 @@ setMethod('exact_extract', signature(x='RasterLayer', y='sf'), function(x, y, fu
           return(cbind(vals=vals[weightvec > 0], weights=weightvec[weightvec > 0]))
         }
       })
-    }, finally={
-      readStop(x)
-    })
+    }
+  }, finally={
+    readStop(x)
+  })
+
+  if (is.matrix(ret)) {
+    t(ret)
+  } else {
+    ret
   }
 }
 
