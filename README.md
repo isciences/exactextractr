@@ -19,7 +19,7 @@ plot(brazil['max_dec_temp'])
 
 ### Installation
 
-This package is not in CRAN and can be installed from source only. Using [`devtools`](https://cran.r-project.org/web/packages/devtools/index.html), the package can be installed with:
+This package is not in CRAN and can be installed from source only. Using [`devtools`](https://CRAN.R-project.org/package=devtools), the package can be installed with:
 
 ```r
 devtools::install_github('isciences/exactextractr')
