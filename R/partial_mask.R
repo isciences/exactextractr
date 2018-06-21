@@ -21,6 +21,8 @@ if (!isGeneric('partial_mask')) {
     out <- raster::raster(x) # copy input dims, res, etc.
 
     raster::values(out) <- CPP_weights(as.vector(raster::extent(x)), raster::res(x), wkb)
+
+    return(out)
   })
 }
 

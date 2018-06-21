@@ -126,8 +126,8 @@ Rcpp::NumericMatrix CPP_weights(const Rcpp::NumericVector & extent,
   exactextract::RasterCellIntersection rci(ex, read_wkb(wkb).get());
 
   Rcpp::NumericMatrix weights(nrow, ncol);
-  for (size_t i = 0; i < nrow; i++) {
-    for (size_t j = 0; j < ncol; j++) {
+  for (size_t i = rci.min_row(); i < rci.max_row(); i++) {
+    for (size_t j = rci.min_col(); j < rci.max_col(); j++) {
       weights(i, j) = rci.get(i, j);
     }
   }
