@@ -108,7 +108,7 @@ test_that('Additional arguments can be passed to fun', {
         ncol=2,
         byrow=TRUE))))
 
-  exact_extract(rast, square, function(w, x, custom) {
+  exact_extract(rast, square, function(x, w, custom) {
     expect_equal(custom, 6)
   }, 6)
 })
@@ -184,4 +184,30 @@ test_that('We get an error when trying to pass extracted RasterStack values to a
     exact_extract(raster::stack(rast, sqrt(rast)), square, 'variety'),
     'only available for single-layer raster'
   )
+})
+
+test_that('We can optionally get cell center coordinates included in our output', {
+  rast <- raster(matrix(1:100, nrow=10), xmn=0, xmx=10, ymn=0, ymx=10)
+
+  poly <- sf::st_sfc(sf::st_polygon(
+    list(
+      matrix(
+        c(3.5, 4.4, 7.5, 4.5, 7.5, 6.5, 3.5, 6.5, 3.5, 4.4),
+        ncol=2,
+        byrow=TRUE
+      )
+    )
+  ))
+
+  results <- exact_extract(rast, poly, include_xy=TRUE)[[1]]
+
+  # check that correct ranges of X,Y values are output
+  expect_equal( c(3.5, 4.5, 5.5, 6.5, 7.5), sort(unique(results[, 'x'])))
+  expect_equal( c(4.5, 5.5, 6.5),           sort(unique(results[, 'y'])))
+
+  # check the XY values of an individal cell with a known weight
+  expect_equal( results[results[, 'x']==3.5 & results[,'y']==4.5, 'weights'],
+                0.2968749999999998,
+                tolerance=1e-8,
+                check.attributes=FALSE)
 })
