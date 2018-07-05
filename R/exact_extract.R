@@ -61,17 +61,19 @@ if (!isGeneric("exact_extract")) {
 #'
 #' @param     x a RasterLayer
 #' @param     y a sf object with polygonal geometries
+#' @param     include_xy if true, return columns for cell center coordinates
+#'                       (\code{x} and \code{y}) or pass them to \code{fun}
 #' @param     fun an optional function or character vector, as described below
 #' @param     ... additional arguments to pass to \code{fun}
 #' @import sf
 #' @import raster
 #' @useDynLib exactextractr
 #' @export
-setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ...) {
-  exact_extract(x, sf::st_geometry(y), fun, ...)
+setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE) {
+  exact_extract(x, sf::st_geometry(y), fun, ..., include_xy)
 })
 
-.exact_extract <- function(x, y, fun=NULL, ...) {
+.exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE) {
   if (is.null(fun)) {
     appfn <- lapply # return list of matrices
   } else {
@@ -103,6 +105,15 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
         if (!is.matrix(vals)) {
           vals <- matrix(vals)
           dimnames(vals)[[2]] <- list('values')
+        }
+
+        if (include_xy) {
+            x_coords <- raster::xFromCol(x, col=ret$col:(ret$col+ncol(ret$weights) - 1))
+            y_coords <- raster::yFromRow(x, row=ret$row:(ret$row+nrow(ret$weights) - 1))
+
+            vals <- cbind(vals,
+                          x=rep.int(x_coords, times=nrow(ret$weights)),
+                          y=rep(y_coords, each=ncol(ret$weights)))
         }
 
         weightvec <- as.vector(t(ret$weights))
