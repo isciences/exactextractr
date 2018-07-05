@@ -32,7 +32,7 @@ test_that("Basic stat functions work", {
 
   # Calling without a function returns a matrix of weights and values
   expect_equal(dat[[1]],
-    cbind(vals=1:9, weights=c(0.25, 0.5, 0.25, 0.5, 1, 0.5, 0.25, 0.5, 0.25))
+    cbind(values=1:9, weights=c(0.25, 0.5, 0.25, 0.5, 1, 0.5, 0.25, 0.5, 0.25))
   )
 
   # Calling with a function(w, v) returns the result of the function
@@ -133,4 +133,55 @@ test_that('Incorrect argument types are handled gracefully', {
   expect_error(exact_extract(rast, multipoint))
   expect_error(exact_extract(rast, multilinesetring))
   expect_error(exact_extract(rast, geometrycollection))
+})
+
+test_that('We can extract values from a RasterStack', {
+  rast <- raster(matrix(1:16, nrow=4, byrow=TRUE), xmn=0, xmx=4, ymn=0, ymx=4)
+  stk <- raster::stack(rast, sqrt(rast))
+
+  square <- sf::st_sfc(sf::st_polygon(
+    list(
+      matrix(
+        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
+        ncol=2,
+        byrow=TRUE))))
+
+  extracted <- exact_extract(stk, square)[[1]]
+
+  expect_equal(dim(extracted), c(9, 3))
+  expect_equal(extracted[, 'layer.2'], sqrt(extracted[, 'layer.1']))
+})
+
+test_that('We can pass extracted RasterStack values to an R function', {
+  population <- raster(matrix(1:16, nrow=4, byrow=TRUE), xmn=0, xmx=4, ymn=0, ymx=4)
+  income <- sqrt(population)
+
+  square <- sf::st_sfc(sf::st_polygon(
+    list(
+      matrix(
+        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
+        ncol=2,
+        byrow=TRUE))))
+
+  mean_income <- exact_extract(raster::stack(list(population=population, income=income)), square, function(vals, weights) {
+    weighted.mean(vals[, 'population']*vals[, 'income'], weights)
+  })
+
+  expect_equal(mean_income, 32.64279, tolerance=1e-5)
+})
+
+test_that('We get an error when trying to pass extracted RasterStack values to a C++ function', {
+  rast <- raster(matrix(runif(16), nrow=4), xmn=0, xmx=4, ymn=0, ymx=4)
+
+  square <- sf::st_sfc(sf::st_polygon(
+    list(
+      matrix(
+        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
+        ncol=2,
+        byrow=TRUE))))
+
+  expect_error(
+    exact_extract(raster::stack(rast, sqrt(rast)), square, 'variety'),
+    'only available for single-layer raster'
+  )
 })

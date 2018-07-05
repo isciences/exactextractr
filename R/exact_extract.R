@@ -67,7 +67,7 @@ if (!isGeneric("exact_extract")) {
 #' @import raster
 #' @useDynLib exactextractr
 #' @export
-setMethod('exact_extract', signature(x='RasterLayer', y='sf'), function(x, y, fun=NULL, ...) {
+setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ...) {
   exact_extract(x, sf::st_geometry(y), fun, ...)
 })
 
@@ -85,6 +85,8 @@ setMethod('exact_extract', signature(x='RasterLayer', y='sf'), function(x, y, fu
     x <- readStart(x)
 
     if (is.character(fun)) {
+      if (raster::nlayers(x) > 1) stop("C++ stat implementations only available for single-layer rasters.")
+
       appfn(sf::st_as_binary(y), function(wkb) {
         CPP_stats(x, wkb, fun)
       })
@@ -98,12 +100,17 @@ setMethod('exact_extract', signature(x='RasterLayer', y='sf'), function(x, y, fu
                                        nrow=nrow(ret$weights),
                                        ncol=ncol(ret$weights))
 
+        if (!is.matrix(vals)) {
+          vals <- matrix(vals)
+          dimnames(vals)[[2]] <- list('values')
+        }
+
         weightvec <- as.vector(t(ret$weights))
 
         if (!is.null(fun)) {
-          return(fun(vals[weightvec > 0], weightvec[weightvec > 0], ...))
+          return(fun(vals[weightvec > 0,, drop=FALSE], weightvec[weightvec > 0], ...))
         } else {
-          return(cbind(vals=vals[weightvec > 0], weights=weightvec[weightvec > 0]))
+          return(cbind(vals[weightvec > 0,, drop=FALSE], weights=weightvec[weightvec > 0]))
         }
       })
     }
@@ -120,9 +127,9 @@ setMethod('exact_extract', signature(x='RasterLayer', y='sf'), function(x, y, fu
 
 #' @useDynLib exactextractr
 #' @export
-setMethod('exact_extract', signature(x='RasterLayer', y='sfc_MULTIPOLYGON'), .exact_extract)
+setMethod('exact_extract', signature(x='Raster', y='sfc_MULTIPOLYGON'), .exact_extract)
 
 #' @useDynLib exactextractr
 #' @export
-setMethod('exact_extract', signature(x='RasterLayer', y='sfc_POLYGON'), .exact_extract)
+setMethod('exact_extract', signature(x='Raster', y='sfc_POLYGON'), .exact_extract)
 
