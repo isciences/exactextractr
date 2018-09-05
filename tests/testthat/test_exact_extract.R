@@ -210,4 +210,9 @@ test_that('We can optionally get cell center coordinates included in our output'
                 0.2968749999999998,
                 tolerance=1e-8,
                 check.attributes=FALSE)
+
+  # we can also send the weights to a callback
+  exact_extract(rast, st_sf(data.frame(id=1), geom=poly), include_xy=TRUE, fun=function(values, weights) {
+    expect_equal(3, ncol(values))
+  })
 })

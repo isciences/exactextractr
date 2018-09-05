@@ -70,7 +70,7 @@ if (!isGeneric("exact_extract")) {
 #' @useDynLib exactextractr
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE) {
-  exact_extract(x, sf::st_geometry(y), fun, ..., include_xy)
+  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy)
 })
 
 .exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE) {
