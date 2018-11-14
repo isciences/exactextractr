@@ -1,5 +1,6 @@
-PKG_LIBS = -lgeos_c
-CXX_STD = CXX14
+PKG_CXX = @PKG_CXX@
+PKG_CXXFLAGS = @PKG_CXXFLAGS@
+PKG_LIBS = @PKG_LIBS@
 
 SOURCES = $(wildcard exactextract/src/*.cpp)
 OBJECTS = RcppExports.o exact_extract.o $(SOURCES:.cpp=.o)
