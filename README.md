@@ -29,19 +29,23 @@ brazil$max_dec_temp <- exact_extract(temp, brazil, weighted.mean)
 plot(brazil['max_dec_temp'])
 ```
 
+### Dependencies
+
+Installation requires the [GEOS](https://geos.osgeo.org/) geometry processing library.
+For best performance, it is recommended to use version 3.7, which introduced some optimizations important to `exactextractr`.
+On Windows, GEOS will be downloaded automatically as part of package install.
+On MacOS, it can be installed using Homebrew (`brew install geos`).
+On Linux, it can be installed from system package repositories (`apt-get install libgeos-dev` on Debian/Ubuntu, or `yum install libgeos-devel` on CentOS/RedHat.)
+
+On Windows, the R build tools ([Rtools](https://cran.r-project.org/bin/windows/Rtools/)) are also necessary.
+
 ### Installation
 
-This package is not in CRAN and can be installed from source only. Using [`devtools`](https://CRAN.R-project.org/package=devtools), the package can be installed with:
+`exactextractr` is not in CRAN and can be installed from source only. Using [`devtools`](https://CRAN.R-project.org/package=devtools), the package can be installed with:
 
 ```r
 devtools::install_github('isciences/exactextractr')
 ```
-
-On Windows, the R build tools ([Rtools](https://cran.r-project.org/bin/windows/Rtools/)) are also necessary.
-
-### Dependencies
-
-This package depends on the [GEOS](https://trac.osgeo.org/geos) library and is fastest with version 3.7 or later. On Windows, GEOS will be downloaded as part of the build process. On Linux, the library and headers should be installed beforehand using `apt-get install libgeos` or similar.
 
 ### Limitations
 
