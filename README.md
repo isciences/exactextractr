@@ -24,7 +24,7 @@ brazil <- st_as_sf(getData('GADM', country='BRA', level=2))
 temp <- getData('worldclim', var='tmax', res=10)[[12]]
 
 # Find the mean-max temperature for each administrative boundary
-brazil$max_dec_temp <- exact_extract(temp, brazil, weighted.mean)
+brazil$max_dec_temp <- exact_extract(temp, brazil, weighted.mean, na.rm=TRUE)
 
 plot(brazil['max_dec_temp'])
 ```
