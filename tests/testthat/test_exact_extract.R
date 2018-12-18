@@ -11,6 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+library(testthat)
+library(exactextractr)
 context('exact_extract')
 
 test_that("Basic stat functions work", {
@@ -50,6 +52,35 @@ test_that("Basic stat functions work", {
   # Can also do multiple stats at once
   expect_equal(exact_extract(rast, square, fun=c('min', 'max', 'mode')),
                matrix(c(1, 9, 5), nrow=1))
+})
+
+test_that('Raster NA values are correctly handled', {
+  data <- matrix(1:100, nrow=10, byrow=TRUE)
+  data[7:10, 1:4] <- NA # cut out lower-left corner
+  rast <- raster::raster(data, xmn=0, xmx=10, ymn=0, ymx=10)
+
+  # check polygon entirely within NA region
+  circ <- sf::st_sfc(sf::st_buffer(sf::st_point(c(2,2)), 0.9))
+
+  expect_equal(0, exact_extract(rast, circ, 'count'))
+  expect_equal(NA_real_, exact_extract(rast, circ, 'mean'))
+  expect_equal(NA_real_, exact_extract(rast, circ, weighted.mean))
+
+  # check polygon partially within NA region
+  square <- sf::st_sfc(sf::st_polygon(
+    list(
+      matrix(
+        c(3.5, 3.5,
+          4.5, 3.5,
+          4.5, 4.5,
+          3.5, 4.5,
+          3.5, 3.5),
+        ncol=2,
+        byrow=TRUE))))
+
+  expect_equal(43.5, exact_extract(rast, square, 'sum'))
+  expect_equal(NA_real_, exact_extract(rast, square, weighted.mean))
+  expect_equal(58, exact_extract(rast, square, weighted.mean, na.rm=TRUE))
 })
 
 test_that('MultiPolygons also work', {
