@@ -27,6 +27,14 @@ temp <- getData('worldclim', var='tmax', res=10)[[12]]
 brazil$max_dec_temp <- exact_extract(temp, brazil, weighted.mean, na.rm=TRUE)
 
 plot(brazil['max_dec_temp'])
+
+# Output a matrix of cell values, cell coordiantes, and coverage fractions for a given polygon
+exact_extract(temp, brazil[1, ], include_xy=TRUE)
+
+# Generate a raster showing cell coverage fractions for a given polygon
+can <- st_as_sf(getData('GADM', country='CAN', level=0))
+plot(partial_mask(temp, can)[[1]])
+
 ```
 
 ### Dependencies
