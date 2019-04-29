@@ -28,7 +28,7 @@ brazil$max_dec_temp <- exact_extract(temp, brazil, weighted.mean, na.rm=TRUE)
 
 plot(brazil['max_dec_temp'])
 
-# Output a matrix of cell values, cell coordiantes, and coverage fractions for a given polygon
+# Output a matrix of cell values, cell coordinates, and coverage fractions for a given polygon
 exact_extract(temp, brazil[1, ], include_xy=TRUE)
 
 # Generate a raster showing cell coverage fractions for a given polygon
