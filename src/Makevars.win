@@ -1,9 +1,8 @@
 VERSION = 2.2.3
 COMPILED_BY ?= gcc-4.9.3
 RWINLIB = ../windows/gdal2-$(VERSION)
-TARGET = lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH)
 
-PKG_LIBS = -lgeos_c -lgeos -L$(RWINLIB)/$(TARGET)
+PKG_LIBS = -lgeos_c -lgeos -L$(RWINLIB)/lib/$(R_ARCH)
 PKG_CXXFLAGS = -std=c++14 -I$(RWINLIB)/include/geos
 
 SOURCES = $(wildcard exactextract/src/*.cpp)
