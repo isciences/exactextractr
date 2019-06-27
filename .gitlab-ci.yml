@@ -1,11 +1,32 @@
+stages:
+  - test
+  - deploy
+
 test-latest:
+  stage: test
   image: rocker/geospatial:latest
   script:
     - R -e "devtools::document()"
     - R -e "devtools::check()"
 
 test-devel:
+  stage: test
   image: rocker/geospatial:devel
   script:
     - R -e "devtools::document()"
     - R -e "devtools::check()"
+
+pages:
+  stage: deploy
+  image: rocker/geospatial
+  script:
+    - R -e "devtools::document()"
+    - R -e "pkgdown::build_site()"
+    - mkdir public
+    - mv docs/* public
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
+    - gitlab-pages
