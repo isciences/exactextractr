@@ -4,3 +4,4 @@
 .git$
 ci$
 .gitlab-ci.yml$
+^docs$
