@@ -1,4 +1,4 @@
-# Copyright (c) 2018 ISciences, LLC.
+# Copyright (c) 2018-2019 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -33,17 +33,23 @@ if (!isGeneric('partial_mask')) {
 #' @return    a list with a RasterLayer for each feature in \code{y}.
 #'            Values of the raster represent the fraction of each
 #'            cell in \code{x} that is covered by \code{y}.
+#' @name partial_mask
+NULL
+
 #' @import sf
 #' @import raster
 #' @useDynLib exactextractr
+#' @rdname partial_mask
 #' @export
 setMethod('partial_mask', signature(x='RasterLayer', y='sf'), function(x, y) {
   partial_mask(x, sf::st_geometry(y))
 })
 
+#' @rdname partial_mask
 #' @export
 setMethod('partial_mask', signature(x='RasterLayer', y='sfc_MULTIPOLYGON'), .partial_mask)
 
+#' @rdname partial_mask
 #' @export
 setMethod('partial_mask', signature(x='RasterLayer', y='sfc_POLYGON'), .partial_mask)
 

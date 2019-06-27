@@ -1,4 +1,4 @@
-# Copyright (c) 2018 ISciences, LLC.
+# Copyright (c) 2018-2019 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -65,9 +65,13 @@ if (!isGeneric("exact_extract")) {
 #'                       (\code{x} and \code{y}) or pass them to \code{fun}
 #' @param     fun an optional function or character vector, as described below
 #' @param     ... additional arguments to pass to \code{fun}
+#' @name exact_extract
+NULL
+
 #' @import sf
 #' @import raster
 #' @useDynLib exactextractr
+#' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE) {
   exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy)
@@ -137,10 +141,12 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
 }
 
 #' @useDynLib exactextractr
+#' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_MULTIPOLYGON'), .exact_extract)
 
 #' @useDynLib exactextractr
+#' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_POLYGON'), .exact_extract)
 
