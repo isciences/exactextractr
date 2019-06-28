@@ -8,6 +8,10 @@ test-latest:
   script:
     - R -e "devtools::document()"
     - R -e "devtools::check()"
+    - R -e "install.packages('DT'); covr::gitlab(quiet=FALSE)"
+  artifacts:
+    paths:
+      - public
 
 test-devel:
   stage: test
@@ -22,7 +26,7 @@ pages:
   script:
     - R -e "devtools::document()"
     - R -e "pkgdown::build_site()"
-    - mkdir public
+    - mkdir -p public
     - mv docs/* public
   artifacts:
     paths:
