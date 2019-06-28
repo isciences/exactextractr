@@ -1,6 +1,7 @@
 # exactextractr
 
 [![Build Status](https://gitlab.com/isciences/exactextractr/badges/master/build.svg)](https://gitlab.com/isciences/exactextractr/pipelines)
+[![coverage report](https://gitlab.com/isciences/exactextractr/badges/master/coverage.svg)](https://isciences.gitlab.io/exactextractr/coverage.html)
 
 This package provides routines to perform fast and accurate zonal statistics on `raster` and `sf` objects in R using the [`exactextract`](https://github.com/isciences/exactextract) library.
 Relative to other implementations, such as the `extract` function in the `raster` package, it:
