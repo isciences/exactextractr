@@ -11,12 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if (!isGeneric('partial_mask')) {
-	setGeneric('partial_mask', function(x, y, ...)
-		standardGeneric('partial_mask'))
+if (!isGeneric('coverage_fraction')) {
+	setGeneric('coverage_fraction', function(x, y, ...)
+		standardGeneric('coverage_fraction'))
 }
 
-.partial_mask <- function(x, y) {
+.coverage_fraction <- function(x, y) {
   lapply(sf::st_as_binary(y), function(wkb) {
     out <- raster::raster(x) # copy input dims, res, etc.
 
@@ -33,23 +33,23 @@ if (!isGeneric('partial_mask')) {
 #' @return    a list with a RasterLayer for each feature in \code{y}.
 #'            Values of the raster represent the fraction of each
 #'            cell in \code{x} that is covered by \code{y}.
-#' @name partial_mask
+#' @name coverage_fraction
 NULL
 
 #' @import sf
 #' @import raster
 #' @useDynLib exactextractr
-#' @rdname partial_mask
+#' @rdname coverage_fraction
 #' @export
-setMethod('partial_mask', signature(x='RasterLayer', y='sf'), function(x, y) {
-  partial_mask(x, sf::st_geometry(y))
+setMethod('coverage_fraction', signature(x='RasterLayer', y='sf'), function(x, y) {
+  coverage_fraction(x, sf::st_geometry(y))
 })
 
-#' @rdname partial_mask
+#' @rdname coverage_fraction
 #' @export
-setMethod('partial_mask', signature(x='RasterLayer', y='sfc_MULTIPOLYGON'), .partial_mask)
+setMethod('coverage_fraction', signature(x='RasterLayer', y='sfc_MULTIPOLYGON'), .coverage_fraction)
 
-#' @rdname partial_mask
+#' @rdname coverage_fraction
 #' @export
-setMethod('partial_mask', signature(x='RasterLayer', y='sfc_POLYGON'), .partial_mask)
+setMethod('coverage_fraction', signature(x='RasterLayer', y='sfc_POLYGON'), .coverage_fraction)
 
