@@ -78,6 +78,10 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
 })
 
 .exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE) {
+  if(sf::st_crs(x) != sf::st_crs(y)) {
+    stop("Raster and polygons must be in the same coordinate reference system.")
+  }
+
   if (is.null(fun)) {
     appfn <- lapply # return list of matrices
   } else {
