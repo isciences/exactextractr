@@ -46,18 +46,19 @@ temp <- getData('worldclim', var='tmean', res=10)[[12]]
 brazil$mean_temp <- exact_extract(temp, brazil, weighted.mean, na.rm=TRUE)
 ```
 
-Where 
-[`raster::extract`](https://www.rdocumentation.org/packages/raster/topics/extract)
-accepts a function that summarizes a single vector of raster values (e.g.,
-[`mean`](https://www.rdocumentation.org/packages/base/topics/mean)
-), 
+Because
 [`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
-requires a function that takes parallel vectors of raster
-values and coverage fractions (e.g.,
-[`weighted.mean`](https://www.rdocumentation.org/packages/stats/topics/weighted.mean)
-).
+takes into account the fraction of the cell that is covered by the polygon, the
+summary function must take two arguments: the value of the raster in each cell
+touched by the polygon, and the fraction of that cell area that is covered by
+the polygon. This differs from
+[`raster::extract`](https://www.rdocumentation.org/packages/raster/topics/extract),
+where the summary function takes a single argument (the vector of raster values)
+and effectively assumes that the coverage fraction is `1.0`.
 
-Some examples of summary functions are:
+An example of a built-in function with the appropriate signature is 
+[`weighted.mean`](https://www.rdocumentation.org/packages/stats/topics/weighted.mean).
+Some examples of custom summary functions are:
 
 ```r
 # Number of cells covered by the polygon (raster values are ignored)
@@ -108,14 +109,14 @@ continue to use
 to compute the mean temperature, but instead of using the coverage fractions as
 weights, we use the product of the cell area and the coverage fraction.
 
-```
-brazil$mean_temp_weighted <- exact_extract(
-  stack(list(temp=temp, area=area(temp))),
-  brazil,
-  function(values, cov_frac)
-    weighted.mean(values[, 'temp'],
-    values[, 'area']*cov_frac,
-    na.rm=TRUE))
+```r
+stk <- stack(list(temp=temp, area=area(temp))),
+
+brazil$mean_temp_weighted <- 
+  exact_extract(stk, brazil, function(values, coverage_frac)
+                               weighted.mean(values[, 'temp'],
+                                             values[, 'area']*coverage_frac,
+                                             na.rm=TRUE))
 ```
 
 With the relatively small polygons used in this example, the error introduced
