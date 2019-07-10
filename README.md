@@ -55,18 +55,26 @@ accepts a function that summarizes a single vector of raster values (e.g.,
 requires a function that takes parallel vectors of raster
 values and coverage fractions (e.g.,
 [`weighted.mean`](https://www.rdocumentation.org/packages/stats/topics/weighted.mean)
-). A common error is to call 
-[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
-with a function of the signature
-`function(...)`, such as
-[`sum`](https://www.rdocumentation.org/packages/base/topics/sum)
-, which will return a meaningless summation of cell values and coverage
-fractions. If the coverage fraction is not of interest, functions like 
-[`sum`](https://www.rdocumentation.org/packages/base/topics/sum)
-can be wrapped to process only cell values:
+).
 
-```
-exact_extract(rast, poly, function(x, w) sum(x, na.rm=TRUE))
+Some examples of summary functions are:
+
+```r
+# Number of cells covered by the polygon (raster values are ignored)
+exact_extract(rast, poly, function(values, coverage_fraction)
+                            sum(coverage_fraction))
+
+# Sum of defined raster values within the polygon, accounting for coverage fraction
+exact_extract(rast, poly, function(values, coverage_fraction)
+                            sum(values * coverage_fraction, na.rm=TRUE))
+
+# Number of distinct raster values within the polygon (coverage fractions are ignored)
+exact_extract(rast, poly, function(values, coverage_fraction)
+                            length(unique(values)))
+
+# Number of distinct raster values in cells more than 10% covered by the polygon
+exact_extract(rast, poly, function(values, coverage_fraction)
+                            length(unique(values[coverage_fraction > 0.1])))
 ```
 
 ### Weighting / Geographic Coordinates
