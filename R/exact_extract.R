@@ -77,6 +77,15 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
   exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy)
 })
 
+# Return the number of standard (non-...) arguments in a supplied function that
+# do not have a default value. This is used to fail if the summary function
+# provided by the user cannot accept arguments of values and weights.
+.num_expected_args <- function(fun) {
+  a <- formals(args(fun))
+  a <- a[names(a) != '...']
+  sum(sapply(a, nchar) == 0)
+}
+
 .exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE) {
   if(sf::st_crs(x) != sf::st_crs(y)) {
     stop("Raster and polygons must be in the same coordinate reference system.")
@@ -86,6 +95,11 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
     appfn <- lapply # return list of matrices
   } else {
     appfn <- sapply
+
+    if (!is.character(fun) && .num_expected_args(fun) < 2) {
+      stop("exact_extract was called with a function that does not appear to ",
+           "be of the form `function(values, coverage_fractions, ...)`")
+    }
   }
 
   raster_extent <- as.vector(raster::extent(x))
