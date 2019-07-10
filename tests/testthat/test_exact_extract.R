@@ -1,4 +1,4 @@
-# Copyright (c) 2018 ISciences, LLC.
+# Copyright (c) 2018-2019 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -246,4 +246,22 @@ test_that('We can optionally get cell center coordinates included in our output'
   exact_extract(rast, st_sf(data.frame(id=1), geom=poly), include_xy=TRUE, fun=function(values, weights) {
     expect_equal(3, ncol(values))
   })
+})
+
+test_that('Error is thrown on CRS mismatch', {
+  rast <- raster::raster(
+    matrix(1:100, nrow=10),
+    xmn=-180,
+    xmx=180,
+    ymn=-90,
+    ymx=90,
+    crs='+proj=longlat +datum=WGS84'
+  )
+
+  poly <- sf::st_buffer(
+    sf::st_as_sfc('POINT(442944.5 217528.7)', crs=32145),
+    100)
+
+  expect_error(exact_extract(rast, poly, weighted.mean, na.rm=TRUE),
+               'must be .* same .* system')
 })
