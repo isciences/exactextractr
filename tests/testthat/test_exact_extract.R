@@ -265,3 +265,25 @@ test_that('Error is thrown on CRS mismatch', {
   expect_error(exact_extract(rast, poly, weighted.mean, na.rm=TRUE),
                'must be .* same .* system')
 })
+
+test_that('Error is raised if function has unexpected signature', {
+  rast <- raster::raster(
+    matrix(1:100, nrow=10),
+    xmn=0,
+    xmx=10,
+    ymn=0,
+    ymx=10
+  )
+
+  poly <- sf::st_buffer(
+    sf::st_sfc(
+      sf::st_point(c(5,5))),
+    2.5)
+
+  for (fun in c(length, sum, median, mean, sd)) {
+    expect_error(exact_extract(rast, poly, fun),
+                 'function .* not .* of the form')
+  }
+
+  expect_silent(exact_extract(rast, poly, weighted.mean))
+})
