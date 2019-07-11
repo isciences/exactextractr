@@ -149,13 +149,14 @@ municipalties and reaches a maximum of 9%.
 
 ### Dependencies
 
-Installation requires the [GEOS](https://geos.osgeo.org/) geometry processing
-library. For best performance, it is recommended to use version 3.7, which
-introduced some optimizations important to `exactextractr`. On Windows, GEOS
-will be downloaded automatically as part of package install. On MacOS, it can be
-installed using Homebrew (`brew install geos`). On Linux, it can be installed
-from system package repositories (`apt-get install libgeos-dev` on
-Debian/Ubuntu, or `yum install libgeos-devel` on CentOS/RedHat.)
+Installation requires version 3.5 or greater of the
+[GEOS](https://geos.osgeo.org/) geometry processing library. For best
+performance, it is recommended to use version 3.7, which introduced some
+optimizations important to `exactextractr`. On Windows, GEOS will be downloaded
+automatically as part of package install. On MacOS, it can be installed using
+Homebrew (`brew install geos`). On Linux, it can be installed from system
+package repositories (`apt-get install libgeos-dev` on Debian/Ubuntu, or `yum
+install libgeos-devel` on CentOS/RedHat.)
 
 ### Limitations
 
