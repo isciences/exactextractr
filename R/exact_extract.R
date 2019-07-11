@@ -16,25 +16,20 @@ if (!isGeneric("exact_extract")) {
 		standardGeneric("exact_extract"))
 }
 
-#' Extract values from RasterLayers
+#' Extract or summarize values from Raster* objects
 #'
 #' Extracts the values of cells in a RasterLayer that are covered by a
-#' simple feature collection containing polygonal geometries.
+#' simple feature collection containing polygonal geometries. Returns either
+#' the result of a summary operation or function applied to the values (if
+#' \code{fun} is specified), or the values themselves (if \code{fun} is
+#' \code{NULL}.)
 #'
-#' By default, returns a list with one matrix for each feature in the input
-#' feature collection. Each matrix contains two columns, with the first column
-#' containing the values of cells that are touched by the feature's polygon,
-#' and the second column containing the fraction of the cell (0-1) that is
-#' covered by the polygon.
+#' The value of \code{fun} may be set to a string (or vector of strings)
+#' representing summary operations supported by the exactextract library.
+#' In this case, \code{exact_extract} will return a vector with the result
+#' of the summary operation for each feature in the input.
 #'
-#' If a function \code{fun} is supplied, it will be called for each feature
-#' with vectors of cell values and weights as arguments. \code{exact_extract}
-#' will then return a list of the return values of \code{fun} instead of a
-#' list of matrices.
-#'
-#' The value of \code{fun} may also set to a string (or list of strings)
-#' representing a common statistical summary function supported by the
-#' exactextract library. Supported statistical functions include:
+#' The following summary operations are supported:
 #'
 #' \itemize{
 #'  \item{\code{min} - the minimum defined value in any raster cell wholly or
@@ -60,11 +55,22 @@ if (!isGeneric("exact_extract")) {
 #'                         or partially covered by the polygon.}
 #' }
 #'
+#' Alternatively, an R function may be provided as \code{fun}. The function will be
+#' called for each feature with  with vectors of cell values and weights as arguments.
+#' \code{exact_extract} will then return a vector of the return values of \code{fun}.
+#'
+#' If \code{fun} is not specified, \code{exact_extract} will return a list
+#' with one matrix for each feature in the input feature collection. The matrix
+#' contains a column of cell values from each layer in the input `Raster*`, and
+#' a final column indicating the fraction of the cell that is covered by the
+#' polygon.
+#'
 #' @param     x a RasterLayer
 #' @param     y a sf object with polygonal geometries
-#' @param     include_xy if true, return columns for cell center coordinates
-#'                       (\code{x} and \code{y}) or pass them to \code{fun}
-#' @param     fun an optional function or character vector, as described below
+#' @param     include_xy if \code{TRUE}, augmente the returned matrix with
+#'                        columns for cell center coordinates (\code{x} and
+#'                        \code{y}) or pass them to \code{fun}
+#' @param     fun an optional function or character vector, as described above
 #' @param     ... additional arguments to pass to \code{fun}
 #' @name exact_extract
 NULL
@@ -110,7 +116,7 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
     x <- readStart(x)
 
     if (is.character(fun)) {
-      if (raster::nlayers(x) > 1) stop("C++ stat implementations only available for single-layer rasters.")
+      if (raster::nlayers(x) > 1) stop("Predefined summary operations only available for single-layer rasters. Please define a summary function using R code.")
 
       appfn(sf::st_as_binary(y), function(wkb) {
         CPP_stats(x, wkb, fun)

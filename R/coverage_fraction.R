@@ -28,9 +28,9 @@ if (!isGeneric('coverage_fraction')) {
 
 #' Compute the fraction of raster cells covered by a polygon
 #'
-#' @param     x a RasterLayer
-#' @param     y a sf object with polygonal geometries
-#' @return    a list with a RasterLayer for each feature in \code{y}.
+#' @param     x a \code{RasterLayer}
+#' @param     y a \code{sf} object with polygonal geometries
+#' @return    a list with a \code{RasterLayer} for each feature in \code{y}.
 #'            Values of the raster represent the fraction of each
 #'            cell in \code{x} that is covered by \code{y}.
 #' @name coverage_fraction
