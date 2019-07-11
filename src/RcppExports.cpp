@@ -18,16 +18,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// CPP_weights
-Rcpp::NumericMatrix CPP_weights(const Rcpp::NumericVector& extent, const Rcpp::NumericVector& res, const Rcpp::RawVector& wkb);
-RcppExport SEXP _exactextractr_CPP_weights(SEXP extentSEXP, SEXP resSEXP, SEXP wkbSEXP) {
+// CPP_coverage_fraction
+Rcpp::NumericMatrix CPP_coverage_fraction(const Rcpp::NumericVector& extent, const Rcpp::NumericVector& res, const Rcpp::RawVector& wkb);
+RcppExport SEXP _exactextractr_CPP_coverage_fraction(SEXP extentSEXP, SEXP resSEXP, SEXP wkbSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type extent(extentSEXP);
     Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type res(resSEXP);
     Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
-    rcpp_result_gen = Rcpp::wrap(CPP_weights(extent, res, wkb));
+    rcpp_result_gen = Rcpp::wrap(CPP_coverage_fraction(extent, res, wkb));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -47,7 +47,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 3},
-    {"_exactextractr_CPP_weights", (DL_FUNC) &_exactextractr_CPP_weights, 3},
+    {"_exactextractr_CPP_coverage_fraction", (DL_FUNC) &_exactextractr_CPP_coverage_fraction, 3},
     {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 3},
     {NULL, NULL, 0}
 };

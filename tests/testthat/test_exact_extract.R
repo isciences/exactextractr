@@ -42,6 +42,7 @@ test_that("Basic stat functions work", {
                5)
 
   # Calling with a string computes a named stat from the C++ library
+  expect_equal(exact_extract(rast, square, fun='count'), 4)
   expect_equal(exact_extract(rast, square, fun='mean'), 5)
   expect_equal(exact_extract(rast, square, fun='min'), 1)
   expect_equal(exact_extract(rast, square, fun='max'), 9)
@@ -108,7 +109,7 @@ test_that('MultiPolygons also work', {
   expect_equal(exact_extract(rast, multipoly, fun='variety'), 18)
 })
 
-test_that('We fail if the polygon extends outside the raster', {
+test_that('We ignore portions of the polygon that extend outside the raster', {
   rast <- raster::raster(matrix(1:(360*720), nrow=360),
                          xmn=-180,
                          xmx=180,
@@ -118,14 +119,20 @@ test_that('We fail if the polygon extends outside the raster', {
   square <- sf::st_sfc(sf::st_polygon(
     list(
       matrix(
-        c(179, 0,
-          180.000000001, 0,
-          180, 1,
-          179, 0),
+        c(179.5, 0,
+          180.5, 0,
+          180.5, 1,
+          179.5, 1,
+          179.5, 0),
         ncol=2,
         byrow=TRUE))))
 
-  expect_error(exact_extract(rast, square))
+  cells_included <- exact_extract(rast, square, include_xy=TRUE)[[1]][, c('x', 'y')]
+
+  expect_equal(cells_included,
+               rbind(c(179.75, 0.75),
+                     c(179.75, 0.25)),
+               check.attributes=FALSE)
 })
 
 test_that('Additional arguments can be passed to fun', {
@@ -278,7 +285,7 @@ test_that('Error is raised if function has unexpected signature', {
   poly <- sf::st_buffer(
     sf::st_sfc(
       sf::st_point(c(5,5))),
-    2.5)
+    3)
 
   for (fun in c(length, sum, median, mean, sd)) {
     expect_error(exact_extract(rast, poly, fun),

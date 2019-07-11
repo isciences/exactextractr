@@ -20,7 +20,7 @@ if (!isGeneric('coverage_fraction')) {
   lapply(sf::st_as_binary(y), function(wkb) {
     out <- raster::raster(x) # copy input dims, res, etc.
 
-    raster::values(out) <- CPP_weights(as.vector(raster::extent(x)), raster::res(x), wkb)
+    raster::values(out) <- CPP_coverage_fraction(as.vector(raster::extent(x)), raster::res(x), wkb)
 
     return(out)
   })
