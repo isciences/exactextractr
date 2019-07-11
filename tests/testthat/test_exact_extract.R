@@ -47,6 +47,7 @@ test_that("Basic stat functions work", {
   expect_equal(exact_extract(rast, square, fun='min'), 1)
   expect_equal(exact_extract(rast, square, fun='max'), 9)
   expect_equal(exact_extract(rast, square, fun='mode'), 5)
+  expect_equal(exact_extract(rast, square, fun='majority'), 5)
   expect_equal(exact_extract(rast, square, fun='minority'), 1)
   expect_equal(exact_extract(rast, square, fun='variety'), 9)
 

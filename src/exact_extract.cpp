@@ -205,7 +205,10 @@ SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringV
   bool store_values = false;
   for (const auto & stat : stats) {
     // explicit construction of std::string seems necessary to avoid ambiguous overload error
-    if (stat == std::string("mode") || stat == std::string("minority") || stat == std::string("variety")) {
+    if (stat == std::string("mode") ||
+        stat == std::string("majority") ||
+        stat == std::string("minority") ||
+        stat == std::string("variety")) {
       store_values = true;
     }
   }
@@ -224,6 +227,7 @@ SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringV
     else if (stat == std::string("max")) stat_results[i] = raster_stats.max();
 
     else if (stat == std::string("mode")) stat_results[i] = raster_stats.mode();
+    else if (stat == std::string("majority")) stat_results[i] = raster_stats.mode();
     else if (stat == std::string("minority")) stat_results[i] = raster_stats.minority();
 
     else if (stat == std::string("variety")) stat_results[i] = raster_stats.variety();

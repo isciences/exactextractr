@@ -51,6 +51,7 @@ if (!isGeneric("exact_extract")) {
 #'                      each cell that is covered by the polygon. Where multiple
 #'                      values occupy the same maximum number of weighted cells,
 #'                      the largest value will be returned.}
+#'  \item{\code{majority} - synonym for \code{mode}}
 #'  \item{\code{minority} - the least common cell value, weighted by the fraction
 #'                          of each cell that is covered by the polygon. Where
 #'                          multiple values occupy the same minimum number of
