@@ -295,3 +295,20 @@ test_that('Error is raised if function has unexpected signature', {
 
   expect_silent(exact_extract(rast, poly, weighted.mean))
 })
+
+test_that('Error is raised for unknown summary operation', {
+  rast <- raster::raster(
+    matrix(1:100, nrow=10),
+    xmn=0,
+    xmx=10,
+    ymn=0,
+    ymx=10
+  )
+
+  poly <- sf::st_buffer(
+    sf::st_sfc(
+      sf::st_point(c(5,5))),
+    3)
+
+  expect_error(exact_extract(rast, poly, 'whatimean', 'Unknown stat'))
+})
