@@ -169,6 +169,8 @@ Rcpp::NumericMatrix CPP_coverage_fraction(const Rcpp::NumericVector & extent,
 
 // [[Rcpp::export]]
 SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringVector & stats) {
+  GEOSAutoHandle geos;
+
   Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
   Rcpp::Function getValuesBlockFn = raster["getValuesBlock"];
   Rcpp::Function extentFn = raster["extent"];
@@ -187,21 +189,6 @@ SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringV
     res[1]
   };
 
-  GEOSAutoHandle geos;
-
-  auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
-  auto& subgrid = coverage_fraction.grid();
-
-  Rcpp::NumericVector stat_results = Rcpp::no_init(stats.size());
-
-  Rcpp::NumericMatrix rast_values = getValuesBlockFn(rast,
-                                                     1 + subgrid.row_offset(grid),
-                                                     subgrid.rows(),
-                                                     1 + subgrid.col_offset(grid),
-                                                     subgrid.cols(),
-                                                     "matrix");
-  NumericMatrixRaster values(rast_values, subgrid);
-
   bool store_values = false;
   for (const auto & stat : stats) {
     // explicit construction of std::string seems necessary to avoid ambiguous overload error
@@ -214,7 +201,22 @@ SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringV
   }
 
   RasterStats<double> raster_stats(store_values);
-  raster_stats.process(coverage_fraction, values);
+  Rcpp::NumericVector stat_results = Rcpp::no_init(stats.size());
+
+  auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
+  auto& subgrid = coverage_fraction.grid();
+
+  if (!subgrid.empty()) {
+    Rcpp::NumericMatrix rast_values = getValuesBlockFn(rast,
+                                                       1 + subgrid.row_offset(grid),
+                                                       subgrid.rows(),
+                                                       1 + subgrid.col_offset(grid),
+                                                       subgrid.cols(),
+                                                       "matrix");
+    NumericMatrixRaster values(rast_values, subgrid);
+
+    raster_stats.process(coverage_fraction, values);
+  }
 
   int i = 0;
   for (const auto & stat : stats) {
