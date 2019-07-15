@@ -225,12 +225,12 @@ SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringV
     else if (stat == std::string("sum")) stat_results[i] = raster_stats.sum();
     else if (stat == std::string("count")) stat_results[i] = raster_stats.count();
 
-    else if (stat == std::string("min")) stat_results[i] = raster_stats.min();
-    else if (stat == std::string("max")) stat_results[i] = raster_stats.max();
+    else if (stat == std::string("min")) stat_results[i] = raster_stats.min().value_or(NA_REAL);
+    else if (stat == std::string("max")) stat_results[i] = raster_stats.max().value_or(NA_REAL);
 
-    else if (stat == std::string("mode")) stat_results[i] = raster_stats.mode();
-    else if (stat == std::string("majority")) stat_results[i] = raster_stats.mode();
-    else if (stat == std::string("minority")) stat_results[i] = raster_stats.minority();
+    else if (stat == std::string("mode")) stat_results[i] = raster_stats.mode().value_or(NA_REAL);
+    else if (stat == std::string("majority")) stat_results[i] = raster_stats.mode().value_or(NA_REAL);
+    else if (stat == std::string("minority")) stat_results[i] = raster_stats.minority().value_or(NA_REAL);
 
     else if (stat == std::string("variety")) stat_results[i] = raster_stats.variety();
 
