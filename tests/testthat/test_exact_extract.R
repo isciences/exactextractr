@@ -19,16 +19,23 @@ test_that("Basic stat functions work", {
   # This test just verifies a successful journey from R
   # to C++ and back. The correctness of the algorithm
   # is tested at the C++ level.
-  square <- sf::st_sfc(sf::st_polygon(
-    list(
-      matrix(
-        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
-        ncol=2,
-        byrow=TRUE))))
-
   data <- matrix(1:9, nrow=3, byrow=TRUE)
+  rast <- raster::raster(data,
+                         xmn=0, xmx=3, ymn=0, ymx=3,
+                         crs='+proj=longlat +datum=WGS84')
 
-  rast <- raster::raster(data, xmn=0, xmx=3, ymn=0, ymx=3)
+  square <- sf::st_sfc(
+    sf::st_polygon(
+      list(
+        matrix(
+          c(0.5, 0.5,
+            2.5, 0.5,
+            2.5, 2.5,
+            0.5, 2.5,
+            0.5, 0.5),
+          ncol=2,
+          byrow=TRUE))),
+    crs=sf::st_crs(rast))
 
   dat <- exact_extract(rast, square)
 
@@ -59,10 +66,13 @@ test_that("Basic stat functions work", {
 test_that('Raster NA values are correctly handled', {
   data <- matrix(1:100, nrow=10, byrow=TRUE)
   data[7:10, 1:4] <- NA # cut out lower-left corner
-  rast <- raster::raster(data, xmn=0, xmx=10, ymn=0, ymx=10)
+  rast <- raster::raster(data,
+                         xmn=0, xmx=10, ymn=0, ymx=10,
+                         crs='+proj=longlat +datum=WGS84')
 
   # check polygon entirely within NA region
-  circ <- sf::st_sfc(sf::st_buffer(sf::st_point(c(2,2)), 0.9))
+  circ <- sf::st_sfc(sf::st_buffer(sf::st_point(c(2,2)), 0.9),
+                     crs=sf::st_crs(rast))
 
   expect_equal(0, exact_extract(rast, circ, 'count'))
   expect_equal(NA_real_, exact_extract(rast, circ, 'mean'))
@@ -78,7 +88,8 @@ test_that('Raster NA values are correctly handled', {
           3.5, 4.5,
           3.5, 3.5),
         ncol=2,
-        byrow=TRUE))))
+        byrow=TRUE))),
+    crs=sf::st_crs(rast))
 
   expect_equal(43.5, exact_extract(rast, square, 'sum'))
   expect_equal(NA_real_, exact_extract(rast, square, weighted.mean))
@@ -86,6 +97,11 @@ test_that('Raster NA values are correctly handled', {
 })
 
 test_that('MultiPolygons also work', {
+  data <- matrix(1:100, nrow=10, byrow=TRUE)
+  rast <- raster::raster(data,
+                         xmn=0, xmx=10, ymn=0, ymx=10,
+                         crs='+proj=longlat +datum=WGS84')
+
   multipoly <- sf::st_sfc(
     sf::st_multipolygon(list(
       sf::st_polygon(
@@ -99,34 +115,29 @@ test_that('MultiPolygons also work', {
           matrix(
             4 + c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
             ncol=2,
-            byrow=TRUE))))))
-
-  data <- matrix(1:100, nrow=10, byrow=TRUE)
-
-  rast <- raster::raster(data, xmn=0, xmx=10, ymn=0, ymx=10)
-
-  dat <- exact_extract(rast, multipoly)
+            byrow=TRUE))))),
+    crs=sf::st_crs(rast))
 
   expect_equal(exact_extract(rast, multipoly, fun='variety'), 18)
 })
 
 test_that('We ignore portions of the polygon that extend outside the raster', {
   rast <- raster::raster(matrix(1:(360*720), nrow=360),
-                         xmn=-180,
-                         xmx=180,
-                         ymn=-90,
-                         ymx=90)
+                         xmn=-180, xmx=180, ymn=-90, ymx=90,
+                         crs='+proj=longlat +datum=WGS84')
 
-  square <- sf::st_sfc(sf::st_polygon(
-    list(
-      matrix(
-        c(179.5, 0,
-          180.5, 0,
-          180.5, 1,
-          179.5, 1,
-          179.5, 0),
-        ncol=2,
-        byrow=TRUE))))
+  square <- sf::st_sfc(
+    sf::st_polygon(
+      list(
+        matrix(
+          c(179.5, 0,
+            180.5, 0,
+            180.5, 1,
+            179.5, 1,
+            179.5, 0),
+          ncol=2,
+          byrow=TRUE))),
+    crs=sf::st_crs(rast))
 
   cells_included <- exact_extract(rast, square, include_xy=TRUE)[[1]][, c('x', 'y')]
 
@@ -138,14 +149,22 @@ test_that('We ignore portions of the polygon that extend outside the raster', {
 
 test_that('Additional arguments can be passed to fun', {
   data <- matrix(1:9, nrow=3, byrow=TRUE)
-  rast <- raster::raster(data, xmn=0, xmx=3, ymn=0, ymx=3)
+  rast <- raster::raster(data,
+                         xmn=0, xmx=3, ymn=0, ymx=3,
+                         crs='+proj=longlat +datum=WGS84')
 
-  square <- sf::st_sfc(sf::st_polygon(
-    list(
-      matrix(
-        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
-        ncol=2,
-        byrow=TRUE))))
+  square <- sf::st_sfc(
+    sf::st_polygon(
+      list(
+        matrix(
+          c(0.5, 0.5,
+            2.5, 0.5,
+            2.5, 2.5,
+            0.5, 2.5,
+            0.5, 0.5),
+          ncol=2,
+          byrow=TRUE))),
+    crs=sf::st_crs(rast))
 
   exact_extract(rast, square, function(x, w, custom) {
     expect_equal(custom, 6)
@@ -154,18 +173,31 @@ test_that('Additional arguments can be passed to fun', {
 
 test_that('Incorrect argument types are handled gracefully', {
   data <- matrix(1:9, nrow=3, byrow=TRUE)
-  rast <- raster::raster(data, xmn=0, xmx=3, ymn=0, ymx=3)
+  rast <- raster::raster(data,
+                         xmn=0, xmx=3, ymn=0, ymx=3,
+                         crs='+proj=longlat +datum=WGS84')
 
-  point <- sf::st_sfc(sf::st_point(1:2))
-  linestring <- sf::st_sfc(sf::st_linestring(matrix(1:4, nrow=2)))
-  multipoint <- sf::st_sfc(sf::st_multipoint(matrix(1:4, nrow=2)))
-  multilinestring <- sf::st_sfc(sf::st_multilinestring(list(
-    matrix(1:4, nrow=2),
-    matrix(5:8, nrow=2)
-  )))
-  geometrycollection <- sf::st_sfc(sf::st_geometrycollection(list(
-    sf::st_geometry(point)[[1]],
-    sf::st_geometry(linestring)[[1]])))
+  point <- sf::st_sfc(sf::st_point(1:2),
+                      crs=sf::st_crs(rast))
+
+  linestring <- sf::st_sfc(sf::st_linestring(matrix(1:4, nrow=2)),
+                           crs=sf::st_crs(rast))
+
+  multipoint <- sf::st_sfc(sf::st_multipoint(matrix(1:4, nrow=2)),
+                           crs=sf::st_crs(rast))
+
+  multilinestring <- sf::st_sfc(
+    sf::st_multilinestring(list(
+      matrix(1:4, nrow=2),
+      matrix(5:8, nrow=2)
+    )),
+    crs=sf::st_crs(rast))
+
+  geometrycollection <- sf::st_sfc(
+    sf::st_geometrycollection(list(
+      sf::st_geometry(point)[[1]],
+      sf::st_geometry(linestring)[[1]])),
+    crs=sf::st_crs(rast))
 
   expect_error(exact_extract(rast, point), 'unable to find.* method')
   expect_error(exact_extract(rast, linestring, 'unable to find.* method'))
@@ -175,15 +207,24 @@ test_that('Incorrect argument types are handled gracefully', {
 })
 
 test_that('We can extract values from a RasterStack', {
-  rast <- raster(matrix(1:16, nrow=4, byrow=TRUE), xmn=0, xmx=4, ymn=0, ymx=4)
+  rast <- raster::raster(matrix(1:16, nrow=4, byrow=TRUE),
+                         xmn=0, xmx=4, ymn=0, ymx=4,
+                         crs='+proj=longlat +datum=WGS84')
+
   stk <- raster::stack(rast, sqrt(rast))
 
-  square <- sf::st_sfc(sf::st_polygon(
-    list(
-      matrix(
-        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
-        ncol=2,
-        byrow=TRUE))))
+  square <- sf::st_sfc(
+    sf::st_polygon(
+      list(
+        matrix(
+          c(0.5, 0.5,
+            2.5, 0.5,
+            2.5, 2.5,
+            0.5, 2.5,
+            0.5, 0.5),
+          ncol=2,
+          byrow=TRUE))),
+    crs=sf::st_crs(rast))
 
   extracted <- exact_extract(stk, square)[[1]]
 
@@ -192,15 +233,23 @@ test_that('We can extract values from a RasterStack', {
 })
 
 test_that('We can pass extracted RasterStack values to an R function', {
-  population <- raster(matrix(1:16, nrow=4, byrow=TRUE), xmn=0, xmx=4, ymn=0, ymx=4)
+  population <- raster::raster(matrix(1:16, nrow=4, byrow=TRUE),
+                               xmn=0, xmx=4, ymn=0, ymx=4,
+                               crs='+proj=longlat +datum=WGS84')
   income <- sqrt(population)
 
-  square <- sf::st_sfc(sf::st_polygon(
-    list(
-      matrix(
-        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
-        ncol=2,
-        byrow=TRUE))))
+  square <- sf::st_sfc(
+    sf::st_polygon(
+      list(
+        matrix(
+          c(0.5, 0.5,
+            2.5, 0.5,
+            2.5, 2.5,
+            0.5, 2.5,
+            0.5, 0.5),
+          ncol=2,
+          byrow=TRUE))),
+    crs=sf::st_crs(population))
 
   mean_income <- exact_extract(raster::stack(list(population=population, income=income)), square, function(vals, weights) {
     weighted.mean(vals[, 'population']*vals[, 'income'], weights)
@@ -210,14 +259,21 @@ test_that('We can pass extracted RasterStack values to an R function', {
 })
 
 test_that('We get an error when trying to pass extracted RasterStack values to a C++ function', {
-  rast <- raster(matrix(runif(16), nrow=4), xmn=0, xmx=4, ymn=0, ymx=4)
+  rast <- raster::raster(matrix(runif(16), nrow=4),
+                         xmn=0, xmx=4, ymn=0, ymx=4,
+                         crs='+proj=longlat +datum=WGS84')
 
   square <- sf::st_sfc(sf::st_polygon(
     list(
       matrix(
-        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
+        c(0.5, 0.5,
+          2.5, 0.5,
+          2.5, 2.5,
+          0.5, 2.5,
+          0.5, 0.5),
         ncol=2,
-        byrow=TRUE))))
+        byrow=TRUE))),
+    crs=sf::st_crs(rast))
 
   expect_error(
     exact_extract(raster::stack(rast, sqrt(rast)), square, 'variety'),
@@ -227,7 +283,8 @@ test_that('We get an error when trying to pass extracted RasterStack values to a
 
 test_that('We get acceptable default values when processing a polygon that does not intersect the raster', {
   rast <- raster::raster(matrix(runif(100), nrow=5),
-                         xmn=-180, xmx=180, ymn=-65, ymx=85) # extent of GPW
+                         xmn=-180, xmx=180, ymn=-65, ymx=85,
+                         crs='+proj=longlat +datum=WGS84') # extent of GPW
 
   poly <- sf::st_sfc(st_polygon(
     list(
@@ -241,7 +298,7 @@ test_that('We get acceptable default values when processing a polygon that does 
         byrow=TRUE
       )
     )
-  )) # extent of Antarctica in Natural Earth
+  ), crs=sf::st_crs(rast)) # extent of Antarctica in Natural Earth
 
   expect_equal(0, exact_extract(rast, poly, function(x, c) sum(x)))
   expect_equal(0, exact_extract(rast, poly, 'count'))
@@ -256,7 +313,9 @@ test_that('We get acceptable default values when processing a polygon that does 
 })
 
 test_that('We can optionally get cell center coordinates included in our output', {
-  rast <- raster(matrix(1:100, nrow=10), xmn=0, xmx=10, ymn=0, ymx=10)
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=0, xmx=10, ymn=0, ymx=10,
+                         crs='+proj=longlat +datum=WGS84')
 
   poly <- sf::st_sfc(sf::st_polygon(
     list(
@@ -266,7 +325,7 @@ test_that('We can optionally get cell center coordinates included in our output'
         byrow=TRUE
       )
     )
-  ))
+  ), crs=sf::st_crs(rast))
 
   results <- exact_extract(rast, poly, include_xy=TRUE)[[1]]
 
@@ -286,37 +345,54 @@ test_that('We can optionally get cell center coordinates included in our output'
   })
 })
 
-test_that('Error is thrown on CRS mismatch', {
-  rast <- raster::raster(
-    matrix(1:100, nrow=10),
-    xmn=-180,
-    xmx=180,
-    ymn=-90,
-    ymx=90,
-    crs='+proj=longlat +datum=WGS84'
-  )
+test_that('Warning is raised on CRS mismatch', {
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=-180, xmx=180, ymn=-90, ymx=90,
+                         crs='+proj=longlat +datum=WGS84')
 
   poly <- sf::st_buffer(
     sf::st_as_sfc('POINT(442944.5 217528.7)', crs=32145),
-    100)
+    150000)
 
-  expect_error(exact_extract(rast, poly, weighted.mean, na.rm=TRUE),
-               'must be .* same .* system')
+  expect_warning(exact_extract(rast, poly, weighted.mean, na.rm=TRUE),
+                 'transformed from .*32145.* to .*4326')
 })
 
-test_that('Error is raised if function has unexpected signature', {
-  rast <- raster::raster(
-    matrix(1:100, nrow=10),
-    xmn=0,
-    xmx=10,
-    ymn=0,
-    ymx=10
-  )
+test_that('Warning is raised on undefined CRS', {
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=0, xmx=10, ymn=0, ymx=10)
 
-  poly <- sf::st_buffer(
+  poly <- sf::st_buffer(sf::st_as_sfc('POINT(8 4)'), 0.4)
+
+  # neither has a defined CRS
+  expect_silent(exact_extract(rast, poly, 'sum'))
+
+  # only raster has defined CRS
+  raster::crs(rast) <- '+proj=longlat +datum=WGS84'
+  expect_warning(exact_extract(rast, poly, 'sum'),
+                 'assuming .* same CRS .* raster')
+
+  # both have defined crs
+  sf::st_crs(poly) <- sf::st_crs(rast)
+  expect_silent(exact_extract(rast, poly, 'sum'))
+
+  # only polygons have defined crs
+  raster::crs(rast) <- NULL
+  expect_warning(exact_extract(rast, poly, 'sum'),
+                 'assuming .* same CRS .* polygon')
+})
+
+
+test_that('Error is raised if function has unexpected signature', {
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=0, xmx=10, ymn=0, ymx=10,
+                         crs='+proj=longlat +datum=WGS84')
+
+  poly <- suppressWarnings(sf::st_buffer(
     sf::st_sfc(
-      sf::st_point(c(5,5))),
-    3)
+      sf::st_point(c(5,5)),
+      crs=sf::st_crs(rast)),
+    3))
 
   for (fun in c(length, sum, median, mean, sd)) {
     expect_error(exact_extract(rast, poly, fun),
@@ -327,18 +403,15 @@ test_that('Error is raised if function has unexpected signature', {
 })
 
 test_that('Error is raised for unknown summary operation', {
-  rast <- raster::raster(
-    matrix(1:100, nrow=10),
-    xmn=0,
-    xmx=10,
-    ymn=0,
-    ymx=10
-  )
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=0, xmx=10, ymn=0, ymx=10,
+                         crs='+proj=longlat +datum=WGS84')
 
-  poly <- sf::st_buffer(
+  poly <- suppressWarnings(sf::st_buffer(
     sf::st_sfc(
-      sf::st_point(c(5,5))),
-    3)
+      sf::st_point(c(5,5)),
+      crs=sf::st_crs(rast)),
+    3))
 
   expect_error(exact_extract(rast, poly, 'whatimean', 'Unknown stat'))
 })
