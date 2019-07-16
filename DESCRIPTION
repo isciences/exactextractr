@@ -11,6 +11,7 @@ License: Apache License (== 2.0) | file LICENSE
 Imports: 
   Rcpp (>= 0.12.12),
   methods,
+  progress,
   raster,
   sf,
 LinkingTo: Rcpp

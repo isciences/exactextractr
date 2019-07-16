@@ -67,10 +67,11 @@ if (!isGeneric("exact_extract")) {
 #'
 #' @param     x a RasterLayer
 #' @param     y a sf object with polygonal geometries
-#' @param     include_xy if \code{TRUE}, augmente the returned matrix with
+#' @param     include_xy if \code{TRUE}, augment the returned matrix with
 #'                        columns for cell center coordinates (\code{x} and
 #'                        \code{y}) or pass them to \code{fun}
 #' @param     fun an optional function or character vector, as described above
+#' @param     progress show progress bar
 #' @param     ... additional arguments to pass to \code{fun}
 #' @name exact_extract
 NULL
@@ -80,8 +81,8 @@ NULL
 #' @useDynLib exactextractr
 #' @rdname exact_extract
 #' @export
-setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE) {
-  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy)
+setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE) {
+  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -93,7 +94,7 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
   sum(sapply(a, nchar) == 0)
 }
 
-.exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE) {
+.exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE) {
   if(sf::st_crs(x) != sf::st_crs(y)) {
     stop("Raster and polygons must be in the same coordinate reference system.")
   }
@@ -112,6 +113,16 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
   raster_extent <- as.vector(raster::extent(x))
   raster_res <- raster::res(x)
 
+  if (progress && length(y) > 1) {
+    pb <- progress::progress_bar$new(
+      total = length(y),
+      format = "  computing [:bar] :percent complete, est.:eta remaining"
+    )
+    update_progress <- function() pb$tick()
+  } else {
+    update_progress <- function() {}
+  }
+
   ret <- tryCatch({
     x <- readStart(x)
 
@@ -119,6 +130,7 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
       if (raster::nlayers(x) > 1) stop("Predefined summary operations only available for single-layer rasters. Please define a summary function using R code.")
 
       appfn(sf::st_as_binary(y), function(wkb) {
+        update_progress()
         CPP_stats(x, wkb, fun)
       })
     } else {
@@ -146,6 +158,8 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
         }
 
         weightvec <- as.vector(t(ret$weights))
+
+        update_progress()
 
         if (!is.null(fun)) {
           return(fun(vals[weightvec > 0,, drop=FALSE], weightvec[weightvec > 0], ...))
