@@ -18,6 +18,15 @@ void fill_with_squares(Raster<T> & r) {
 }
 
 template<typename T>
+void fill_sequential(Raster<T> & r) {
+    for (size_t i = 0; i < r.rows(); i++) {
+        for (size_t j = 0; j < r.cols(); j++) {
+            r(i, j) = i*r.cols() + j;
+        }
+    }
+}
+
+template<typename T>
 static void print(const AbstractRaster<T> & r) {
     for (size_t i = 0; i < r.rows(); i++) {
         for (size_t j = 0; j < r.cols(); j++) {
@@ -68,6 +77,17 @@ TEST_CASE("Rasters are unequal when their values differ") {
     CHECK( r1 != r2 );
 }
 
+TEST_CASE("Can access raster cells by value or by reference") {
+    Raster<float> r{{0, 0, 1, 1}, 10, 10};
+    fill_sequential(r);
+
+    float orig = r(2, 2);
+    float& cell = r(2, 2);
+    cell *= 2;
+
+    CHECK( r(2, 2) == orig*2 );
+}
+
 TEST_CASE("Rasters are unequal when their extents differ") {
     Raster<float> r1{{0, 0, 1, 1}, 10, 10};
     Raster<float> r2{{0, 0, 1, 10}, 10, 10};
@@ -86,6 +106,9 @@ TEST_CASE("Rasters are equal if their NODATA values differ, only long as the NOD
 
     fill_with_squares(r1);
     fill_with_squares(r2);
+
+    CHECK( r1.has_nodata() );
+    CHECK( !r2.has_nodata() );
 
     CHECK( r1 == r2);
 
@@ -241,6 +264,64 @@ TEST_CASE("Creating a scaled and shifted view (greater extent)") {
     Raster<float> expected{std::move(expected_values), expanded};
 
     CHECK (rv == expected );
+}
+
+TEST_CASE("Creating a shifted view (robustness)") {
+    Box rast_box{-130.76666666666947, -25.083333333335318, -124.77500000000313, -23.916666666668718};
+    Box view_box{-130.75833333333614, -25.083333333335318, -124.77500000000313, -23.916666666668718};
+    // Extent of view starts one cell of the right of the original raster, so column N in the view should
+    // correspond to column N+1 of the original.
+
+    double res = 0.0083333333333328596;
+    Raster<int> rast{Grid<bounded_extent>{rast_box, res, res}};
+    fill_sequential(rast);
+
+    RasterView<int> rv{rast, Grid<bounded_extent>{view_box, res, res}};
+
+    CHECK ( rv(5, 5) == rast(5, 6) );
+}
+
+TEST_CASE("Expanded view") {
+    Box rast_box{5, 10, 20, 20};
+    Box view_box{0, 0, 30, 30};
+
+    double res = 1;
+    Raster<double> rast{Grid<bounded_extent>{rast_box, res, res}};
+    fill_sequential(rast);
+
+    RasterView<double> rv{rast, Grid<bounded_extent>{view_box, res, res}};
+
+    // Check 3 points outside UL corner
+    CHECK( std::isnan(rv(9, 4)) );
+    CHECK( std::isnan(rv(10, 4)) );
+    CHECK( std::isnan(rv(9, 5)) );
+
+    // Check point just inside UL corner
+    CHECK( rv(10, 5) == rast(0, 0) );
+
+    // Check 3 points outside UR corner
+    CHECK( std::isnan(rv(9, 19)) );
+    CHECK( std::isnan(rv(10, 20)) );
+    CHECK( std::isnan(rv(9, 20)) );
+
+    // Check point just inside UR corner
+    CHECK( rv(10, 19) == rast(0, 14) );
+
+    // Check 3 points just outside LL corner
+    CHECK( std::isnan(rv(19, 4)) );
+    CHECK( std::isnan(rv(20, 4)) );
+    CHECK( std::isnan(rv(20, 5)) );
+
+    // Check point just inside LL corner
+    CHECK( rv(19, 5) == rast(9, 0) );
+
+    // Check 3 points just outside LR corner
+    CHECK( std::isnan(rv(20, 20)) );
+    CHECK( std::isnan(rv(20, 19)) );
+    CHECK( std::isnan(rv(19, 20)) );
+
+    // Check point just inside LR corner
+    CHECK( rv(19, 19) == rast(9, 14) );
 }
 
 TEST_CASE("Get method accesses value and tells us if it was defined") {
