@@ -149,7 +149,7 @@ test_that('Additional arguments can be passed to fun', {
 
   exact_extract(rast, square, function(x, w, custom) {
     expect_equal(custom, 6)
-  }, 6)
+  }, progress=FALSE, 6)
 })
 
 test_that('Incorrect argument types are handled gracefully', {
