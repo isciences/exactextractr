@@ -9,7 +9,7 @@ values over polygonal areas, commonly referred to as _zonal statistics_. Unlike
 most zonal statistics implementations, it handles grid cells that are partially
 covered by a polygon. Typical performance for real-world applications is orders
 of magnitude faster than the
-[`raster`](https://cran.r-project.org/web/packages/raster/index.html) package.
+[`raster`](https://CRAN.R-project.org/package=raster) package.
 
 ![Example Graphic](https://exactextractr.s3.us-east-2.amazonaws.com/brazil_precip.png).
 
@@ -27,7 +27,7 @@ The package provides an
 method that operates analogously to the
 [`extract`](https://www.rdocumentation.org/packages/raster/topics/extract)
 method in the
-[`raster`](https://cran.r-project.org/web/packages/raster/index.html) package.
+[`raster`](https://CRAN.R-project.org/package=raster) package.
 The snippet below demonstrates the use of this function to compute a mean
 December temperature for each municipality in Brazil.
 
@@ -59,7 +59,7 @@ The following summary operations are supported:
 | ---------------------- |--------------- |
 | `count`                | Sum of all cell coverage fractions. |
 | `majority` (or `mode`) | The raster value with the largest sum of coverage fractions. |
-| `max`                  | Maximum defined value of cells that intersect the polygon, ignoring coverage frations. |
+| `max`                  | Maximum defined value of cells that intersect the polygon, ignoring coverage fractions. |
 | `mean`                 | Mean defined value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
 | `min`                  | Minimum defined value of cells that intersect the polygon, ignoring coverage fractions. |
 | `minority`             | The raster value with the smallest sum of coverage fractions. |
@@ -144,7 +144,7 @@ brazil$mean_temp_weighted <-
 ```
 
 With the relatively small polygons used in this example, the error introduced
-by assuming fixed cell areas is neglible. However, for large polygons that 
+by assuming fixed cell areas is negligible. However, for large polygons that 
 span a wide range of latitudes, this may not be the case.
 
 ### Performance and Accuracy
@@ -169,7 +169,7 @@ pixels that are partially covered by polygons are considered. The significance
 of partial coverage increases for polygons that are small or irregularly shaped.
 For the 5500 Brazilian municipalities used in the example, the error introduced
 by incorrectly handling partial coverage is less than 1% for 88% of
-municipalties and reaches a maximum of 9%.
+municipalities and reaches a maximum of 9%.
 
 ### Dependencies
 
