@@ -6,3 +6,4 @@ ci$
 .gitlab-ci.yml$
 ^docs$
 appveyor.yml$
+.dockerignore

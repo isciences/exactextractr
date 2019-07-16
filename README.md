@@ -43,18 +43,42 @@ brazil <- st_as_sf(getData('GADM', country='BRA', level=2))
 temp <- getData('worldclim', var='tmean', res=10)[[12]]
 
 # Find the mean temperature for each administrative boundary
-brazil$mean_temp <- exact_extract(temp, brazil, weighted.mean, na.rm=TRUE)
+brazil$mean_temp <- exact_extract(temp, brazil, 'mean', na.rm=TRUE)
 ```
 
-Because
+#### Summary Operations
+
+`exactextractr` can summarize raster values using several pre-defined operations as well
+as arbitrary R functions. Pre-defined operations are specified by providing one or more
+operation names to the `fun` parameter of
+[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html).
+
+The following summary operations are supported:
+
+| Name                   | Description    |                     
+| ---------------------- |--------------- |
+| `count`                | Sum of all cell coverage fractions. |
+| `majority` (or `mode`) | The raster value with the largest sum of coverage fractions. |
+| `max`                  | Maximum defined value of cells that intersect the polygon, ignoring coverage frations. |
+| `mean`                 | Mean defined value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
+| `min`                  | Minimum defined value of cells that intersect the polygon, ignoring coverage fractions. |
+| `minority`             | The raster value with the smallest sum of coverage fractions. |
+| `sum`                  | Sum of defined values of raster cells that intersect the polygon, with each raster value weighted by its coverage fraction. |
+| `variety`              | The number of distinct raster values in cells wholly or partially covered by the polygon. |
+
+#### Summary Functions
+
+In addition to the summary operations described above,
+[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
+can accept an R function to summarize the cells covered by the polygon. Because
 [`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
 takes into account the fraction of the cell that is covered by the polygon, the
 summary function must take two arguments: the value of the raster in each cell
 touched by the polygon, and the fraction of that cell area that is covered by
-the polygon. This differs from
+the polygon. (This differs from
 [`raster::extract`](https://www.rdocumentation.org/packages/raster/topics/extract),
-where the summary function takes a single argument (the vector of raster values)
-and effectively assumes that the coverage fraction is `1.0`.
+where the summary function takes the vector of raster values as a single argument
+and effectively assumes that the coverage fraction is `1.0`.)
 
 An example of a built-in function with the appropriate signature is 
 [`weighted.mean`](https://www.rdocumentation.org/packages/stats/topics/weighted.mean).
@@ -149,13 +173,14 @@ municipalties and reaches a maximum of 9%.
 
 ### Dependencies
 
-Installation requires the [GEOS](https://geos.osgeo.org/) geometry processing
-library. For best performance, it is recommended to use version 3.7, which
-introduced some optimizations important to `exactextractr`. On Windows, GEOS
-will be downloaded automatically as part of package install. On MacOS, it can be
-installed using Homebrew (`brew install geos`). On Linux, it can be installed
-from system package repositories (`apt-get install libgeos-dev` on
-Debian/Ubuntu, or `yum install libgeos-devel` on CentOS/RedHat.)
+Installation requires version 3.5 or greater of the
+[GEOS](https://geos.osgeo.org/) geometry processing library. For best
+performance, it is recommended to use version 3.7, which introduced some
+optimizations important to `exactextractr`. On Windows, GEOS will be downloaded
+automatically as part of package install. On MacOS, it can be installed using
+Homebrew (`brew install geos`). On Linux, it can be installed from system
+package repositories (`apt-get install libgeos-dev` on Debian/Ubuntu, or `yum
+install libgeos-devel` on CentOS/RedHat.)
 
 ### Limitations
 

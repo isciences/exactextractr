@@ -4,5 +4,5 @@ PKG_LIBS = @PKG_LIBS@
 
 EE = exactextract/src
 
-SOURCES = $(EE)/area.cpp $(EE)/box.cpp $(EE)/cell.cpp $(EE)/coordinate.cpp $(EE)/extent.cpp $(EE)/floodfill.cpp $(EE)/geos_utils.cpp $(EE)/perimeter_distance.cpp $(EE)/raster_cell_intersection.cpp $(EE)/side.cpp $(EE)/traversal.cpp $(EE)/traversal_areas.cpp
+SOURCES = $(EE)/area.cpp $(EE)/box.cpp $(EE)/cell.cpp $(EE)/coordinate.cpp $(EE)/floodfill.cpp $(EE)/geos_utils.cpp $(EE)/grid.cpp $(EE)/perimeter_distance.cpp $(EE)/raster_cell_intersection.cpp $(EE)/side.cpp $(EE)/traversal.cpp $(EE)/traversal_areas.cpp
 OBJECTS = RcppExports.o exact_extract.o $(SOURCES:.cpp=.o)

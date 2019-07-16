@@ -42,10 +42,12 @@ test_that("Basic stat functions work", {
                5)
 
   # Calling with a string computes a named stat from the C++ library
+  expect_equal(exact_extract(rast, square, fun='count'), 4)
   expect_equal(exact_extract(rast, square, fun='mean'), 5)
   expect_equal(exact_extract(rast, square, fun='min'), 1)
   expect_equal(exact_extract(rast, square, fun='max'), 9)
   expect_equal(exact_extract(rast, square, fun='mode'), 5)
+  expect_equal(exact_extract(rast, square, fun='majority'), 5)
   expect_equal(exact_extract(rast, square, fun='minority'), 1)
   expect_equal(exact_extract(rast, square, fun='variety'), 9)
 
@@ -108,7 +110,7 @@ test_that('MultiPolygons also work', {
   expect_equal(exact_extract(rast, multipoly, fun='variety'), 18)
 })
 
-test_that('We fail if the polygon extends outside the raster', {
+test_that('We ignore portions of the polygon that extend outside the raster', {
   rast <- raster::raster(matrix(1:(360*720), nrow=360),
                          xmn=-180,
                          xmx=180,
@@ -118,14 +120,20 @@ test_that('We fail if the polygon extends outside the raster', {
   square <- sf::st_sfc(sf::st_polygon(
     list(
       matrix(
-        c(179, 0,
-          180.000000001, 0,
-          180, 1,
-          179, 0),
+        c(179.5, 0,
+          180.5, 0,
+          180.5, 1,
+          179.5, 1,
+          179.5, 0),
         ncol=2,
         byrow=TRUE))))
 
-  expect_error(exact_extract(rast, square))
+  cells_included <- exact_extract(rast, square, include_xy=TRUE)[[1]][, c('x', 'y')]
+
+  expect_equal(cells_included,
+               rbind(c(179.75, 0.75),
+                     c(179.75, 0.25)),
+               check.attributes=FALSE)
 })
 
 test_that('Additional arguments can be passed to fun', {
@@ -217,6 +225,36 @@ test_that('We get an error when trying to pass extracted RasterStack values to a
   )
 })
 
+test_that('We get acceptable default values when processing a polygon that does not intersect the raster', {
+  rast <- raster::raster(matrix(runif(100), nrow=5),
+                         xmn=-180, xmx=180, ymn=-65, ymx=85) # extent of GPW
+
+  poly <- sf::st_sfc(st_polygon(
+    list(
+      matrix(
+        c(-180, -90,
+          180, -90,
+          180, -65.5,
+          -180, -65.5,
+          -180, -90),
+        ncol=2,
+        byrow=TRUE
+      )
+    )
+  )) # extent of Antarctica in Natural Earth
+
+  expect_equal(0, exact_extract(rast, poly, function(x, c) sum(x)))
+  expect_equal(0, exact_extract(rast, poly, 'count'))
+  expect_equal(0, exact_extract(rast, poly, 'sum'))
+  expect_equal(0, exact_extract(rast, poly, 'variety'))
+  expect_equal(NA_real_, exact_extract(rast, poly, 'majority'))
+  expect_equal(NA_real_, exact_extract(rast, poly, 'minority'))
+  expect_equal(NA_real_, exact_extract(rast, poly, 'minority'))
+  expect_equal(NA_real_, exact_extract(rast, poly, 'mean'))
+  expect_equal(NA_real_, exact_extract(rast, poly, 'min'))
+  expect_equal(NA_real_, exact_extract(rast, poly, 'max'))
+})
+
 test_that('We can optionally get cell center coordinates included in our output', {
   rast <- raster(matrix(1:100, nrow=10), xmn=0, xmx=10, ymn=0, ymx=10)
 
@@ -278,7 +316,7 @@ test_that('Error is raised if function has unexpected signature', {
   poly <- sf::st_buffer(
     sf::st_sfc(
       sf::st_point(c(5,5))),
-    2.5)
+    3)
 
   for (fun in c(length, sum, median, mean, sd)) {
     expect_error(exact_extract(rast, poly, fun),
@@ -286,4 +324,21 @@ test_that('Error is raised if function has unexpected signature', {
   }
 
   expect_silent(exact_extract(rast, poly, weighted.mean))
+})
+
+test_that('Error is raised for unknown summary operation', {
+  rast <- raster::raster(
+    matrix(1:100, nrow=10),
+    xmn=0,
+    xmx=10,
+    ymn=0,
+    ymx=10
+  )
+
+  poly <- sf::st_buffer(
+    sf::st_sfc(
+      sf::st_point(c(5,5))),
+    3)
+
+  expect_error(exact_extract(rast, poly, 'whatimean', 'Unknown stat'))
 })
