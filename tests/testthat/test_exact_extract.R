@@ -167,11 +167,11 @@ test_that('Incorrect argument types are handled gracefully', {
     sf::st_geometry(point)[[1]],
     sf::st_geometry(linestring)[[1]])))
 
-  expect_error(exact_extract(rast, point))
-  expect_error(exact_extract(rast, linestring))
-  expect_error(exact_extract(rast, multipoint))
-  expect_error(exact_extract(rast, multilinesetring))
-  expect_error(exact_extract(rast, geometrycollection))
+  expect_error(exact_extract(rast, point), 'unable to find.* method')
+  expect_error(exact_extract(rast, linestring, 'unable to find.* method'))
+  expect_error(exact_extract(rast, multipoint, 'unable to find.* method'))
+  expect_error(exact_extract(rast, multilinesetring, 'unable to find.* method'))
+  expect_error(exact_extract(rast, geometrycollection, 'unable to find.* method'))
 })
 
 test_that('We can extract values from a RasterStack', {
