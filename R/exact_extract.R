@@ -95,8 +95,14 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
 }
 
 .exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE) {
-  if(sf::st_crs(x) != sf::st_crs(y)) {
-    stop("Raster and polygons must be in the same coordinate reference system.")
+  if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
+    warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
+  } else if(is.na(sf::st_crs(y)) && !is.na(sf::st_crs(x))) {
+    warning("No CRS specified for polygons; assuming they have the same CRS as the raster.")
+  } else if(sf::st_crs(x) != sf::st_crs(y)) {
+    old_crs <- sf::st_crs(y)
+    y <- sf::st_transform(y, sf::st_crs(x))
+    warning("Polygons transformed from EPSG:", old_crs$epsg, " to EPSG:", sf::st_crs(x)$epsg)
   }
 
   if (is.null(fun)) {

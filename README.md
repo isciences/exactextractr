@@ -184,6 +184,5 @@ install libgeos-devel` on CentOS/RedHat.)
 
 ### Limitations
 
- * Raster and polygon inputs must be in the same coordinate reference system.
  * The portion of the raster that intersects any given polygon must fit into 
    memory. (The entire raster does not need to fit into memory.)

@@ -24,11 +24,11 @@ test_that("Coverage fraction function works", {
         ncol=2,
         byrow=TRUE))))
 
-  rast <- raster::raster(xmn=0, xmx=3, ymn=0, ymx=3, nrows=3, ncols=3)
+  rast <- raster::raster(xmn=0, xmx=3, ymn=0, ymx=3, nrows=3, ncols=3, crs=NA)
 
-  weights <- coverage_fraction(rast, square)
+  weights <- coverage_fraction(rast, square)[[1]]
 
-  expect_equal(as.matrix(weights[[1]]),
+  expect_equal(as.matrix(weights),
                rbind(
                  c(0.25, 0.5, 0.25),
                  c(0.50, 1.0, 0.50),
@@ -37,7 +37,7 @@ test_that("Coverage fraction function works", {
 })
 
 test_that('Raster returned by coverage_fraction has same properties as the input', {
-  r <- raster::raster(xmn=391030, xmx=419780, ymn=5520000, ymx=5547400)
+  r <- raster::raster(xmn=391030, xmx=419780, ymn=5520000, ymx=5547400, crs=NA)
   raster::res(r) = c(100, 100)
   raster::values(r) <- 1:ncell(r)
 
@@ -50,10 +50,11 @@ test_that('Raster returned by coverage_fraction has same properties as the input
 
   expect_equal(raster::res(r),    raster::res(w[[1]]))
   expect_equal(raster::extent(r), raster::extent(w[[1]]))
+  expect_equal(raster::crs(r),    raster::crs(w[[1]]))
 })
 
 test_that('Coverage fractions are exact', {
-  r <- raster::raster(xmn=391030, xmx=419780, ymn=5520000, ymx=5547400)
+  r <- raster::raster(xmn=391030, xmx=419780, ymn=5520000, ymx=5547400, crs=NA)
   raster::res(r) = c(100, 100)
   raster::values(r) <- 1:ncell(r)
 
@@ -67,3 +68,42 @@ test_that('Coverage fractions are exact', {
   expect_equal(sf::st_area(sf::st_geometry(p)),
                ncells*cell_area)
 })
+
+test_that('Warning is raised on CRS mismatch', {
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=-75, xmx=-70, ymn=41, ymx=46,
+                         crs='+proj=longlat +datum=WGS84')
+
+  poly <- sf::st_buffer(
+    sf::st_as_sfc('POINT(442944.5 217528.7)', crs=32145),
+    150000)
+
+  expect_warning(coverage_fraction(rast, poly),
+                 'transformed from .*32145.* to .*4326')
+})
+
+test_that('Warning is raised on undefined CRS', {
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=0, xmx=10, ymn=0, ymx=10)
+
+  poly <- sf::st_buffer(sf::st_as_sfc('POINT(8 4)'), 0.4)
+
+  # neither has a defined CRS
+  expect_silent(coverage_fraction(rast, poly))
+
+  # only raster has defined CRS
+  raster::crs(rast) <- '+proj=longlat +datum=WGS84'
+  expect_warning(coverage_fraction(rast, poly),
+                 'assuming .* same CRS .* raster')
+
+  # both have defined crs
+  sf::st_crs(poly) <- sf::st_crs(rast)
+  expect_silent(coverage_fraction(rast, poly))
+
+  # only polygons have defined crs
+  raster::crs(rast) <- NULL
+  expect_warning(coverage_fraction(rast, poly),
+                 'assuming .* same CRS .* polygon')
+
+})
+
