@@ -18,7 +18,7 @@ if (!isGeneric('coverage_fraction')) {
 
 .coverage_fraction <- function(x, y) {
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
-    warning("No CRS specified for raster; assuming it have the same CRS as the polygons.")
+    warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
   } else if(is.na(sf::st_crs(y)) && !is.na(sf::st_crs(x))) {
     warning("No CRS specified for polygons; assuming they have the same CRS as the raster.")
   } else if(sf::st_crs(x) != sf::st_crs(y)) {
