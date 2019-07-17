@@ -32,15 +32,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // CPP_stats
-SEXP CPP_stats(Rcpp::S4& rast, const Rcpp::RawVector& wkb, const Rcpp::StringVector& stats);
-RcppExport SEXP _exactextractr_CPP_stats(SEXP rastSEXP, SEXP wkbSEXP, SEXP statsSEXP) {
+SEXP CPP_stats(Rcpp::S4& rast, const Rcpp::RawVector& wkb, const Rcpp::StringVector& stats, int max_cells_in_memory);
+RcppExport SEXP _exactextractr_CPP_stats(SEXP rastSEXP, SEXP wkbSEXP, SEXP statsSEXP, SEXP max_cells_in_memorySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::S4& >::type rast(rastSEXP);
     Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
     Rcpp::traits::input_parameter< const Rcpp::StringVector& >::type stats(statsSEXP);
-    rcpp_result_gen = Rcpp::wrap(CPP_stats(rast, wkb, stats));
+    Rcpp::traits::input_parameter< int >::type max_cells_in_memory(max_cells_in_memorySEXP);
+    rcpp_result_gen = Rcpp::wrap(CPP_stats(rast, wkb, stats, max_cells_in_memory));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -48,7 +49,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 3},
     {"_exactextractr_CPP_coverage_fraction", (DL_FUNC) &_exactextractr_CPP_coverage_fraction, 3},
-    {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 3},
+    {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 4},
     {NULL, NULL, 0}
 };
 

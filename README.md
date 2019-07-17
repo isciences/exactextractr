@@ -181,8 +181,3 @@ automatically as part of package install. On MacOS, it can be installed using
 Homebrew (`brew install geos`). On Linux, it can be installed from system
 package repositories (`apt-get install libgeos-dev` on Debian/Ubuntu, or `yum
 install libgeos-devel` on CentOS/RedHat.)
-
-### Limitations
-
- * The portion of the raster that intersects any given polygon must fit into 
-   memory. (The entire raster does not need to fit into memory.)
