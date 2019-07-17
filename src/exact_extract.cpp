@@ -17,6 +17,7 @@
 #include <Rcpp.h>
 #include <geos_c.h>
 
+#include "exactextract/src/geos_utils.h"
 #include "exactextract/src/grid.h"
 #include "exactextract/src/matrix.h"
 #include "exactextract/src/raster_cell_intersection.h"
@@ -27,6 +28,7 @@ using wkb_reader_ptr = std::unique_ptr<GEOSWKBReader, std::function<void(GEOSWKB
 
 using exactextract::Matrix;
 using exactextract::Grid;
+using exactextract::subdivide;
 using exactextract::bounded_extent;
 using exactextract::Raster;
 using exactextract::RasterView;
@@ -168,8 +170,12 @@ Rcpp::NumericMatrix CPP_coverage_fraction(const Rcpp::NumericVector & extent,
 }
 
 // [[Rcpp::export]]
-SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringVector & stats) {
+SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringVector & stats, int max_cells_in_memory) {
   GEOSAutoHandle geos;
+
+  if (max_cells_in_memory < 1) {
+    Rcpp::stop("Invalid value for max_cells_in_memory: ", max_cells_in_memory);
+  }
 
   Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
   Rcpp::Function getValuesBlockFn = raster["getValuesBlock"];
@@ -203,19 +209,27 @@ SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringV
   RasterStats<double> raster_stats(store_values);
   Rcpp::NumericVector stat_results = Rcpp::no_init(stats.size());
 
-  auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
-  auto& subgrid = coverage_fraction.grid();
+  auto geom = read_wkb(geos.handle, wkb);
+  auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
 
-  if (!subgrid.empty()) {
-    Rcpp::NumericMatrix rast_values = getValuesBlockFn(rast,
-                                                       1 + subgrid.row_offset(grid),
-                                                       subgrid.rows(),
-                                                       1 + subgrid.col_offset(grid),
-                                                       subgrid.cols(),
-                                                       "matrix");
-    NumericMatrixRaster values(rast_values, subgrid);
+  if (bbox.intersects(grid.extent())) {
+    auto cropped_grid = grid.crop(bbox);
 
-    raster_stats.process(coverage_fraction, values);
+    for (const auto &subgrid : subdivide(cropped_grid, max_cells_in_memory)) {
+      auto coverage_fraction = raster_cell_intersection(subgrid, geos.handle, geom.get());
+      auto& cov_grid = coverage_fraction.grid();
+
+      if (!cov_grid.empty()) {
+        Rcpp::NumericMatrix rast_values = getValuesBlockFn(rast,
+                                                           1 + cov_grid.row_offset(grid),
+                                                           cov_grid.rows(),
+                                                           1 + cov_grid.col_offset(grid),
+                                                           cov_grid.cols(),
+                                                           "matrix");
+        NumericMatrixRaster values(rast_values, cov_grid);
+        raster_stats.process(coverage_fraction, values);
+      }
+    }
   }
 
   int i = 0;

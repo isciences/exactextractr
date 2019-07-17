@@ -71,6 +71,11 @@ if (!isGeneric("exact_extract")) {
 #'                        columns for cell center coordinates (\code{x} and
 #'                        \code{y}) or pass them to \code{fun}
 #' @param     fun an optional function or character vector, as described above
+#' @param     max_cells_in_memory the maximum number of raster cells to load at
+#'                                a given time when using a named summary operation
+#'                                for \code{fun} (as opposed to a function defined using
+#'                                R code). If a polygon covers more than \code{max_cells_in_memory}
+#'                                raster cells, it will be processed in multiple chunks.
 #' @param     progress show progress bar
 #' @param     ... additional arguments to pass to \code{fun}
 #' @name exact_extract
@@ -81,8 +86,8 @@ NULL
 #' @useDynLib exactextractr
 #' @rdname exact_extract
 #' @export
-setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE) {
-  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress)
+setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
+  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress, max_cells_in_memory=max_cells_in_memory)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -94,7 +99,7 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
   sum(sapply(a, nchar) == 0)
 }
 
-.exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE) {
+.exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
     warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
   } else if(is.na(sf::st_crs(y)) && !is.na(sf::st_crs(x))) {
@@ -137,7 +142,7 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
 
       appfn(sf::st_as_binary(y), function(wkb) {
         update_progress()
-        CPP_stats(x, wkb, fun)
+        CPP_stats(x, wkb, fun, max_cells_in_memory)
       })
     } else {
       appfn(sf::st_as_binary(y), function(wkb) {

@@ -9,7 +9,7 @@ CPP_coverage_fraction <- function(extent, res, wkb) {
     .Call('_exactextractr_CPP_coverage_fraction', PACKAGE = 'exactextractr', extent, res, wkb)
 }
 
-CPP_stats <- function(rast, wkb, stats) {
-    .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, wkb, stats)
+CPP_stats <- function(rast, wkb, stats, max_cells_in_memory) {
+    .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, wkb, stats, max_cells_in_memory)
 }
 
