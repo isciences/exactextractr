@@ -59,15 +59,15 @@ if (!isGeneric("exact_extract")) {
 #' called for each feature with  with vectors of cell values and weights as arguments.
 #' \code{exact_extract} will then return a vector of the return values of \code{fun}.
 #'
-#' If \code{fun} is not specified, \code{exact_extract} will return a list
-#' with one matrix for each feature in the input feature collection. The matrix
-#' contains a column of cell values from each layer in the input `Raster*`, and
-#' a final column indicating the fraction of the cell that is covered by the
+#' If \code{fun} is not specified, \code{exact_extract} will return a list with
+#' one data frame for each feature in the input feature collection. The data
+#' frame contains a column with values from each layer in the input `Raster*`,
+#' and a final column indicating the fraction of the cell that is covered by the
 #' polygon.
 #'
 #' @param     x a RasterLayer
 #' @param     y a sf object with polygonal geometries
-#' @param     include_xy if \code{TRUE}, augment the returned matrix with
+#' @param     include_xy if \code{TRUE}, augment the returned data frame with
 #'                        columns for cell center coordinates (\code{x} and
 #'                        \code{y}) or pass them to \code{fun}
 #' @param     fun an optional function or character vector, as described above
@@ -110,20 +110,14 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
     warning("Polygons transformed from EPSG:", old_crs$epsg, " to EPSG:", sf::st_crs(x)$epsg)
   }
 
-  if (is.null(fun)) {
-    appfn <- lapply # return list of matrices
-  } else {
-    appfn <- sapply
+  if (!is.null(fun) && !is.character(fun) && .num_expected_args(fun) < 2) {
+    stop("exact_extract was called with a function that does not appear to ",
+         "be of the form `function(values, coverage_fractions, ...)`")
+  }
 
-    if (!is.character(fun) && .num_expected_args(fun) < 2) {
-      stop("exact_extract was called with a function that does not appear to ",
-           "be of the form `function(values, coverage_fractions, ...)`")
-    }
-
-    if (is.character(fun) && length(list(...)) > 0) {
-      stop("exact_extract was called with a named summary operation that",
-           "does not accept additional arguments ...")
-    }
+  if (is.character(fun) && length(list(...)) > 0) {
+    stop("exact_extract was called with a named summary operation that",
+         "does not accept additional arguments ...")
   }
 
   raster_extent <- as.vector(raster::extent(x))
@@ -143,17 +137,33 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
     update_progress <- function() {}
   }
 
-  ret <- tryCatch({
+  tryCatch({
     x <- readStart(x)
 
     if (is.character(fun)) {
       if (raster::nlayers(x) > 1) stop("Predefined summary operations only available for single-layer rasters. Please define a summary function using R code.")
 
-      appfn(sf::st_as_binary(y), function(wkb) {
+      results <- sapply(sf::st_as_binary(y), function(wkb) {
         update_progress()
         CPP_stats(x, wkb, fun, max_cells_in_memory)
       })
+
+      if (length(fun) > 1) {
+        # Return a data frame with a column for each stat
+        results <- t(results)
+        dimnames(results) <- list(NULL, fun)
+        return(as.data.frame(results))
+      } else {
+        # Just return a vector of stat results
+        return(results)
+      }
     } else {
+      if (is.null(fun)) {
+        appfn <- lapply # return list of data frames
+      } else {
+        appfn <- sapply
+      }
+
       appfn(sf::st_as_binary(y), function(wkb) {
         ret <- CPP_exact_extract(raster_extent, raster_res, wkb)
 
@@ -163,40 +173,41 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
                                        nrow=nrow(ret$weights),
                                        ncol=ncol(ret$weights))
 
-        if (!is.matrix(vals)) {
-          vals <- matrix(vals)
-          dimnames(vals)[[2]] <- list('values')
+        if(is.matrix(vals)) {
+          vals <- as.data.frame(vals)
+        } else {
+          vals <- data.frame(value=vals)
         }
 
         if (include_xy) {
             x_coords <- raster::xFromCol(x, col=ret$col:(ret$col+ncol(ret$weights) - 1))
             y_coords <- raster::yFromRow(x, row=ret$row:(ret$row+nrow(ret$weights) - 1))
 
-            vals <- cbind(vals,
-                          x=rep.int(x_coords, times=nrow(ret$weights)),
-                          y=rep(y_coords, each=ncol(ret$weights)))
+            vals$x <- rep.int(x_coords, times=nrow(ret$weights))
+            vals$y <- rep(y_coords, each=ncol(ret$weights))
         }
 
-        weightvec <- as.vector(t(ret$weights))
+        cov_fracs <- as.vector(t(ret$weights))
+        vals <- vals[cov_fracs > 0, , drop=FALSE]
+        cov_fracs <- cov_fracs[cov_fracs > 0]
 
         update_progress()
 
-        if (!is.null(fun)) {
-          return(fun(vals[weightvec > 0,, drop=FALSE], weightvec[weightvec > 0], ...))
+        if (is.null(fun)) {
+          vals$coverage_fraction <- cov_fracs
+          return(vals)
         } else {
-          return(cbind(vals[weightvec > 0,, drop=FALSE], weights=weightvec[weightvec > 0]))
+          if (ncol(vals) == 1) {
+            return(fun(vals[,1], cov_fracs, ...))
+          } else {
+            return(fun(vals, cov_fracs, ...))
+          }
         }
       })
     }
   }, finally={
     readStop(x)
   })
-
-  if (is.matrix(ret)) {
-    t(ret)
-  } else {
-    ret
-  }
 }
 
 #' @useDynLib exactextractr
