@@ -43,7 +43,7 @@ brazil <- st_as_sf(getData('GADM', country='BRA', level=2))
 temp <- getData('worldclim', var='tmean', res=10)[[12]]
 
 # Find the mean temperature for each administrative boundary
-brazil$mean_temp <- exact_extract(temp, brazil, 'mean', na.rm=TRUE)
+brazil$mean_temp <- exact_extract(temp, brazil, 'mean')
 ```
 
 #### Summary Operations

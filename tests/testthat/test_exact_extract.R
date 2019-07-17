@@ -415,3 +415,18 @@ test_that('Error is raised for unknown summary operation', {
 
   expect_error(exact_extract(rast, poly, 'whatimean', 'Unknown stat'))
 })
+
+test_that('Error is raised if arguments passed to summary operation', {
+  rast <- raster::raster(matrix(1:100, nrow=10),
+                         xmn=0, xmx=10, ymn=0, ymx=10,
+                         crs='+proj=longlat +datum=WGS84')
+
+  poly <- suppressWarnings(sf::st_buffer(
+    sf::st_sfc(
+      sf::st_point(c(5,5)),
+      crs=sf::st_crs(rast)),
+    3))
+
+  expect_error(exact_extract(rast, poly, 'sum', na.rm=TRUE),
+               'does not accept additional arguments')
+})
