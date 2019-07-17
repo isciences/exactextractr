@@ -119,6 +119,11 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
       stop("exact_extract was called with a function that does not appear to ",
            "be of the form `function(values, coverage_fractions, ...)`")
     }
+
+    if (is.character(fun) && length(list(...)) > 0) {
+      stop("exact_extract was called with a named summary operation that",
+           "does not accept additional arguments ...")
+    }
   }
 
   raster_extent <- as.vector(raster::extent(x))
