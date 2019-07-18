@@ -149,6 +149,21 @@ With the relatively small polygons used in this example, the error introduced
 by assuming fixed cell areas is negligible. However, for large polygons that 
 span a wide range of latitudes, this may not be the case.
 
+### Rasterization
+
+`exactextractr` can also rasterize polygons though computation of the coverage
+fraction in each cell. The
+[`coverage_fraction`](https://isciences.gitlab.io/exactextractr/reference/coverage_fraction.html)
+function returns a
+[`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+with values from 0 to 1 indicating the fraction of each cell that is covered by
+the polygon. Because this function generates a
+[`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+for each feature in the input dataset, it can quickly consume a large amount of
+memory. Depending on the analysis being performed, it may be advisable to
+manually loop over the features in the input dataset and combine the generated
+rasters during each iteration.
+
 ### Performance and Accuracy
 
 An example benchmark using the example data is shown below. The mean execution

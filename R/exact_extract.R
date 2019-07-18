@@ -120,9 +120,6 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
          "does not accept additional arguments ...")
   }
 
-  raster_extent <- as.vector(raster::extent(x))
-  raster_res <- raster::res(x)
-
   if (progress && length(y) > 1) {
     n <- length(y)
     pb <- utils::txtProgressBar(min = 0, max = n, initial=0, style=3)
@@ -165,7 +162,7 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
       }
 
       appfn(sf::st_as_binary(y), function(wkb) {
-        ret <- CPP_exact_extract(raster_extent, raster_res, wkb)
+        ret <- CPP_exact_extract(x, wkb)
 
         vals <- raster::getValuesBlock(x,
                                        row=ret$row,

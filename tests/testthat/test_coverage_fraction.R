@@ -36,6 +36,38 @@ test_that("Coverage fraction function works", {
                ), check.attributes=FALSE)
 })
 
+test_that("Output can be cropped to the extent of the input feature", {
+  square <- sf::st_sfc(sf::st_polygon(
+    list(
+      matrix(
+        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
+        ncol=2,
+        byrow=TRUE))))
+
+  rast <- raster::raster(xmn=0, xmx=10, ymn=0, ymx=10, nrows=10, ncols=10, crs=NA)
+
+  weights <- coverage_fraction(rast, square, crop=TRUE)[[1]]
+
+  expect_equal(raster::res(weights), raster::res(rast))
+  expect_equal(raster::crs(weights), raster::crs(rast))
+  expect_equal(raster::extent(weights), raster::extent(0, 3, 0, 3))
+})
+
+test_that("When output is not cropped, cells outside of the processed area are 0, not NA", {
+  square <- sf::st_sfc(sf::st_polygon(
+    list(
+      matrix(
+        c(0.5, 0.5, 2.5, 0.5, 2.5, 2.5, 0.5, 2.5, 0.5, 0.5),
+        ncol=2,
+        byrow=TRUE))))
+
+  rast <- raster::raster(xmn=0, xmx=10, ymn=0, ymx=10, nrows=10, ncols=10, crs=NA)
+
+  weights <- coverage_fraction(rast, square, crop=TRUE)[[1]]
+
+  expect_false(any(is.na(as.matrix(weights))))
+})
+
 test_that('Raster returned by coverage_fraction has same properties as the input', {
   r <- raster::raster(xmn=391030, xmx=419780, ymn=5520000, ymx=5547400, crs=NA)
   raster::res(r) = c(100, 100)
