@@ -130,11 +130,10 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
   raster_res <- raster::res(x)
 
   if (progress && length(y) > 1) {
-    pb <- progress::progress_bar$new(
-      total = length(y),
-      format = "  computing [:bar] :percent complete, est.:eta remaining"
-    )
-    update_progress <- function() pb$tick()
+    pb <- utils::txtProgressBar(min = 0, max = length(y), initial=0, style=3)
+    update_progress <- function() {
+      utils::setTxtProgressBar(pb, 1 + utils::getTxtProgressBar(pb))
+    }
   } else {
     update_progress <- function() {}
   }
