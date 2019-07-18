@@ -44,6 +44,9 @@ temp <- getData('worldclim', var='tmean', res=10)[[12]]
 
 # Find the mean temperature for each administrative boundary
 brazil$mean_temp <- exact_extract(temp, brazil, 'mean')
+
+# Find min and max temperature in a single pass
+brazil[, c('min_temp', 'max_temp')] <- exact_extract(temp, brazil, c('min', 'max'))
 ```
 
 #### Summary Operations
@@ -113,8 +116,8 @@ is called with a
 instead of a 
 [`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
 , the
-summary function will be provided a matrix of raster values and a vector of
-coverage fractions. Each column in the matrix represents values from each layer
+summary function will be provided a data frame of raster values and a vector of
+coverage fractions. Each column in the data frame represents values from each layer
 in the stack, and the columns are named using the names of the layers in the stack.
 
 One application of this feature is the calculation of zonal statistics on raster
@@ -134,13 +137,11 @@ to compute the mean temperature, but instead of using the coverage fractions as
 weights, we use the product of the cell area and the coverage fraction.
 
 ```r
-stk <- stack(list(temp=temp, area=area(temp))),
+stk <- stack(list(temp=temp, area=area(temp)))
 
 brazil$mean_temp_weighted <- 
   exact_extract(stk, brazil, function(values, coverage_frac)
-                               weighted.mean(values[, 'temp'],
-                                             values[, 'area']*coverage_frac,
-                                             na.rm=TRUE))
+                               weighted.mean(values$temp, values$area*coverage_frac, na.rm=TRUE))
 ```
 
 With the relatively small polygons used in this example, the error introduced

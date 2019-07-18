@@ -39,16 +39,17 @@ test_that("Basic stat functions work", {
 
   dat <- exact_extract(rast, square)
 
-  # Calling without a function returns a matrix of weights and values
+  # Calling without a function returns a data frame with values and coverage fractions
   expect_equal(dat[[1]],
-    cbind(values=1:9, weights=c(0.25, 0.5, 0.25, 0.5, 1, 0.5, 0.25, 0.5, 0.25))
+    data.frame(value=1:9,
+               coverage_fraction=c(0.25, 0.5, 0.25, 0.5, 1, 0.5, 0.25, 0.5, 0.25))
   )
 
   # Calling with a function(w, v) returns the result of the function
   expect_equal(exact_extract(rast, square, fun=weighted.mean),
                5)
 
-  # Calling with a string computes a named stat from the C++ library
+  # Calling with a string computes a named operation from the C++ library
   expect_equal(exact_extract(rast, square, fun='count'), 4)
   expect_equal(exact_extract(rast, square, fun='mean'), 5)
   expect_equal(exact_extract(rast, square, fun='min'), 1)
@@ -60,7 +61,10 @@ test_that("Basic stat functions work", {
 
   # Can also do multiple stats at once
   expect_equal(exact_extract(rast, square, fun=c('min', 'max', 'mode')),
-               matrix(c(1, 9, 5), nrow=1))
+               data.frame(min=1, max=9, mode=5))
+
+  expect_equal(exact_extract(rast, c(square, square), fun=c('min', 'max', 'mode')),
+               data.frame(min=c(1, 1), max=c(9, 9), mode=c(5, 5)))
 })
 
 test_that('Raster NA values are correctly handled', {
@@ -142,8 +146,7 @@ test_that('We ignore portions of the polygon that extend outside the raster', {
   cells_included <- exact_extract(rast, square, include_xy=TRUE)[[1]][, c('x', 'y')]
 
   expect_equal(cells_included,
-               rbind(c(179.75, 0.75),
-                     c(179.75, 0.25)),
+               data.frame(x=179.75, y=c(0.75, 0.25)),
                check.attributes=FALSE)
 })
 
@@ -228,8 +231,16 @@ test_that('We can extract values from a RasterStack', {
 
   extracted <- exact_extract(stk, square)[[1]]
 
-  expect_equal(dim(extracted), c(9, 3))
-  expect_equal(extracted[, 'layer.2'], sqrt(extracted[, 'layer.1']))
+  expect_equal(names(extracted),
+               c('layer.1', 'layer.2', 'coverage_fraction'))
+  expect_equal(extracted[, 'layer.2'],
+               sqrt(extracted[, 'layer.1']))
+  expect_equal(extracted[extracted$coverage_fraction==0.25, 'layer.1'],
+               c(5, 7, 13, 15))
+  expect_equal(extracted[extracted$coverage_fraction==0.50, 'layer.1'],
+               c(6, 9, 11, 14))
+  expect_equal(extracted[extracted$coverage_fraction==1.00, 'layer.1'],
+               10)
 })
 
 test_that('We can pass extracted RasterStack values to an R function', {
@@ -333,8 +344,8 @@ test_that('We can optionally get cell center coordinates included in our output'
   expect_equal( c(3.5, 4.5, 5.5, 6.5, 7.5), sort(unique(results[, 'x'])))
   expect_equal( c(4.5, 5.5, 6.5),           sort(unique(results[, 'y'])))
 
-  # check the XY values of an individal cell with a known weight
-  expect_equal( results[results[, 'x']==3.5 & results[,'y']==4.5, 'weights'],
+  # check the XY values of an individal cell with a known coverage fraction
+  expect_equal( results[results[, 'x']==3.5 & results[,'y']==4.5, 'coverage_fraction'],
                 0.2968749999999998,
                 tolerance=1e-8,
                 check.attributes=FALSE)
