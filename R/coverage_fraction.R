@@ -12,11 +12,11 @@
 # limitations under the License.
 
 if (!isGeneric('coverage_fraction')) {
-	setGeneric('coverage_fraction', function(x, y, ...)
+	setGeneric('coverage_fraction', function(x, y, crop=FALSE, ...)
 		standardGeneric('coverage_fraction'))
 }
 
-.coverage_fraction <- function(x, y) {
+.coverage_fraction <- function(x, y, crop) {
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
     warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
   } else if(is.na(sf::st_crs(y)) && !is.na(sf::st_crs(x))) {
@@ -28,18 +28,17 @@ if (!isGeneric('coverage_fraction')) {
   }
 
   lapply(sf::st_as_binary(y), function(wkb) {
-    out <- raster::raster(x) # copy input dims, res, etc.
-
-    raster::values(out) <- CPP_coverage_fraction(as.vector(raster::extent(x)), raster::res(x), wkb)
-
-    return(out)
+    CPP_coverage_fraction(x, wkb, crop)
   })
 }
 
 #' Compute the fraction of raster cells covered by a polygon
 #'
-#' @param     x a \code{RasterLayer}
+#' @param     x a (possibly empty) \code{RasterLayer} whose resolution and
+#'            extent will be used for the generated \code{RasterLayer}.
 #' @param     y a \code{sf} object with polygonal geometries
+#' @param     crop if \code{TRUE}, each generated \code{RasterLayer} will be
+#'                 cropped to the extent of its associated feature?
 #' @return    a list with a \code{RasterLayer} for each feature in \code{y}.
 #'            Values of the raster represent the fraction of each
 #'            cell in \code{x} that is covered by \code{y}.
@@ -51,8 +50,8 @@ NULL
 #' @useDynLib exactextractr
 #' @rdname coverage_fraction
 #' @export
-setMethod('coverage_fraction', signature(x='RasterLayer', y='sf'), function(x, y) {
-  coverage_fraction(x, sf::st_geometry(y))
+setMethod('coverage_fraction', signature(x='RasterLayer', y='sf'), function(x, y, crop=FALSE) {
+  coverage_fraction(x, sf::st_geometry(y), crop)
 })
 
 #' @rdname coverage_fraction

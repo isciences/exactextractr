@@ -89,17 +89,17 @@ struct GEOSAutoHandle {
   GEOSContextHandle_t handle;
 };
 
-// Create a Grid from vectors representing the spatial extent and resolution
-static Grid<bounded_extent> make_grid(const Rcpp::NumericVector & extent, const Rcpp::NumericVector & res) {
-  double xmin = extent[0];
-  double xmax = extent[1];
-  double ymin = extent[2];
-  double ymax = extent[3];
+static Grid<bounded_extent> make_grid(const Rcpp::S4 & rast) {
+  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
 
-  double dx = res[0];
-  double dy = res[1];
+  Rcpp::Function extentFn = raster["extent"];
+  Rcpp::Function resFn = raster["res"];
 
-  return {{xmin, ymin, xmax, ymax}, dx, dy};
+  Rcpp::S4 extent = extentFn(rast);
+  Rcpp::NumericVector res = resFn(rast);
+
+  return {{ extent.slot("xmin"), extent.slot("ymin"), extent.slot("xmax"), extent.slot("ymax") },
+            res[0], res[1] };
 }
 
 // Return a smart pointer to a Geometry, given WKB input
@@ -120,12 +120,10 @@ static geom_ptr read_wkb(const GEOSContextHandle_t & context, const Rcpp::RawVec
 }
 
 // [[Rcpp::export]]
-Rcpp::List CPP_exact_extract(const Rcpp::NumericVector & extent,
-                             const Rcpp::NumericVector & res,
-                             const Rcpp::RawVector & wkb) {
+Rcpp::List CPP_exact_extract(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
   GEOSAutoHandle geos;
 
-  auto grid = make_grid(extent, res);
+  auto grid = make_grid(rast);
   auto coverage_fractions = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
 
   size_t nrow = coverage_fractions.rows();
@@ -146,15 +144,19 @@ Rcpp::List CPP_exact_extract(const Rcpp::NumericVector & extent,
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericMatrix CPP_coverage_fraction(const Rcpp::NumericVector & extent,
-                                          const Rcpp::NumericVector & res,
-                                          const Rcpp::RawVector & wkb)
+Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, bool crop)
 {
   GEOSAutoHandle geos;
+  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+  Rcpp::Function rasterFn = raster["raster"];
+  Rcpp::Function crsFn = raster["crs"];
 
-  auto grid = make_grid(extent, res);
+  auto grid = make_grid(rast);
   auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).release());
 
+  if (crop) {
+    grid = coverage_fraction.grid();
+  }
   RasterView<float> coverage_view(coverage_fraction, grid);
 
   Rcpp::NumericMatrix weights{static_cast<int>(grid.rows()),
@@ -163,14 +165,22 @@ Rcpp::NumericMatrix CPP_coverage_fraction(const Rcpp::NumericVector & extent,
   for (size_t i = 0; i < grid.rows(); i++) {
     for (size_t j = 0; j < grid.cols(); j++) {
       weights(i, j) = coverage_view(i, j);
+      if (!crop && std::isnan(weights(i, j))) {
+        weights(i, j) = 0;
+      }
     }
   }
 
-  return weights;
+  return rasterFn(weights,
+                  Rcpp::Named("xmn")=grid.xmin(),
+                  Rcpp::Named("xmx")=grid.xmax(),
+                  Rcpp::Named("ymn")=grid.ymin(),
+                  Rcpp::Named("ymx")=grid.ymax(),
+                  Rcpp::Named("crs")=crsFn(rast));
 }
 
 // [[Rcpp::export]]
-SEXP CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringVector & stats, int max_cells_in_memory) {
+Rcpp::NumericVector CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringVector & stats, int max_cells_in_memory) {
   GEOSAutoHandle geos;
 
   if (max_cells_in_memory < 1) {
