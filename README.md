@@ -32,9 +32,9 @@ The snippet below demonstrates the use of this function to compute a mean
 December temperature for each municipality in Brazil.
 
 ```r
-require(raster)
-require(sf)
-require(exactextractr)
+library(raster)
+library(sf)
+library(exactextractr)
 
 # Pull municipal boundaries for Brazil
 brazil <- st_as_sf(getData('GADM', country='BRA', level=2))
