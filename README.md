@@ -116,9 +116,10 @@ is called with a
 instead of a 
 [`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
 , the
-summary function will be provided a data frame of raster values and a vector of
-coverage fractions. Each column in the data frame represents values from each layer
-in the stack, and the columns are named using the names of the layers in the stack.
+summary function will be called with a data frame of raster values and a vector
+of coverage fractions as arguments. Each column in the data frame represents
+values from one layer in the stack, and the columns are named using the names
+of the layers in the stack.
 
 One application of this feature is the calculation of zonal statistics on raster
 data in geographic coordinates. The previous calculation of mean temperature
@@ -126,15 +127,15 @@ across Brazilian municipalities assumed that each raster cell covered the same
 area, which is not correct for rasters in geographic coordinates
 (latitude/longitude).
 
-We can correct for varying cell areas by creating a two-layer `RasterStack`,
-with the first layer containing the temperature in each cell, and the second
+We can correct for varying cell areas by creating a two-layer
+[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class),
+with the first layer containing the temperature in each cell and the second
 layer containing the area of each cell. (The
-[`area`](https://www.rdocumentation.org/packages/raster/topics/area)
-function from the `raster` package will calculate the cell areas for us.) We
-continue to use 
+[`area`](https://www.rdocumentation.org/packages/raster/topics/area) function
+from the `raster` package will calculate the cell areas for us.) We use
 [`weighted.mean`](https://www.rdocumentation.org/packages/stats/topics/weighted.mean)
-to compute the mean temperature, but instead of using the coverage fractions as
-weights, we use the product of the cell area and the coverage fraction.
+to compute the mean temperature, using the product of the cell area and the
+coverage fraction as a weight.
 
 ```r
 stk <- stack(list(temp=temp, area=area(temp)))
