@@ -130,9 +130,14 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
   raster_res <- raster::res(x)
 
   if (progress && length(y) > 1) {
-    pb <- utils::txtProgressBar(min = 0, max = length(y), initial=0, style=3)
+    n <- length(y)
+    pb <- utils::txtProgressBar(min = 0, max = n, initial=0, style=3)
     update_progress <- function() {
-      utils::setTxtProgressBar(pb, 1 + utils::getTxtProgressBar(pb))
+      i <- 1 + utils::getTxtProgressBar(pb)
+      utils::setTxtProgressBar(pb, i)
+      if (i == n) {
+        close(pb)
+      }
     }
   } else {
     update_progress <- function() {}
