@@ -38,7 +38,7 @@ if (!isGeneric('coverage_fraction')) {
 #'            extent will be used for the generated \code{RasterLayer}.
 #' @param     y a \code{sf} object with polygonal geometries
 #' @param     crop if \code{TRUE}, each generated \code{RasterLayer} will be
-#'                 cropped to the extent of its associated feature?
+#'                 cropped to the extent of its associated feature.
 #' @return    a list with a \code{RasterLayer} for each feature in \code{y}.
 #'            Values of the raster represent the fraction of each
 #'            cell in \code{x} that is covered by \code{y}.

@@ -19,15 +19,20 @@ if (!isGeneric("exact_extract")) {
 #' Extract or summarize values from Raster* objects
 #'
 #' Extracts the values of cells in a RasterLayer that are covered by a
-#' simple feature collection containing polygonal geometries. Returns either
-#' the result of a summary operation or function applied to the values (if
-#' \code{fun} is specified), or the values themselves (if \code{fun} is
-#' \code{NULL}.)
+#' simple feature collection containing polygonal geometries, as well as the
+#' fraction of each cell that is covered by the polygon. Returns either
+#' the result of a summary operation or function applied to the values
+#' and coverage fractions (if \code{fun} is specified), or a data frame
+#' containing the values and coverage fractions themselves (if \code{fun}
+#' is \code{NULL}.)
 #'
 #' The value of \code{fun} may be set to a string (or vector of strings)
 #' representing summary operations supported by the exactextract library.
-#' In this case, \code{exact_extract} will return a vector with the result
-#' of the summary operation for each feature in the input.
+#' If a single summary operation is specified, \code{exact_extract} will
+#' return a vector with the result of the summary operation for each
+#' feature in the input. If multiple summary operations are specified,
+#' \code{exact_extract} will return a data frame with the result of each
+#' summary operation for each feature.
 #'
 #' The following summary operations are supported:
 #'
@@ -61,7 +66,7 @@ if (!isGeneric("exact_extract")) {
 #'
 #' If \code{fun} is not specified, \code{exact_extract} will return a list with
 #' one data frame for each feature in the input feature collection. The data
-#' frame contains a column with values from each layer in the input `Raster*`,
+#' frame will contain a column with values from each layer in the input `Raster*`,
 #' and a final column indicating the fraction of the cell that is covered by the
 #' polygon.
 #'
@@ -70,13 +75,13 @@ if (!isGeneric("exact_extract")) {
 #' @param     include_xy if \code{TRUE}, augment the returned data frame with
 #'                        columns for cell center coordinates (\code{x} and
 #'                        \code{y}) or pass them to \code{fun}
-#' @param     fun an optional function or character vector, as described above
+#' @param     fun an optional function or character vector, as described below
 #' @param     max_cells_in_memory the maximum number of raster cells to load at
 #'                                a given time when using a named summary operation
 #'                                for \code{fun} (as opposed to a function defined using
 #'                                R code). If a polygon covers more than \code{max_cells_in_memory}
 #'                                raster cells, it will be processed in multiple chunks.
-#' @param     progress show progress bar
+#' @param     progress if \code{TRUE}, display a progress bar during processing
 #' @param     ... additional arguments to pass to \code{fun}
 #' @name exact_extract
 NULL
