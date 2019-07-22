@@ -7,3 +7,4 @@ ci$
 ^docs$
 appveyor.yml$
 .dockerignore
+.gz$
