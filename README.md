@@ -29,7 +29,7 @@ method that operates analogously to the
 method in the
 [`raster`](https://CRAN.R-project.org/package=raster) package.
 The snippet below demonstrates the use of this function to compute a mean
-December temperature for each municipality in Brazil.
+December precipitation for each municipality in Brazil.
 
 ```r
 library(raster)
@@ -39,14 +39,14 @@ library(exactextractr)
 # Pull municipal boundaries for Brazil
 brazil <- st_as_sf(getData('GADM', country='BRA', level=2))
 
-# Pull gridded temperature data
-temp <- getData('worldclim', var='tmean', res=10)[[12]]
+# Pull gridded precipitation data
+prec <- getData('worldclim', var='prec', res=10)[[12]]
 
-# Find the mean temperature for each administrative boundary
-brazil$mean_temp <- exact_extract(temp, brazil, 'mean')
+# Find the mean precipitation amount for each municipality
+brazil$mean_prec <- exact_extract(prec, brazil, 'mean')
 
-# Find min and max temperature in a single pass
-brazil[, c('min_temp', 'max_temp')] <- exact_extract(temp, brazil, c('min', 'max'))
+# Find min and max precipitation amount in a single pass
+brazil[, c('min_prec', 'max_prec')] <- exact_extract(prec, brazil, c('min', 'max'))
 ```
 
 #### Summary Operations
@@ -121,28 +121,28 @@ of coverage fractions as arguments. Each column in the data frame represents
 values from one layer in the stack, and the columns are named using the names
 of the layers in the stack.
 
-One application of this feature is the calculation of zonal statistics on raster
-data in geographic coordinates. The previous calculation of mean temperature
-across Brazilian municipalities assumed that each raster cell covered the same
-area, which is not correct for rasters in geographic coordinates
-(latitude/longitude).
+One application of this feature is the calculation of zonal statistics on
+raster data in geographic coordinates. The previous calculation of mean
+precipitation amount across Brazilian municipalities assumed that each raster
+cell covered the same area, which is not correct for rasters in geographic
+coordinates (latitude/longitude).
 
 We can correct for varying cell areas by creating a two-layer
 [`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class),
-with the first layer containing the temperature in each cell and the second
+with the first layer containing the precipitation amount in each cell and the second
 layer containing the area of each cell. (The
 [`area`](https://www.rdocumentation.org/packages/raster/topics/area) function
 from the `raster` package will calculate the cell areas for us.) We use
 [`weighted.mean`](https://www.rdocumentation.org/packages/stats/topics/weighted.mean)
-to compute the mean temperature, using the product of the cell area and the
+to compute the mean precipitation amount, using the product of the cell area and the
 coverage fraction as a weight.
 
 ```r
-stk <- stack(list(temp=temp, area=area(temp)))
+stk <- stack(list(prec=prec, area=area(prec)))
 
-brazil$mean_temp_weighted <- 
+brazil$mean_prec_weighted <-
   exact_extract(stk, brazil, function(values, coverage_frac)
-                               weighted.mean(values$temp, values$area*coverage_frac, na.rm=TRUE))
+                               weighted.mean(values$prec, values$area*coverage_frac, na.rm=TRUE))
 ```
 
 With the relatively small polygons used in this example, the error introduced
@@ -167,20 +167,20 @@ rasters during each iteration.
 ### Performance and Accuracy
 
 An example benchmark using the example data is shown below. The mean execution
-time for `exactextractr` was 3 seconds, vs 1250 for `raster`. Timing was
+time for `exactextractr` was 2.6 seconds, vs 136 for `raster`. Timing was
 obtained from execution on an AWS `t2.medium` instance.
 
 ```r
 microbenchmark(
-  a <- exact_extract(temp, brazil, weighted.mean, na.rm=TRUE),
-  b <- extract(temp, brazil, mean, na.rm=TRUE), times=5)
+  a <- exact_extract(prec, brazil, weighted.mean),
+  b <- extract(prec, brazil, mean, na.rm=TRUE), times=5)
   
 # Unit: seconds
-#                    expr         min          lq        mean     median          uq        max neval
-# a <- exact_extract(...)    2.999407    3.035462    3.055226    3.05491    3.089642    3.09671     5
-#       b <- extract(...) 1195.111430 1199.662031 1250.310587 1209.81141 1221.649817 1425.31824     5
-  
-```
+#               expr         min          lq        mean     median          uq        max neval
+# a <- exact_extract(...)    2.5674   2.586868   2.626761   2.587283   2.613296   2.778957     5
+#       b <- extract(...)  136.1710 136.180563 136.741275 136.226435 136.773627 138.354764     5
+
+
 Results from `exactextractr` are more accurate than other methods because raster
 pixels that are partially covered by polygons are considered. The significance
 of partial coverage increases for polygons that are small or irregularly shaped.
