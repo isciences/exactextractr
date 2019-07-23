@@ -187,6 +187,7 @@ of partial coverage increases for polygons that are small or irregularly shaped.
 For the 5500 Brazilian municipalities used in the example, the error introduced
 by incorrectly handling partial coverage is less than 1% for 88% of
 municipalities and reaches a maximum of 9%.
+```
 
 ### Dependencies
 
