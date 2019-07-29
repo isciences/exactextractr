@@ -61,7 +61,7 @@ if (!isGeneric("exact_extract")) {
 #' }
 #'
 #' Alternatively, an R function may be provided as \code{fun}. The function will be
-#' called for each feature with  with vectors of cell values and weights as arguments.
+#' called for each feature with with vectors of cell values and weights as arguments.
 #' \code{exact_extract} will then return a vector of the return values of \code{fun}.
 #'
 #' If \code{fun} is not specified, \code{exact_extract} will return a list with
@@ -83,6 +83,21 @@ if (!isGeneric("exact_extract")) {
 #'                                raster cells, it will be processed in multiple chunks.
 #' @param     progress if \code{TRUE}, display a progress bar during processing
 #' @param     ... additional arguments to pass to \code{fun}
+#' @return a vector or list of data frames, depending on the value of \code{fun}
+#'         (see Details)
+#' @examples
+#' rast <- raster::raster(matrix(1:100, ncol=10), xmn=0, ymn=0, xmx=10, ymx=10)
+#' poly <- sf::st_as_sfc('POLYGON ((2 2, 7 6, 4 9, 2 2))')
+#'
+#  # named summary operation, returns vector'
+#' exact_extract(rast, poly, 'mean')
+#'
+#' # two summary operations, returns data frame
+#' exact_extract(rast, poly, c('min', 'max'))
+#'
+#' # custom summary function, returns vector
+#' exact_extract(rast, poly, function(value, cov_frac) length(value[cov_frac > 0.9]))
+#'
 #' @name exact_extract
 NULL
 
