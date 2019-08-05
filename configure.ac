@@ -97,6 +97,7 @@ if test `echo $?` -ne 0 ; then
   AC_MSG_RESULT(no)
   cat errors.txt
   AC_MSG_NOTICE([Compilation and/or linkage problems.])
+  AC_MSG_ERROR([initGEOS_r not found in libgeos_c.])
 else
   AC_MSG_RESULT(yes)
 fi
