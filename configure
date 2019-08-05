@@ -1799,7 +1799,8 @@ then
   GEOS_VER=`${GEOS_CONFIG} --version`
   GEOS_VER_DOT=`${GEOS_CONFIG} --version | sed 's/[^0-9]*//g'`
   GEOS_CXXFLAGS=`${GEOS_CONFIG} --cflags`
-  GEOS_LDFLAGS=`${GEOS_CONFIG} --clibs`
+  GEOS_CLIBS=`${GEOS_CONFIG} --clibs`
+  GEOS_STATIC_CLIBS=`${GEOS_CONFIG} --static-clibs | sed 's/-m/-lm/g'`
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
 else
@@ -1822,9 +1823,6 @@ else
 $as_echo "yes" >&6; }
 fi
 
-CXXFLAGS="${CXXFLAGS} ${GEOS_CXXFLAGS}"
-LDFLAGS="${LDFLAGS} ${GEOS_LDFLAGS}"
-
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking compiling and building against geos_c" >&5
 $as_echo_n "checking compiling and building against geos_c... " >&6; }
 cat > geos_test.cpp << _EOCONF
@@ -1838,17 +1836,37 @@ int main() {
 }
 _EOCONF
 
-${CXX} ${CXXFLAGS} -o geos_test geos_test.cpp ${LDFLAGS} 2> errors.txt
+${CXX} ${CXXFLAGS} ${GEOS_CXXFLAGS} -o geos_test geos_test.cpp ${LDFLAGS} ${GEOS_CLIBS} 2> errors.txt
 if test `echo $?` -ne 0 ; then
+  geosok=no
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-  cat errors.txt
-  { $as_echo "$as_me:${as_lineno-$LINENO}: Compilation and/or linkage problems." >&5
-$as_echo "$as_me: Compilation and/or linkage problems." >&6;}
-  as_fn_error $? "initGEOS_r not found in libgeos_c." "$LINENO" 5
 else
+  CXXFLAGS="${CXXFLAGS} ${GEOS_CXXFLAGS}"
+  LDFLAGS="${LDFLAGS} ${GEOS_CLIBS}"
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
+fi
+
+if test "${geosok}" = no; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking geos: linking with ${GEOS_STATIC_CLIBS}" >&5
+$as_echo_n "checking geos: linking with ${GEOS_STATIC_CLIBS}... " >&6; }
+  ${CXX} ${CXXFLAGS} -o geos_test geos_test.cpp ${GEOS_STATIC_CLIBS} 2> errors.txt
+  if test `echo $?` -ne 0 ; then
+    geosok=no
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    cat errors.txt
+    { $as_echo "$as_me:${as_lineno-$LINENO}: Compilation and/or linkage problems." >&5
+$as_echo "$as_me: Compilation and/or linkage problems." >&6;}
+    as_fn_error $? "initGEOS_r not found in libgeos_c." "$LINENO" 5
+  else
+    geosok=yes
+    CXXFLAGS="${CXXFLAGS} ${GEOS_CXXFLAGS}"
+    LDFLAGS="${LDFLAGS} ${GEOS_STATIC_CLIBS}"
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+  fi
 fi
 
 rm -f geos_test errors.txt geos_test.cpp
