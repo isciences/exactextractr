@@ -69,10 +69,10 @@ else
 fi
 
 AC_MSG_NOTICE([GEOS version: ${GEOS_VER}])
-AC_MSG_CHECKING([geos version at least 3.6.0])
-if test ${GEOS_VER_DOT} -lt 360 ; then
+AC_MSG_CHECKING([geos version at least 3.5.0])
+if test ${GEOS_VER_DOT} -lt 350 ; then
   AC_MSG_RESULT(no)
-  AC_MSG_RESULT([Upgrade GEOS to version 3.6.0 or greater.])
+  AC_MSG_RESULT([Upgrade GEOS to version 3.5.0 or greater.])
 else
   AC_MSG_RESULT(yes)
 fi

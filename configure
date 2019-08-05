@@ -1810,13 +1810,13 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: GEOS version: ${GEOS_VER}" >&5
 $as_echo "$as_me: GEOS version: ${GEOS_VER}" >&6;}
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking geos version at least 3.6.0" >&5
-$as_echo_n "checking geos version at least 3.6.0... " >&6; }
-if test ${GEOS_VER_DOT} -lt 360 ; then
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking geos version at least 3.5.0" >&5
+$as_echo_n "checking geos version at least 3.5.0... " >&6; }
+if test ${GEOS_VER_DOT} -lt 350 ; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Upgrade GEOS to version 3.6.0 or greater." >&5
-$as_echo "Upgrade GEOS to version 3.6.0 or greater." >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Upgrade GEOS to version 3.5.0 or greater." >&5
+$as_echo "Upgrade GEOS to version 3.5.0 or greater." >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
