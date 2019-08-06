@@ -8,6 +8,8 @@ Description: Provides a replacement for the 'extract' function from the 'raster'
     that is suitable for extracting raster values using 'sf' polygons.
 Depends: R (>= 3.4.0)
 License: Apache License (== 2.0)
+SystemRequirements:
+  GEOS (>= 3.5.0)
 Imports: 
   Rcpp (>= 0.12.12),
   methods,

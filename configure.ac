@@ -61,7 +61,8 @@ then
   GEOS_VER=`${GEOS_CONFIG} --version`
   GEOS_VER_DOT=`${GEOS_CONFIG} --version | sed 's/[[^0-9]]*//g'`
   GEOS_CXXFLAGS=`${GEOS_CONFIG} --cflags`
-  GEOS_LDFLAGS=`${GEOS_CONFIG} --clibs`
+  GEOS_CLIBS=`${GEOS_CONFIG} --clibs`
+  GEOS_STATIC_CLIBS=`${GEOS_CONFIG} --static-clibs | sed 's/-m/-lm/g'`
   AC_MSG_RESULT(yes)
 else
   AC_MSG_RESULT(no)
@@ -69,16 +70,13 @@ else
 fi
 
 AC_MSG_NOTICE([GEOS version: ${GEOS_VER}])
-AC_MSG_CHECKING([geos version at least 3.6.0])
-if test ${GEOS_VER_DOT} -lt 360 ; then
+AC_MSG_CHECKING([geos version at least 3.5.0])
+if test ${GEOS_VER_DOT} -lt 350 ; then
   AC_MSG_RESULT(no)
-  AC_MSG_RESULT([Upgrade GEOS to version 3.6.0 or greater.])
+  AC_MSG_RESULT([Upgrade GEOS to version 3.5.0 or greater.])
 else
   AC_MSG_RESULT(yes)
 fi
-
-CXXFLAGS="${CXXFLAGS} ${GEOS_CXXFLAGS}"
-LDFLAGS="${LDFLAGS} ${GEOS_LDFLAGS}"
 
 AC_MSG_CHECKING(compiling and building against geos_c)
 [cat > geos_test.cpp << _EOCONF
@@ -92,13 +90,31 @@ int main() {
 }
 _EOCONF]
 
-${CXX} ${CXXFLAGS} -o geos_test geos_test.cpp ${LDFLAGS} 2> errors.txt
+${CXX} ${CXXFLAGS} ${GEOS_CXXFLAGS} -o geos_test geos_test.cpp ${LDFLAGS} ${GEOS_CLIBS} 2> errors.txt
 if test `echo $?` -ne 0 ; then
+  geosok=no
   AC_MSG_RESULT(no)
-  cat errors.txt
-  AC_MSG_NOTICE([Compilation and/or linkage problems.])
 else
+  CXXFLAGS="${CXXFLAGS} ${GEOS_CXXFLAGS}"
+  LDFLAGS="${LDFLAGS} ${GEOS_CLIBS}"
   AC_MSG_RESULT(yes)
+fi
+
+if test "${geosok}" = no; then
+  AC_MSG_CHECKING(geos: linking with ${GEOS_STATIC_CLIBS})
+  ${CXX} ${CXXFLAGS} -o geos_test geos_test.cpp ${GEOS_STATIC_CLIBS} 2> errors.txt
+  if test `echo $?` -ne 0 ; then
+    geosok=no
+    AC_MSG_RESULT(no)
+    cat errors.txt
+    AC_MSG_NOTICE([Compilation and/or linkage problems.])
+    AC_MSG_ERROR([initGEOS_r not found in libgeos_c.])
+  else
+    geosok=yes
+    CXXFLAGS="${CXXFLAGS} ${GEOS_CXXFLAGS}"
+    LDFLAGS="${LDFLAGS} ${GEOS_STATIC_CLIBS}"
+    AC_MSG_RESULT(yes)
+  fi
 fi
 
 rm -f geos_test errors.txt geos_test.cpp
