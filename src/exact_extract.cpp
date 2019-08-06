@@ -137,8 +137,8 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
   }
 
   return Rcpp::List::create(
-    Rcpp::Named("row")     = 1 + coverage_fractions.grid().row_offset(grid),
-    Rcpp::Named("col")     = 1 + coverage_fractions.grid().col_offset(grid),
+    Rcpp::Named("row")     = nrow > 0 ? (1 + coverage_fractions.grid().row_offset(grid)) : NA_INTEGER,
+    Rcpp::Named("col")     = ncol > 0 ? (1 + coverage_fractions.grid().col_offset(grid)) : NA_INTEGER,
     Rcpp::Named("weights") = weights
   );
 }
