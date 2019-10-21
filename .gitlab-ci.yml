@@ -6,6 +6,7 @@ test-latest:
   stage: test
   image: rocker/geospatial:latest
   script:
+    - apt-get update && apt-get install --no-install-recommends -y devscripts
     - R -e "devtools::document()"
     - R -e "devtools::check()"
     - R -e "install.packages('DT'); covr::gitlab(quiet=FALSE)"
@@ -17,6 +18,7 @@ test-devel:
   stage: test
   image: rocker/geospatial:devel
   script:
+    - apt-get update && apt-get install --no-install-recommends -y devscripts
     - R -e "devtools::document()"
     - R -e "devtools::check()"
 
