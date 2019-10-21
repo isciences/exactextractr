@@ -8,3 +8,4 @@ ci$
 appveyor.yml$
 .dockerignore
 .gz$
+CONTRIBUTING.md
