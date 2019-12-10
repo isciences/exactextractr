@@ -119,6 +119,13 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
   sum(sapply(a, nchar) == 0)
 }
 
+emptyVector <- function(rast) {
+  switch(substr(raster::dataType(rast), 1, 3),
+         LOG=logical(),
+         INT=integer(),
+         numeric())
+}
+
 .exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
     warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
@@ -184,24 +191,41 @@ setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NUL
       appfn(sf::st_as_binary(y), function(wkb) {
         ret <- CPP_exact_extract(x, wkb)
 
-        vals <- raster::getValuesBlock(x,
-                                       row=ret$row,
-                                       col=ret$col,
-                                       nrow=nrow(ret$weights),
-                                       ncol=ncol(ret$weights))
+        if (length(ret$weights) > 0) {
+          vals <- raster::getValuesBlock(x,
+                                         row=ret$row,
+                                         col=ret$col,
+                                         nrow=nrow(ret$weights),
+                                         ncol=ncol(ret$weights))
 
-        if(is.matrix(vals)) {
-          vals <- as.data.frame(vals)
+          if(is.matrix(vals)) {
+            vals <- as.data.frame(vals)
+          } else {
+            vals <- data.frame(value=vals)
+          }
         } else {
-          vals <- data.frame(value=vals)
+          # Polygon does not intersect raster.
+          # Construct a zero-row data frame with correct column names/types.
+          vals <- do.call(data.frame, lapply(seq_len(raster::nlayers(x)),
+                                                     function(i) emptyVector(x[[i]])))
+          if (raster::nlayers(x) == 1) {
+            names(vals) <- 'value'
+          } else {
+            names(vals) <- names(x)
+          }
         }
 
         if (include_xy) {
+          if (nrow(vals) == 0) {
+            vals$x <- numeric()
+            vals$y <- numeric()
+          } else {
             x_coords <- raster::xFromCol(x, col=ret$col:(ret$col+ncol(ret$weights) - 1))
             y_coords <- raster::yFromRow(x, row=ret$row:(ret$row+nrow(ret$weights) - 1))
 
             vals$x <- rep.int(x_coords, times=nrow(ret$weights))
             vals$y <- rep(y_coords, each=ncol(ret$weights))
+          }
         }
 
         cov_fracs <- as.vector(t(ret$weights))

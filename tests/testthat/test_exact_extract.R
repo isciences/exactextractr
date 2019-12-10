@@ -311,6 +311,13 @@ test_that('We get acceptable default values when processing a polygon that does 
     )
   ), crs=sf::st_crs(rast)) # extent of Antarctica in Natural Earth
 
+  # RasterLayer
+  expect_equal(list(data.frame(value=numeric(), coverage_fraction=numeric())),
+               exact_extract(rast, poly))
+
+  expect_equal(list(data.frame(value=numeric(), x=numeric(), y=numeric(), coverage_fraction=numeric())),
+               exact_extract(rast, poly, include_xy=TRUE))
+
   expect_equal(0, exact_extract(rast, poly, function(x, c) sum(x)))
   expect_equal(0, exact_extract(rast, poly, 'count'))
   expect_equal(0, exact_extract(rast, poly, 'sum'))
@@ -321,6 +328,23 @@ test_that('We get acceptable default values when processing a polygon that does 
   expect_equal(NA_real_, exact_extract(rast, poly, 'mean'))
   expect_equal(NA_real_, exact_extract(rast, poly, 'min'))
   expect_equal(NA_real_, exact_extract(rast, poly, 'max'))
+
+  # RasterStack
+  rast2 <- as.integer(rast)
+  raster::dataType(rast2) <- 'INT4S'
+
+  stk <- raster::stack(list(q=rast, xi=rast2, area=raster::area(rast)))
+
+  expect_equal(list(data.frame(q=numeric(), xi=integer(), area=numeric(), coverage_fraction=numeric())),
+               exact_extract(stk, poly))
+
+  expect_equal(list(data.frame(q=numeric(), xi=integer(), area=numeric(), x=numeric(), y=numeric(), coverage_fraction=numeric())),
+               exact_extract(stk, poly, include_xy=TRUE))
+
+  exact_extract(stk, poly, function(values, cov) {
+    expect_equal(values, data.frame(q=numeric(), xi=integer(), area=numeric()))
+    expect_equal(cov, numeric())
+  })
 })
 
 test_that('We can optionally get cell center coordinates included in our output', {

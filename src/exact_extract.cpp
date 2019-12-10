@@ -136,9 +136,33 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
     }
   }
 
+  if (nrow > 0) {
+    size_t row_us = 1 + coverage_fractions.grid().row_offset(grid);
+    if (row_us > std::numeric_limits<int>::max()) {
+
+    }
+  }
+
+  int row = NA_INTEGER;
+  int col = NA_INTEGER;
+  if (nrow > 0) {
+    size_t row_us = (1 + coverage_fractions.grid().row_offset(grid));
+    if (row_us > std::numeric_limits<int>::max()) {
+      throw std::runtime_error("Cannot represent row offset as an R integer");
+    }
+    row = static_cast<int>(row_us);
+  }
+  if (ncol > 0) {
+    size_t col_us = (1 + coverage_fractions.grid().col_offset(grid));
+    if (col_us > std::numeric_limits<int>::max()) {
+      throw std::runtime_error("Cannot represent column offset as an R integer");
+    }
+    col = static_cast<int>(col_us);
+  }
+
   return Rcpp::List::create(
-    Rcpp::Named("row")     = nrow > 0 ? (1 + coverage_fractions.grid().row_offset(grid)) : NA_INTEGER,
-    Rcpp::Named("col")     = ncol > 0 ? (1 + coverage_fractions.grid().col_offset(grid)) : NA_INTEGER,
+    Rcpp::Named("row")     = row,
+    Rcpp::Named("col")     = col,
     Rcpp::Named("weights") = weights
   );
 }
