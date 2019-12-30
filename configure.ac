@@ -18,6 +18,10 @@ RBIN="${R_HOME}/bin/R"
 : ${CXXFLAGS=`"${RBIN}" CMD config CXX14FLAGS` `"${RBIN}" CMD config CXX14STD`}
 : ${LDFLAGS=`"${RBIN}" CMD config LDFLAGS`}
 
+if test [ -z "$CXX" ] ; then
+  AC_MSG_ERROR(["No C++14 compiler identified by R CMD config CXX14"])
+fi
+
 GEOS_CONFIG="geos-config"
 
 GEOS_CONFIG_SET="no"
