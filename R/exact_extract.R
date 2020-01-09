@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019 ISciences, LLC.
+# Copyright (c) 2018-2020 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -165,21 +165,26 @@ emptyVector <- function(rast) {
     x <- readStart(x)
 
     if (is.character(fun)) {
-      if (raster::nlayers(x) > 1) stop("Predefined summary operations only available for single-layer rasters. Please define a summary function using R code.")
-
       results <- sapply(sf::st_as_binary(y), function(wkb) {
         update_progress()
         CPP_stats(x, wkb, fun, max_cells_in_memory)
       })
 
-      if (length(fun) > 1) {
-        # Return a data frame with a column for each stat
-        results <- t(results)
-        dimnames(results) <- list(NULL, fun)
-        return(as.data.frame(results))
-      } else {
+      if (length(fun) == 1 && raster::nlayers(x) == 1) {
         # Just return a vector of stat results
-        return(results)
+        return(as.vector(results))
+      } else {
+        # Return a data frame with a column for each stat
+        if (raster::nlayers(x) > 1) {
+          z <- expand.grid(names(x), fun, stringsAsFactors=TRUE)
+          colnames <- mapply(paste, z[[2]], z[[1]], MoreArgs=list(sep='.'))
+        } else {
+          colnames <- fun
+        }
+
+        results <- t(results)
+        dimnames(results) <- list(NULL, colnames)
+        return(as.data.frame(results))
       }
     } else {
       if (is.null(fun)) {

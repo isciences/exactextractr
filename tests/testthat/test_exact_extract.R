@@ -269,7 +269,7 @@ test_that('We can pass extracted RasterStack values to an R function', {
   expect_equal(mean_income, 32.64279, tolerance=1e-5)
 })
 
-test_that('We get an error when trying to pass extracted RasterStack values to a C++ function', {
+test_that('We can pass extracted RasterStack values to a C++ function', {
   rast <- raster::raster(matrix(runif(16), nrow=4),
                          xmn=0, xmx=4, ymn=0, ymx=4,
                          crs='+proj=longlat +datum=WGS84')
@@ -286,10 +286,17 @@ test_that('We get an error when trying to pass extracted RasterStack values to a
         byrow=TRUE))),
     crs=sf::st_crs(rast))
 
-  expect_error(
-    exact_extract(raster::stack(rast, sqrt(rast)), square, 'variety'),
-    'only available for single-layer raster'
+  stk <- raster::stack(list(a=rast, b=sqrt(rast)))
+
+  expect_equal(
+    exact_extract(stk, square, 'variety'),
+    data.frame(variety.a=9, variety.b=9)
   )
+
+  twostats <- exact_extract(stk, square, c('variety', 'mean'))
+
+  expect_equal(nrow(twostats), 1)
+  expect_named(twostats, c('variety.a', 'variety.b', 'mean.a', 'mean.b'))
 })
 
 test_that('We get acceptable default values when processing a polygon that does not intersect the raster', {

@@ -31,7 +31,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // CPP_stats
-Rcpp::NumericVector CPP_stats(Rcpp::S4& rast, const Rcpp::RawVector& wkb, const Rcpp::StringVector& stats, int max_cells_in_memory);
+Rcpp::NumericMatrix CPP_stats(Rcpp::S4& rast, const Rcpp::RawVector& wkb, const Rcpp::StringVector& stats, int max_cells_in_memory);
 RcppExport SEXP _exactextractr_CPP_stats(SEXP rastSEXP, SEXP wkbSEXP, SEXP statsSEXP, SEXP max_cells_in_memorySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
