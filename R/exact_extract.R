@@ -126,7 +126,25 @@ emptyVector <- function(rast) {
          numeric())
 }
 
-.exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
+.exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
+  if(!is.null(weights)) {
+    if (!is.character(fun)) {
+      stop("Weighing raster can only be used with named summary operations.")
+    }
+
+    if (!any(startsWith(fun, "weighted"))) {
+      warning("Weights provided but no requested operations use them.")
+    }
+
+    if (!is.na(sf::st_crs(x))) {
+      if (is.na(sf::st_crs(weights))) {
+        warning("No CRS specified for weighting raster; assuming it has the same CRS as the value raster.")
+      } else if (sf::st_crs(x) != sf::st_crs(weights)) {
+        stop("Weighting raster does not have the same CRS as value raster.")
+      }
+    }
+  }
+
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
     warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
   } else if(is.na(sf::st_crs(y)) && !is.na(sf::st_crs(x))) {
@@ -167,7 +185,7 @@ emptyVector <- function(rast) {
     if (is.character(fun)) {
       results <- sapply(sf::st_as_binary(y), function(wkb) {
         update_progress()
-        CPP_stats(x, wkb, fun, max_cells_in_memory)
+        CPP_stats(x, weights, wkb, fun, max_cells_in_memory)
       })
 
       if (length(fun) == 1 && raster::nlayers(x) == 1) {
@@ -265,4 +283,3 @@ setMethod('exact_extract', signature(x='Raster', y='sfc_MULTIPOLYGON'), .exact_e
 #' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_POLYGON'), .exact_extract)
-

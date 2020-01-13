@@ -38,6 +38,16 @@ make_circle <- function(x, y, r, crs) {
     r))
 }
 
+make_square_raster <- function(vals, crs='+proj=longlat +datum=WGS84') {
+  n <- sqrt(length(vals))
+
+  stopifnot(as.integer(n) == n)
+
+  raster::raster(matrix(vals, nrow=n, byrow=TRUE),
+                 xmn=0, xmx=n, ymn=0, ymx=n,
+                 crs=crs)
+}
+
 test_that("Basic stat functions work", {
   # This test just verifies a successful journey from R
   # to C++ and back. The correctness of the algorithm
@@ -77,6 +87,55 @@ test_that("Basic stat functions work", {
 
   expect_equal(exact_extract(rast, c(square, square), fun=c('min', 'max', 'mode')),
                data.frame(min=c(1, 1), max=c(9, 9), mode=c(5, 5)))
+})
+
+test_that('Weighted stat functions work', {
+  data <- matrix(1:9, nrow=3, byrow=TRUE)
+  rast <- raster::raster(data,
+                         xmn=0, xmx=3, ymn=0, ymx=3,
+                         crs='+proj=longlat +datum=WGS84')
+
+  equal_weights <- raster::raster(matrix(1, nrow=3, ncol=3),
+                                  xmn=0, xmx=3, ymn=0, ymx=3,
+                                  crs='+proj=longlat +datum=WGS84')
+
+  bottom_row_only <- raster::raster(rbind(c(0, 0, 0), c(0, 0, 0), c(1, 1, 1)),
+                                    xmn=0, xmx=3, ymn=0, ymx=3,
+                                    crs='+proj=longlat +datum=WGS84')
+
+  square <- make_rect(0.5, 0.5, 2.5, 2.5, sf::st_crs(rast))
+
+  expect_equal(exact_extract(rast, square, 'weighted_mean', weights=equal_weights),
+               exact_extract(rast, square, 'mean'))
+
+  expect_equal(exact_extract(rast, square, 'weighted_sum', weights=equal_weights),
+               exact_extract(rast, square, 'sum'))
+
+  expect_equal(exact_extract(rast, square, 'weighted_mean', weights=bottom_row_only),
+               (0.25*7 + 0.5*8 + 0.25*9)/(0.25 + 0.5 + 0.25))
+
+  expect_equal(exact_extract(rast, square, 'weighted_sum', weights=bottom_row_only),
+               (0.25*7 + 0.5*8 + 0.25*9))
+})
+
+test_that('Error thrown if weighted stat requested but weights not provided', {
+  rast <- make_square_raster(1:9)
+  square <- make_circle(2, 2, 0.5, sf::st_crs(rast))
+
+  for (stat in c('weighted_mean', 'weighted_sum')) {
+    expect_error(exact_extract(rast, square, stat),
+                 'no weights provided')
+  }
+})
+
+test_that('Warning raised if weights provided but weighted stat not requested', {
+  rast <- make_square_raster(1:9)
+  square <- make_circle(2, 2, 0.5, sf::st_crs(rast))
+
+  for (stat in c('count', 'sum', 'mean', 'min', 'max', 'minority', 'majority', 'mode', 'variety')) {
+    expect_warning(exact_extract(rast, square, stat, weights=rast),
+                   'Weights provided but no.*operations use them')
+  }
 })
 
 test_that('Raster NA values are correctly handled', {
@@ -340,7 +399,10 @@ test_that('Warning is raised on undefined CRS', {
   rast <- raster::raster(matrix(1:100, nrow=10),
                          xmn=0, xmx=10, ymn=0, ymx=10)
 
-  poly <- sf::st_buffer(sf::st_as_sfc('POINT(8 4)'), 0.4)
+  weights <- raster::raster(matrix(runif(100), nrow=10),
+                            xmn=0, xmx=10, ymn=0, ymx=10)
+
+  poly <- make_circle(8, 4, 0.4, crs=NA_integer_)
 
   # neither has a defined CRS
   expect_silent(exact_extract(rast, poly, 'sum'))
@@ -349,6 +411,10 @@ test_that('Warning is raised on undefined CRS', {
   raster::crs(rast) <- '+proj=longlat +datum=WGS84'
   expect_warning(exact_extract(rast, poly, 'sum'),
                  'assuming .* same CRS .* raster')
+
+  # weights have no defined CRS
+  expect_warning(exact_extract(rast, poly, 'weighted_mean', weights=weights),
+                 'No CRS .* weighting raster.* assuming .* same CRS')
 
   # both have defined crs
   sf::st_crs(poly) <- sf::st_crs(rast)
@@ -360,6 +426,56 @@ test_that('Warning is raised on undefined CRS', {
                  'assuming .* same CRS .* polygon')
 })
 
+test_that('Error thrown if value raster and weighting raster have different crs', {
+   values <- make_square_raster(runif(100), crs=NA)
+   weights <- make_square_raster(runif(100), crs=NA)
+
+   poly <- make_circle(8, 4, 1.5, crs=NA_real_)
+
+   # no CRS for values or weights
+   exact_extract(values, poly, 'weighted_mean', weights=weights)
+
+   # values have defined CRS, weights do not
+   raster::crs(values) <- '+proj=longlat +datum=WGS84'
+   raster::crs(weights) <- '+proj=longlat +datum=NAD83'
+   expect_error(
+     exact_extract(values, poly, 'weighted_mean', weights=weights),
+     'Weighting raster does not have .* same CRS as value raster')
+})
+
+
+test_that('Error thrown if value raster and weighting raster have incompatible grids', {
+  poly <- make_circle(5, 4, 2, NA_integer_)
+
+  values <- raster::raster(matrix(runif(10*10), nrow=10),
+                           xmn=0, xmx=10, ymn=0, ymx=10)
+
+
+  # weights have same extent as values, higher resolution
+  weights <- raster::raster(matrix(runif(100*100), nrow=100),
+                            xmn=0, xmx=10, ymn=0, ymx=10)
+
+  exact_extract(values, poly, 'weighted_mean', weights=weights)
+
+  # weights have same extent as values, lower resolution
+  weights <- raster::raster(matrix(1:4, nrow=2),
+                            xmn=0, xmx=10, ymn=0, ymx=10)
+
+  exact_extract(values, poly, 'weighted_mean', weights=weights)
+
+  # weights have offset extent from values, same resolution, compatible origin
+  weights <- raster::raster(matrix(runif(10*10), nrow=2),
+                           xmn=1, xmx=11, ymn=2, ymx=12)
+
+  exact_extract(values, poly, 'weighted_mean', weights=weights)
+
+  # weights have offset extent from values, same resolution, incompatible origin
+  weights <- raster::raster(matrix(runif(10*10), nrow=2),
+                           xmn=0.5, xmx=10.5, ymn=2, ymx=12)
+
+  expect_error(exact_extract(values, poly, 'weighted_mean', weights=weights),
+               'Incompatible extents')
+})
 
 test_that('Error is raised if function has unexpected signature', {
   rast <- raster::raster(matrix(1:100, nrow=10),

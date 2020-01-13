@@ -277,87 +277,114 @@ static Rcpp::S4 layer(Rcpp::S4 & rast, int n) {
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, const Rcpp::StringVector & stats, int max_cells_in_memory) {
-  GEOSAutoHandle geos;
+Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
+                              Rcpp::Nullable<Rcpp::S4> weights,
+                              const Rcpp::RawVector & wkb,
+                              const Rcpp::StringVector & stats,
+                              int max_cells_in_memory) {
+  try {
+    GEOSAutoHandle geos;
 
-  if (max_cells_in_memory < 1) {
-    Rcpp::stop("Invalid value for max_cells_in_memory: ", max_cells_in_memory);
-  }
-
-  int nlayers = get_nlayers(rast);
-
-  std::vector<S4RasterSource> rsrc;
-  rsrc.reserve(nlayers);
-  for (int i = 0; i < nlayers; i++) {
-    rsrc.emplace_back(layer(rast, i));
-  }
-
-  S4RasterSource rweights(rast);
-
-  bool weighted = false;
-  bool store_values = false;
-
-
-  for (const auto & stat : stats) {
-    // explicit construction of std::string seems necessary to avoid ambiguous overload error
-    if (stat == std::string("mode") ||
-        stat == std::string("majority") ||
-        stat == std::string("minority") ||
-        stat == std::string("variety")) {
-      store_values = true;
+    if (max_cells_in_memory < 1) {
+      Rcpp::stop("Invalid value for max_cells_in_memory: ", max_cells_in_memory);
     }
-  }
 
-  std::vector<RasterStats<double>> raster_stats;
-  raster_stats.reserve(nlayers);
-  for (int i = 0; i < nlayers; i++) {
-    raster_stats.emplace_back(store_values);
-  }
+    int nlayers = get_nlayers(rast);
 
-  Rcpp::NumericMatrix stat_results = Rcpp::no_init(nlayers, stats.size());
+    std::vector<S4RasterSource> rsrc;
+    rsrc.reserve(nlayers);
+    for (int i = 0; i < nlayers; i++) {
+      rsrc.emplace_back(layer(rast, i));
+    }
 
-  auto geom = read_wkb(geos.handle, wkb);
-  auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
+    std::unique_ptr<S4RasterSource> rweights;
+    bool weighted = false;
+    if (weights.isNotNull()) {
+      rweights = std::make_unique<S4RasterSource>(weights.get());
+      weighted = true;
+    }
 
-  auto grid = weighted ? rsrc[0].grid().common_grid(rweights.grid()) : rsrc[0].grid();
+    bool store_values = false;
 
-  if (bbox.intersects(grid.extent())) {
-    auto cropped_grid = grid.crop(bbox);
+    for (const auto & stat : stats) {
+      // explicit construction of std::string seems necessary to avoid ambiguous overload error
+      if (stat == std::string("mode") ||
+          stat == std::string("majority") ||
+          stat == std::string("minority") ||
+          stat == std::string("variety")) {
+        store_values = true;
+      }
 
-    for (const auto &subgrid : subdivide(cropped_grid, max_cells_in_memory)) {
-      auto coverage_fraction = raster_cell_intersection(subgrid, geos.handle, geom.get());
-      auto& cov_grid = coverage_fraction.grid();
+      if (!weighted &&
+          (stat == std::string("weighted_mean") ||
+          stat == std::string("weighted_sum"))) {
+        Rcpp::stop("Weighted stat requested but no weights provided.");
+      }
+    }
 
-      if (!cov_grid.empty()) {
-        for (int i = 0; i < nlayers; i++) {
-          auto values = rsrc[i].read_box(cov_grid.extent());
-          raster_stats[i].process(coverage_fraction, *values);
+    std::vector<RasterStats<double>> raster_stats;
+    raster_stats.reserve(nlayers);
+    for (int i = 0; i < nlayers; i++) {
+      raster_stats.emplace_back(store_values);
+    }
+
+    Rcpp::NumericMatrix stat_results = Rcpp::no_init(nlayers, stats.size());
+
+    auto geom = read_wkb(geos.handle, wkb);
+    auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
+
+    auto grid = weighted ? rsrc[0].grid().common_grid(rweights->grid()) : rsrc[0].grid();
+
+    if (bbox.intersects(grid.extent())) {
+      auto cropped_grid = grid.crop(bbox);
+
+      for (const auto &subgrid : subdivide(cropped_grid, max_cells_in_memory)) {
+        auto coverage_fraction = raster_cell_intersection(subgrid, geos.handle, geom.get());
+        auto& cov_grid = coverage_fraction.grid();
+
+        if (!cov_grid.empty()) {
+          if (weighted) {
+            auto weights = rweights->read_box(cov_grid.extent());
+
+            for (int i = 0; i < nlayers; i++) {
+              auto values = rsrc[i].read_box(cov_grid.extent());
+              raster_stats[i].process(coverage_fraction, *values, *weights);
+            }
+          } else {
+            for (int i = 0; i < nlayers; i++) {
+              auto values = rsrc[i].read_box(cov_grid.extent());
+              raster_stats[i].process(coverage_fraction, *values);
+            }
+          }
         }
       }
     }
-  }
 
-  for (int j = 0; j < nlayers; j++) {
-    for(int i = 0; i < stats.size(); i++) {
-      if (stats[i] == std::string("mean")) stat_results(j, i) = raster_stats[j].mean();
+    for (int j = 0; j < nlayers; j++) {
+      for(int i = 0; i < stats.size(); i++) {
+        if (stats[i] == std::string("mean")) stat_results(j, i) = raster_stats[j].mean();
 
-      else if (stats[i] == std::string("sum")) stat_results(j, i) = raster_stats[j].sum();
-      else if (stats[i] == std::string("count")) stat_results(j, i) = raster_stats[j].count();
+        else if (stats[i] == std::string("sum")) stat_results(j, i) = raster_stats[j].sum();
+        else if (stats[i] == std::string("count")) stat_results(j, i) = raster_stats[j].count();
 
-      else if (stats[i] == std::string("min")) stat_results(j, i) = raster_stats[j].min().value_or(NA_REAL);
-      else if (stats[i] == std::string("max")) stat_results(j, i) = raster_stats[j].max().value_or(NA_REAL);
+        else if (stats[i] == std::string("min")) stat_results(j, i) = raster_stats[j].min().value_or(NA_REAL);
+        else if (stats[i] == std::string("max")) stat_results(j, i) = raster_stats[j].max().value_or(NA_REAL);
 
-      else if (stats[i] == std::string("mode")) stat_results(j, i) = raster_stats[j].mode().value_or(NA_REAL);
-      else if (stats[i] == std::string("majority")) stat_results(j, i) = raster_stats[j].mode().value_or(NA_REAL);
-      else if (stats[i] == std::string("minority")) stat_results(j, i) = raster_stats[j].minority().value_or(NA_REAL);
+        else if (stats[i] == std::string("mode")) stat_results(j, i) = raster_stats[j].mode().value_or(NA_REAL);
+        else if (stats[i] == std::string("majority")) stat_results(j, i) = raster_stats[j].mode().value_or(NA_REAL);
+        else if (stats[i] == std::string("minority")) stat_results(j, i) = raster_stats[j].minority().value_or(NA_REAL);
 
-      else if (stats[i] == std::string("variety")) stat_results(j, i) = raster_stats[j].variety();
-      else if (stats[i] == std::string("weighted_mean")) stat_results(j, i) = raster_stats[j].weighted_mean();
-      else if (stats[i] == std::string("weighted_sum")) stat_results(j, i) = raster_stats[j].weighted_sum();
+        else if (stats[i] == std::string("variety")) stat_results(j, i) = raster_stats[j].variety();
+        else if (stats[i] == std::string("weighted_mean")) stat_results(j, i) = raster_stats[j].weighted_mean();
+        else if (stats[i] == std::string("weighted_sum")) stat_results(j, i) = raster_stats[j].weighted_sum();
 
-      else Rcpp::stop("Unknown stat: " + stats[i]);
+        else Rcpp::stop("Unknown stat: " + stats[i]);
+      }
     }
-  }
 
-  return stat_results;
+    return stat_results;
+  } catch (std::exception & e) {
+    // throw predictible exception class
+    Rcpp::stop(e.what());
+  }
 }
