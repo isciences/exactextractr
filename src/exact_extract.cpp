@@ -264,16 +264,10 @@ static int get_nlayers(Rcpp::S4 & rast) {
 }
 
 static Rcpp::S4 layer(Rcpp::S4 & rast, int n) {
-  if (rast.hasSlot("layers")) {
-    Rcpp::List layers = rast.slot("layers");
-    return layers[n];
-  }
+  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+  Rcpp::Function subsetFn = raster["subset"];
 
-  if (n > 0) {
-    Rcpp::stop("Invalid layer");
-  }
-
-  return rast;
+  return subsetFn(rast, n+1);
 }
 
 // [[Rcpp::export]]

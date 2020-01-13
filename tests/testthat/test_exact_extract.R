@@ -294,19 +294,22 @@ test_that('We can pass extracted RasterStack values to a C++ function', {
   square <- make_rect(0.5, 0.5, 2.5, 2.5, sf::st_crs(rast))
 
   stk <- raster::stack(list(a=rast, b=sqrt(rast)))
+  brk <- raster::brick(stk)
 
-  expect_equal(
-    exact_extract(stk, square, 'variety'),
-    data.frame(variety.a=9, variety.b=9)
-  )
+  for (input in c(stk, brk)) {
+    expect_equal(
+      exact_extract(input, square, 'variety'),
+      data.frame(variety.a=9, variety.b=9)
+    )
 
-  twostats <- exact_extract(stk, square, c('variety', 'mean'))
+    twostats <- exact_extract(input, square, c('variety', 'mean'))
 
-  expect_equal(nrow(twostats), 1)
-  expect_named(twostats, c('variety.a', 'variety.b', 'mean.a', 'mean.b'))
+    expect_equal(nrow(twostats), 1)
+    expect_named(twostats, c('variety.a', 'variety.b', 'mean.a', 'mean.b'))
+  }
 })
 
-test_that('We can summarize a RasterStack using weights from a RasterLayer', {
+test_that('We can summarize a RasterStack / RasterBrick using weights from a RasterLayer', {
   set.seed(123)
 
   stk <- raster::stack(list(a = make_square_raster(1:100),
