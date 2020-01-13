@@ -185,6 +185,9 @@ emptyVector <- function(rast) {
 
   tryCatch({
     x <- readStart(x)
+    if (!is.null(weights)) {
+      weights <- readStart(weights)
+    }
 
     if (is.character(fun)) {
       results <- sapply(sf::st_as_binary(y), function(wkb) {
@@ -275,6 +278,9 @@ emptyVector <- function(rast) {
     }
   }, finally={
     readStop(x)
+    if (!is.null(weights)) {
+      readStop(weights)
+    }
   })
 }
 
