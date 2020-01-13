@@ -524,13 +524,12 @@ test_that('Error is raised if function has unexpected signature', {
 })
 
 test_that('Error is raised for unknown summary operation', {
-  rast <- raster::raster(matrix(1:100, nrow=10),
-                         xmn=0, xmx=10, ymn=0, ymx=10,
-                         crs='+proj=longlat +datum=WGS84')
+  rast <- make_square_raster(1:100)
 
   poly <- make_circle(5, 5, 3, sf::st_crs(rast))
 
-  expect_error(exact_extract(rast, poly, 'whatimean', 'Unknown stat'))
+  expect_error(exact_extract(rast, poly, 'whatimean'),
+               'Unknown stat')
 })
 
 test_that('Error is raised if arguments passed to summary operation', {
