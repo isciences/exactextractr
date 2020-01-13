@@ -326,6 +326,10 @@ test_that('We can summarize a RasterStack using weights from a RasterLayer', {
   # error when trying to use a stack as weights
   expect_error(exact_extract(stk, circle, 'weighted_mean', weights=stk),
                "Weighting raster must have only a single layer")
+
+  # error when trying to use a non-raster as weights
+  expect_error(exact_extract(stk, circle, 'weighted_mean', weights='stk'),
+               "Weights must be a Raster")
 })
 
 test_that('We get an error trying to use weights without a named summary operation', {

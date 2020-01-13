@@ -128,6 +128,10 @@ emptyVector <- function(rast) {
 
 .exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
   if(!is.null(weights)) {
+    if (!startsWith(class(weights), 'Raster')) {
+      stop("Weights must be a Raster object.")
+    }
+
     if (!is.character(fun)) {
       stop("Weighting raster can only be used with named summary operations.")
     }
