@@ -300,7 +300,13 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     std::unique_ptr<S4RasterSource> rweights;
     bool weighted = false;
     if (weights.isNotNull()) {
-      rweights = std::make_unique<S4RasterSource>(weights.get());
+      Rcpp::S4 weights_s4 = weights.get();
+
+      if (get_nlayers(weights_s4) != 1) {
+        Rcpp::stop("Weighting raster must have only a single layer.");
+      }
+
+      rweights = std::make_unique<S4RasterSource>(layer(weights_s4, 0));
       weighted = true;
     }
 

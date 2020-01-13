@@ -306,6 +306,37 @@ test_that('We can pass extracted RasterStack values to a C++ function', {
   expect_named(twostats, c('variety.a', 'variety.b', 'mean.a', 'mean.b'))
 })
 
+test_that('We can summarize a RasterStack using weights from a RasterLayer', {
+  set.seed(123)
+
+  stk <- raster::stack(list(a = make_square_raster(1:100),
+                            b = make_square_raster(101:200)))
+
+  weights <- make_square_raster(runif(100))
+
+
+  circle <- make_circle(5, 4, 2, sf::st_crs(stk))
+
+  # same weights get used for both
+  expect_equal(exact_extract(stk, circle, 'weighted_mean', weights=weights),
+               data.frame(weighted_mean.a = 63.0014,
+                          weighted_mean.b = 163.0014),
+               tolerance=1e-6)
+
+  # error when trying to use a stack as weights
+  expect_error(exact_extract(stk, circle, 'weighted_mean', weights=stk),
+               "Weighting raster must have only a single layer")
+})
+
+test_that('We get an error trying to use weights without a named summary operation', {
+  rast <- make_square_raster(1:100)
+  weights <- make_square_raster(runif(100))
+  circle <- make_circle(5, 4, 2, sf::st_crs(rast))
+
+  expect_error(exact_extract(rast, circle, function(value, coverage_fraction) { value }, weights=weights),
+               'Weighting raster can only be used with named summary operations')
+})
+
 test_that('We get acceptable default values when processing a polygon that does not intersect the raster', {
   rast <- raster::raster(matrix(runif(100), nrow=5),
                          xmn=-180, xmx=180, ymn=-65, ymx=85,
