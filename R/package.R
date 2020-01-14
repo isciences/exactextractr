@@ -18,5 +18,6 @@
 #' @name exactextractr
 #' @author Daniel Baston
 #' @importFrom Rcpp evalCpp
+#' @importFrom methods setMethod
 #' @useDynLib exactextractr
 NULL
