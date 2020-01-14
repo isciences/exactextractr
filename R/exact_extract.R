@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019 ISciences, LLC.
+# Copyright (c) 2018-2020 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -18,7 +18,7 @@ if (!isGeneric("exact_extract")) {
 
 #' Extract or summarize values from Raster* objects
 #'
-#' Extracts the values of cells in a RasterLayer that are covered by a
+#' Extracts the values of cells in a Raster* that are covered by a
 #' simple feature collection containing polygonal geometries, as well as the
 #' fraction of each cell that is covered by the polygon. Returns either
 #' the result of a summary operation or function applied to the values
@@ -28,11 +28,12 @@ if (!isGeneric("exact_extract")) {
 #'
 #' The value of \code{fun} may be set to a string (or vector of strings)
 #' representing summary operations supported by the exactextract library.
-#' If a single summary operation is specified, \code{exact_extract} will
-#' return a vector with the result of the summary operation for each
-#' feature in the input. If multiple summary operations are specified,
-#' \code{exact_extract} will return a data frame with the result of each
-#' summary operation for each feature.
+#' If the input raster has a single layer and a single summary operation
+#' is specified, \code{exact_extract} will return a vector with the result
+#' of the summary operation for each feature in the input. If the input
+#' raster has multiple layers, or if multiple summary operations are specified,
+#' \code{exact_extract} will return a data frame with a row for each feature
+#' and a column for each summary operation / layer combination.
 #'
 #' The following summary operations are supported:
 #'
@@ -58,6 +59,14 @@ if (!isGeneric("exact_extract")) {
 #'                          weighted cells, the smallest value will be returned.}
 #'  \item{\code{variety} - the number of distinct values in cells that are wholly
 #'                         or partially covered by the polygon.}
+#'  \item{\code{weighted_mean} - the mean cell value, weighted by the product of
+#'                               the fraction of each cell covered by the polygon
+#'                               and the value of a second weighting raster provided
+#'                               as \code{weights}}
+#'  \item{\code{weighted_sum} - the sum of defined raster cell values, multiplied by
+#'                              the fraction of each cell taht is covered by the polygon
+#'                               and the value of a second weighting raster provided
+#'                               as \code{weights}}
 #' }
 #'
 #' Alternatively, an R function may be provided as \code{fun}. The function will be
@@ -70,7 +79,7 @@ if (!isGeneric("exact_extract")) {
 #' and a final column indicating the fraction of the cell that is covered by the
 #' polygon.
 #'
-#' @param     x a RasterLayer
+#' @param     x a \code{RasterLayer}, \code{RasterStack}, or \code{RasterBrick}
 #' @param     y a sf object with polygonal geometries
 #' @param     include_xy if \code{TRUE}, augment the returned data frame with
 #'                        columns for cell center coordinates (\code{x} and
@@ -82,18 +91,28 @@ if (!isGeneric("exact_extract")) {
 #'                                R code). If a polygon covers more than \code{max_cells_in_memory}
 #'                                raster cells, it will be processed in multiple chunks.
 #' @param     progress if \code{TRUE}, display a progress bar during processing
+#' @param     weights  a weighting raster to be used with the \code{weighted_mean}
+#'                     and \code{weighted_sum} summary operations.
 #' @param     ... additional arguments to pass to \code{fun}
-#' @return a vector or list of data frames, depending on the value of \code{fun}
-#'         (see Details)
+#' @return a vector or list of data frames, depending on the type of \code{x} and the
+#'         value of \code{fun} (see Details)
 #' @examples
 #' rast <- raster::raster(matrix(1:100, ncol=10), xmn=0, ymn=0, xmx=10, ymx=10)
 #' poly <- sf::st_as_sfc('POLYGON ((2 2, 7 6, 4 9, 2 2))')
 #'
-#  # named summary operation, returns vector'
+#' # named summary operation on RasterLayer, returns vector
 #' exact_extract(rast, poly, 'mean')
 #'
-#' # two summary operations, returns data frame
+#' # two named summary operations on RasterLayer, returns data frame
 #' exact_extract(rast, poly, c('min', 'max'))
+#'
+#' # named summary operation on RasterStack, returns data frame
+#' stk <- raster::stack(list(a=rast, b=sqrt(rast)))
+#' exact_extract(stk, poly, 'mean')
+#'
+#' # named weighted summary operation, returns vector
+#' weights <- raster::raster(matrix(runif(100), ncol=10), xmn=0, ymn=0, xmx=10, ymx=10)
+#' exact_extract(rast, poly, 'weighted_mean', weights=weights)
 #'
 #' # custom summary function, returns vector
 #' exact_extract(rast, poly, function(value, cov_frac) length(value[cov_frac > 0.9]))
@@ -126,7 +145,29 @@ emptyVector <- function(rast) {
          numeric())
 }
 
-.exact_extract <- function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
+.exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
+  if(!is.null(weights)) {
+    if (!startsWith(class(weights), 'Raster')) {
+      stop("Weights must be a Raster object.")
+    }
+
+    if (!is.character(fun)) {
+      stop("Weighting raster can only be used with named summary operations.")
+    }
+
+    if (!any(startsWith(fun, "weighted"))) {
+      warning("Weights provided but no requested operations use them.")
+    }
+
+    if (!is.na(sf::st_crs(x))) {
+      if (is.na(sf::st_crs(weights))) {
+        warning("No CRS specified for weighting raster; assuming it has the same CRS as the value raster.")
+      } else if (sf::st_crs(x) != sf::st_crs(weights)) {
+        stop("Weighting raster does not have the same CRS as value raster.")
+      }
+    }
+  }
+
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
     warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
   } else if(is.na(sf::st_crs(y)) && !is.na(sf::st_crs(x))) {
@@ -163,23 +204,31 @@ emptyVector <- function(rast) {
 
   tryCatch({
     x <- readStart(x)
+    if (!is.null(weights)) {
+      weights <- readStart(weights)
+    }
 
     if (is.character(fun)) {
-      if (raster::nlayers(x) > 1) stop("Predefined summary operations only available for single-layer rasters. Please define a summary function using R code.")
-
       results <- sapply(sf::st_as_binary(y), function(wkb) {
         update_progress()
-        CPP_stats(x, wkb, fun, max_cells_in_memory)
+        CPP_stats(x, weights, wkb, fun, max_cells_in_memory)
       })
 
-      if (length(fun) > 1) {
-        # Return a data frame with a column for each stat
-        results <- t(results)
-        dimnames(results) <- list(NULL, fun)
-        return(as.data.frame(results))
-      } else {
+      if (length(fun) == 1 && raster::nlayers(x) == 1) {
         # Just return a vector of stat results
-        return(results)
+        return(as.vector(results))
+      } else {
+        # Return a data frame with a column for each stat
+        if (raster::nlayers(x) > 1) {
+          z <- expand.grid(names(x), fun, stringsAsFactors=TRUE)
+          colnames <- mapply(paste, z[[2]], z[[1]], MoreArgs=list(sep='.'))
+        } else {
+          colnames <- fun
+        }
+
+        results <- t(results)
+        dimnames(results) <- list(NULL, colnames)
+        return(as.data.frame(results))
       }
     } else {
       if (is.null(fun)) {
@@ -248,6 +297,9 @@ emptyVector <- function(rast) {
     }
   }, finally={
     readStop(x)
+    if (!is.null(weights)) {
+      readStop(weights)
+    }
   })
 }
 
@@ -260,4 +312,3 @@ setMethod('exact_extract', signature(x='Raster', y='sfc_MULTIPOLYGON'), .exact_e
 #' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_POLYGON'), .exact_extract)
-
