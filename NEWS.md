@@ -2,6 +2,7 @@
 
 - Add weighted mean and weighted sum operations to summarize one raster using the values of another (e.g., population-weighted mean temperature)
 - Support use of named summary options on RasterStack and RasterBrick inputs (reduces verbosity, improves performance)
+- Fix memory leak in CPP_coverage_fraction
 
 # version 0.1.2
 

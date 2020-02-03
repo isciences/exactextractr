@@ -227,7 +227,7 @@ Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, boo
   Rcpp::Function crsFn = raster["crs"];
 
   auto grid = make_grid(rast);
-  auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).release());
+  auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
 
   if (crop) {
     grid = coverage_fraction.grid();
