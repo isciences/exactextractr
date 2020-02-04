@@ -280,7 +280,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     GEOSAutoHandle geos;
 
     if (max_cells_in_memory < 1) {
-      Rcpp::stop("Invalid value for max_cells_in_memory: ", max_cells_in_memory);
+      Rcpp::stop("Invalid value for max_cells_in_memory: %d", max_cells_in_memory);
     }
 
     int nlayers = get_nlayers(rast);

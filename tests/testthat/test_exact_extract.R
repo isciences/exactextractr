@@ -549,3 +549,11 @@ test_that('Error is raised if arguments passed to summary operation', {
   expect_error(exact_extract(rast, poly, 'sum', na.rm=TRUE),
                'does not accept additional arguments')
 })
+
+test_that('Error is raised for invalid max_cells_in_memory', {
+  rast <- make_square_raster(1:100)
+  poly <- make_circle(5, 5, 3, sf::st_crs(rast))
+
+  expect_error(exact_extract(rast, poly, 'mean', max_cells_in_memory=-123),
+               'Invalid.*max_cells')
+})
