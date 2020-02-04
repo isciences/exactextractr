@@ -563,5 +563,5 @@ test_that('Correct results obtained when max_cells_in_memory is limited', {
   poly <- make_circle(5, 5, 3, sf::st_crs(rast))
 
   expect_equal(exact_extract(rast, poly, 'mean'),
-               exact_extract(rast, poly, max_cells_in_memory=1))
+               exact_extract(rast, poly, 'mean', max_cells_in_memory=1))
 })
