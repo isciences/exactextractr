@@ -86,7 +86,6 @@ public:
     auto cropped_grid = m_grid.shrink_to_fit(box);
     Raster<double> vals(cropped_grid);
 
-    // FIXME should offsets have +1 ?
     Rcpp::NumericMatrix rast_values = getValuesBlockFn(m_rast,
                                                        1 + cropped_grid.row_offset(m_grid),
                                                        cropped_grid.rows(),
