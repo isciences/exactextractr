@@ -557,3 +557,11 @@ test_that('Error is raised for invalid max_cells_in_memory', {
   expect_error(exact_extract(rast, poly, 'mean', max_cells_in_memory=-123),
                'Invalid.*max_cells')
 })
+
+test_that('Correct results obtained when max_cells_in_memory is limited', {
+  rast <- make_square_raster(1:100)
+  poly <- make_circle(5, 5, 3, sf::st_crs(rast))
+
+  expect_equal(exact_extract(rast, poly, 'mean'),
+               exact_extract(rast, poly, max_cells_in_memory=1))
+})
