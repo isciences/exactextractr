@@ -184,7 +184,7 @@ emptyVector <- function(rast) {
   }
 
   if (is.character(fun) && length(list(...)) > 0) {
-    stop("exact_extract was called with a named summary operation that",
+    stop("exact_extract was called with a named summary operation that ",
          "does not accept additional arguments ...")
   }
 
