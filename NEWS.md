@@ -1,5 +1,6 @@
 # version 0.2.1
 
+- Fix incorrect results for some polygons that exactly follow boundaries of raster grid cells
 - Update tests for compatibility with sf >= 0.9.0
 
 # version 0.2.0
