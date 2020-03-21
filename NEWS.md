@@ -1,3 +1,7 @@
+# version 0.2.1
+
+- Update tests for compatibility with sf >= 0.9.0
+
 # version 0.2.0
 
 - Add weighted mean and weighted sum operations to summarize one raster using the values of another (e.g., population-weighted mean temperature)
