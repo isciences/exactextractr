@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 ISciences, LLC.
+// Copyright (c) 2018-2020 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -13,25 +13,26 @@
 
 #include "geos_utils.h"
 
+#if !HAVE_380
+static inline int GEOSCoordSeq_setXY_r(GEOSContextHandle_t context,
+        GEOSCoordSequence* seq,
+        unsigned int idx,
+        double x,
+        double y) {
+    return GEOSCoordSeq_setX_r(context, seq, idx, x) && GEOSCoordSeq_setY_r(context, seq, idx, y);
+}
+#endif
+
 namespace exactextract {
 
     geom_ptr_r geos_make_box_polygon(GEOSContextHandle_t context, const Box & b) {
         auto seq = geos_ptr(context, GEOSCoordSeq_create_r(context, 5, 2));
 
-        GEOSCoordSeq_setX_r(context, seq.get(), 0, b.xmin);
-        GEOSCoordSeq_setY_r(context, seq.get(), 0, b.ymin);
-
-        GEOSCoordSeq_setX_r(context, seq.get(), 1, b.xmax);
-        GEOSCoordSeq_setY_r(context, seq.get(), 1, b.ymin);
-
-        GEOSCoordSeq_setX_r(context, seq.get(), 2, b.xmax);
-        GEOSCoordSeq_setY_r(context, seq.get(), 2, b.ymax);
-
-        GEOSCoordSeq_setX_r(context, seq.get(), 3, b.xmin);
-        GEOSCoordSeq_setY_r(context, seq.get(), 3, b.ymax);
-
-        GEOSCoordSeq_setX_r(context, seq.get(), 4, b.xmin);
-        GEOSCoordSeq_setY_r(context, seq.get(), 4, b.ymin);
+        GEOSCoordSeq_setXY_r(context, seq.get(), 0, b.xmin, b.ymin);
+        GEOSCoordSeq_setXY_r(context, seq.get(), 1, b.xmax, b.ymin);
+        GEOSCoordSeq_setXY_r(context, seq.get(), 2, b.xmax, b.ymax);
+        GEOSCoordSeq_setXY_r(context, seq.get(), 3, b.xmin, b.ymax);
+        GEOSCoordSeq_setXY_r(context, seq.get(), 4, b.xmin, b.ymin);
 
         auto shell = geos_ptr(context, GEOSGeom_createLinearRing_r(context, seq.release()));
 
@@ -214,47 +215,6 @@ namespace exactextract {
         }
 
         return coords;
-    }
-
-    SegmentOrientation initial_segment_orientation(GEOSContextHandle_t context, const GEOSCoordSequence *s) {
-        double x0, y0;
-        double xn, yn;
-        unsigned int size;
-
-        if (!GEOSCoordSeq_getSize_r(context, s, &size)) {
-            throw std::runtime_error("Error calling GEOSCoordSeq_getSize.");
-        }
-
-        if (!GEOSCoordSeq_getX_r(context, s, 0, &x0) || !GEOSCoordSeq_getY_r(context, s, 0, &y0)) {
-            throw std::runtime_error("Error reading coordinates.");
-        }
-
-        for (unsigned int i = 1; i < size; i++) {
-            if (!GEOSCoordSeq_getX_r(context, s, i, &xn) || !GEOSCoordSeq_getY_r(context, s, i, &yn)) {
-                throw std::runtime_error("Error reading coordinates.");
-            }
-
-            if (xn != x0 || yn != y0) {
-                if (xn == x0) {
-                    if (yn > y0) {
-                        return SegmentOrientation::VERTICAL_UP;
-                    } else {
-                        return SegmentOrientation::VERTICAL_DOWN;
-                    }
-                }
-                if (yn == y0) {
-                    if (xn > x0) {
-                        return SegmentOrientation::HORIZONTAL_RIGHT;
-                    } else {
-                        return SegmentOrientation::HORIZONTAL_LEFT;
-                    }
-                }
-
-                return SegmentOrientation::ANGLED;
-            }
-        }
-
-        throw std::runtime_error("Couldn't find segment orientation.");
     }
 
 }
