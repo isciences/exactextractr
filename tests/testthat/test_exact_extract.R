@@ -430,7 +430,7 @@ test_that('Warning is raised on CRS mismatch', {
     150000)
 
   expect_warning(exact_extract(rast, poly, weighted.mean, na.rm=TRUE),
-                 'transformed from .*32145.* to .*4326')
+                 'transformed to raster')
 })
 
 test_that('Warning is raised on undefined CRS', {

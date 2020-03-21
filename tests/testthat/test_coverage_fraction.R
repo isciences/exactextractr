@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019 ISciences, LLC.
+# Copyright (c) 2018-2020 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -111,7 +111,7 @@ test_that('Warning is raised on CRS mismatch', {
     150000)
 
   expect_warning(coverage_fraction(rast, poly),
-                 'transformed from .*32145.* to .*4326')
+                 'transformed to raster')
 })
 
 test_that('Warning is raised on undefined CRS', {
