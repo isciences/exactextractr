@@ -19,6 +19,7 @@ test-devel:
   image: rocker/geospatial:devel
   script:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
+    - R -e "remotes::install_github('r-spatial/sf')"
     - R -e "devtools::document()"
     - R -e "devtools::check()"
 
