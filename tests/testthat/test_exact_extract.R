@@ -198,7 +198,14 @@ test_that('We ignore portions of the polygon that extend outside the raster', {
   expect_equal(cells_included,
                data.frame(x=179.75, y=c(0.75, 0.25)),
                check.attributes=FALSE)
-})
+
+
+  index_included <- exact_extract(rast, rect, include_xy=TRUE, include_cell = TRUE)[[1]][, c('x', 'y', 'cell')]
+  expect_equivalent(as.matrix(cells_included[c("x", "y")]),
+               raster::xyFromCell(rast, index_included$cell))
+  expect_equal(index_included$cell,
+               raster::cellFromXY(rast, cbind(cells_included$x, cells_included$y)))
+  })
 
 test_that('Additional arguments can be passed to fun', {
   data <- matrix(1:9, nrow=3, byrow=TRUE)
