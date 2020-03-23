@@ -280,7 +280,7 @@ emptyVector <- function(rast) {
 
         if (include_cell) {
           if (nrow(vals) == 0) {
-            vals$cell <- integer()
+            vals$cell <- numeric()
           } else {
             rows <- rep(ret$row:(ret$row+nrow(ret$weights) - 1), each=ncol(ret$weights))
             cols <- rep.int(ret$col:(ret$col+ncol(ret$weights) - 1),
