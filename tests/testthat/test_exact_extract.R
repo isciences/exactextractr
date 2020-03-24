@@ -198,6 +198,13 @@ test_that('We ignore portions of the polygon that extend outside the raster', {
   expect_equal(cells_included,
                data.frame(x=179.75, y=c(0.75, 0.25)),
                check.attributes=FALSE)
+
+
+  index_included <- exact_extract(rast, rect, include_xy=TRUE, include_cell = TRUE)[[1]][, c('x', 'y', 'cell')]
+  expect_equivalent(as.matrix(cells_included[c("x", "y")]),
+               raster::xyFromCell(rast, index_included$cell))
+  expect_equal(index_included$cell,
+               raster::cellFromXY(rast, cbind(cells_included$x, cells_included$y)))
 })
 
 test_that('Additional arguments can be passed to fun', {
@@ -355,8 +362,12 @@ test_that('We get acceptable default values when processing a polygon that does 
   expect_equal(list(data.frame(value=numeric(), coverage_fraction=numeric())),
                exact_extract(rast, poly))
 
-  expect_equal(list(data.frame(value=numeric(), x=numeric(), y=numeric(), coverage_fraction=numeric())),
-               exact_extract(rast, poly, include_xy=TRUE))
+  expect_equal(list(data.frame(value=numeric(),
+                               x=numeric(),
+                               y=numeric(),
+                               cell=numeric(),
+                               coverage_fraction=numeric())),
+               exact_extract(rast, poly, include_xy=TRUE, include_cell=TRUE))
 
   expect_equal(0, exact_extract(rast, poly, function(x, c) sum(x)))
   expect_equal(0, exact_extract(rast, poly, 'count'))
@@ -378,8 +389,14 @@ test_that('We get acceptable default values when processing a polygon that does 
   expect_equal(list(data.frame(q=numeric(), xi=integer(), area=numeric(), coverage_fraction=numeric())),
                exact_extract(stk, poly))
 
-  expect_equal(list(data.frame(q=numeric(), xi=integer(), area=numeric(), x=numeric(), y=numeric(), coverage_fraction=numeric())),
-               exact_extract(stk, poly, include_xy=TRUE))
+  expect_equal(list(data.frame(q=numeric(),
+                               xi=integer(),
+                               area=numeric(),
+                               x=numeric(),
+                               y=numeric(),
+                               cell=numeric(),
+                               coverage_fraction=numeric())),
+               exact_extract(stk, poly, include_xy=TRUE, include_cell=TRUE))
 
   exact_extract(stk, poly, function(values, cov) {
     expect_equal(values, data.frame(q=numeric(), xi=integer(), area=numeric()))
@@ -402,11 +419,13 @@ test_that('We can optionally get cell center coordinates included in our output'
     )
   ), crs=sf::st_crs(rast))
 
-  results <- exact_extract(rast, poly, include_xy=TRUE)[[1]]
+  results <- exact_extract(rast, poly, include_xy=TRUE, include_cell=TRUE)[[1]]
 
   # check that correct ranges of X,Y values are output
   expect_equal( c(3.5, 4.5, 5.5, 6.5, 7.5), sort(unique(results[, 'x'])))
   expect_equal( c(4.5, 5.5, 6.5),           sort(unique(results[, 'y'])))
+
+  expect_equal(results[, 'cell'], raster::cellFromXY(rast, results[, c('x', 'y')]))
 
   # check the XY values of an individal cell with a known coverage fraction
   expect_equal( results[results[, 'x']==3.5 & results[,'y']==4.5, 'coverage_fraction'],

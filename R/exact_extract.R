@@ -84,6 +84,8 @@ if (!isGeneric("exact_extract")) {
 #' @param     include_xy if \code{TRUE}, augment the returned data frame with
 #'                        columns for cell center coordinates (\code{x} and
 #'                        \code{y}) or pass them to \code{fun}
+#' @param     include_cell if \code{TRUE}, augment the returned data frame with
+#'                        column for cell index
 #' @param     fun an optional function or character vector, as described below
 #' @param     max_cells_in_memory the maximum number of raster cells to load at
 #'                                a given time when using a named summary operation
@@ -125,8 +127,8 @@ NULL
 #' @useDynLib exactextractr
 #' @rdname exact_extract
 #' @export
-setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
-  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress, max_cells_in_memory=max_cells_in_memory)
+setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE) {
+  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress, max_cells_in_memory=max_cells_in_memory, include_cell=include_cell)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -145,7 +147,7 @@ emptyVector <- function(rast) {
          numeric())
 }
 
-.exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000) {
+.exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE) {
   if(!is.null(weights)) {
     if (!startsWith(class(weights), 'Raster')) {
       stop("Weights must be a Raster object.")
@@ -276,6 +278,18 @@ emptyVector <- function(rast) {
           }
         }
 
+        if (include_cell) {
+          if (nrow(vals) == 0) {
+            vals$cell <- numeric()
+          } else {
+            rows <- rep(ret$row:(ret$row+nrow(ret$weights) - 1), each=ncol(ret$weights))
+            cols <- rep.int(ret$col:(ret$col+ncol(ret$weights) - 1),
+                                     times = nrow(ret$weights))
+            vals$cell <- raster::cellFromRowCol(x,
+                                           row=rows,
+                                           col=cols)
+          }
+        }
         cov_fracs <- as.vector(t(ret$weights))
         vals <- vals[cov_fracs > 0, , drop=FALSE]
         cov_fracs <- cov_fracs[cov_fracs > 0]
