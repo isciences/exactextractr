@@ -288,7 +288,6 @@ emptyVector <- function(rast) {
             vals$cell <- raster::cellFromRowCol(x,
                                            row=rows,
                                            col=cols)
-
           }
         }
         cov_fracs <- as.vector(t(ret$weights))
