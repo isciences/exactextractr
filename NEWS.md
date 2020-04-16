@@ -1,3 +1,7 @@
+# version 0.2.2
+
+- Add include_cell argument to exact_extract (Michael Sumner)
+
 # version 0.2.1
 
 - Fix incorrect results for some polygons that exactly follow boundaries of raster grid cells
