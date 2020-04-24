@@ -83,7 +83,7 @@ public:
     Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
     Rcpp::Function getValuesBlockFn = raster["getValuesBlock"];
 
-    auto cropped_grid = m_grid.shrink_to_fit(box);
+    auto cropped_grid = m_grid.crop(box);
     Raster<double> vals(cropped_grid);
 
     Rcpp::NumericMatrix rast_values = getValuesBlockFn(m_rast,

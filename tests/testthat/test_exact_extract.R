@@ -584,3 +584,22 @@ test_that('Correct results obtained when max_cells_in_memory is limited', {
   expect_equal(exact_extract(rast, poly, 'mean'),
                exact_extract(rast, poly, 'mean', max_cells_in_memory=1))
 })
+
+test_that('Weighted stats work when polygon is contained in weight raster but only partially contained in value raster', {
+  values <- raster(matrix(1:15, nrow=3, ncol=5, byrow=TRUE),
+                   xmn=0, xmx=5, ymn=2, ymx=5)
+  weights <- raster(sqrt(matrix(1:25, nrow=5, ncol=5, byrow=TRUE)),
+                    xmn=0, xmx=5, ymn=0, ymx=5)
+  poly <- make_circle(2.1, 2.1, 1, NA_real_)
+
+  value_tbl <- exact_extract(values, poly, include_xy=TRUE)[[1]]
+  weight_tbl <- exact_extract(weights, poly, include_xy=TRUE)[[1]]
+
+  tbl <- merge(value_tbl, weight_tbl, by=c('x', 'y'))
+
+  expect_equal(
+    exact_extract(values, poly, 'weighted_mean', weights=weights),
+    weighted.mean(tbl$value.x, tbl$coverage_fraction.x * tbl$value.y),
+    tol=1e-6
+  )
+})
