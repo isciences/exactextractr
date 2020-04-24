@@ -3,7 +3,7 @@
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
 # You may not use this file except in compliance with the License. You may
-# obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+# obtain a copy of the License ta http://www.apache.org/licenses/LICENSE-2.0.
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -602,4 +602,32 @@ test_that('Weighted stats work when polygon is contained in weight raster but on
     weighted.mean(tbl$value.x, tbl$coverage_fraction.x * tbl$value.y),
     tol=1e-6
   )
+})
+
+test_that('When part of a polygon is within the value raster but not the
+           weighting raster, values for unweighted stats requested at the
+           same time as weighted stats are correct', {
+
+  values <- raster(matrix(1:25, nrow=5, ncol=5, byrow=TRUE),
+                    xmn=0, xmx=5, ymn=0, ymx=5)
+  weights <- raster(sqrt(matrix(1:15, nrow=3, ncol=5, byrow=TRUE)),
+                   xmn=0, xmx=5, ymn=2, ymx=5)
+  poly <- make_circle(2.1, 2.1, 1, NA_real_)
+
+  expect_equal(
+    exact_extract(values, poly, 'sum'),
+    exact_extract(values, poly, c('sum', 'weighted_mean'), weights=weights)$sum
+  )
+})
+
+test_that('When polygon is entirely outside the value raster and entirely
+           within the weighting raster, we get NA instead of an exception', {
+  values <- raster(matrix(1:25, nrow=5, ncol=5, byrow=TRUE),
+                    xmn=5, xmx=10, ymn=5, ymx=10)
+  weights <- raster(matrix(1:10, nrow=10, ncol=10, byrow=TRUE),
+                   xmn=0, xmx=10, ymn=0, ymx=10)
+  poly <- make_circle(2.1, 2.1, 1, NA_real_)
+
+  expect_equal(NA_real_,
+               exact_extract(values, poly, 'weighted_mean', weights=weights))
 })
