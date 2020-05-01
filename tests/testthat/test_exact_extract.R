@@ -631,3 +631,13 @@ test_that('When polygon is entirely outside the value raster and entirely
   expect_equal(NA_real_,
                exact_extract(values, poly, 'weighted_mean', weights=weights))
 })
+
+test_that('Z dimension is ignored, if present', {
+  # see https://github.com/isciences/exactextractr/issues/26
+  poly <- st_as_sfc('POLYGON Z ((1 1 0, 4 1 0, 4 4 0, 1 1 0))')
+  values <- raster(matrix(1:25, nrow=5, ncol=5, byrow=TRUE),
+                   xmn=0, xmx=5, ymn=0, ymx=5)
+
+  expect_equal(exact_extract(values, poly, 'sum'), 70.5) # CPP code path
+  expect_equal(exact_extract(values, poly, function(x,f) sum(x*f)), 70.5) # R code path
+})
