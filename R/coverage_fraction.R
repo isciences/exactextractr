@@ -26,7 +26,7 @@ if (!isGeneric('coverage_fraction')) {
     warning("Polygons transformed to raster CRS (EPSG:", sf::st_crs(x)$epsg, ")")
   }
 
-  lapply(sf::st_as_binary(y), function(wkb) {
+  lapply(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
     CPP_coverage_fraction(x, wkb, crop)
   })
 }

@@ -139,3 +139,14 @@ test_that('Warning is raised on undefined CRS', {
 
 })
 
+test_that('Z dimension is ignored, if present', {
+  # see https://github.com/isciences/exactextractr/issues/26
+  polyz <- st_as_sfc('POLYGON Z ((1 1 0, 4 1 0, 4 4 0, 1 1 0))')
+  poly <- st_as_sfc('POLYGON ((1 1, 4 1, 4 4, 1 1))')
+  values <- raster(matrix(1:25, nrow=5, ncol=5, byrow=TRUE),
+                   xmn=0, xmx=5, ymn=0, ymx=5)
+
+  expect_equal(coverage_fraction(values, poly),
+               coverage_fraction(values, polyz))
+})
+

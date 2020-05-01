@@ -210,7 +210,7 @@ emptyVector <- function(rast) {
     }
 
     if (is.character(fun)) {
-      results <- sapply(sf::st_as_binary(y), function(wkb) {
+      results <- sapply(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
         update_progress()
         CPP_stats(x, weights, wkb, fun, max_cells_in_memory)
       })
@@ -238,7 +238,7 @@ emptyVector <- function(rast) {
         appfn <- sapply
       }
 
-      appfn(sf::st_as_binary(y), function(wkb) {
+      appfn(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
         ret <- CPP_exact_extract(x, wkb)
 
         if (length(ret$weights) > 0) {
