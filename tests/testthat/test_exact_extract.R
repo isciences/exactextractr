@@ -186,6 +186,25 @@ test_that('MultiPolygons also work', {
   expect_equal(exact_extract(rast, multipoly, fun='variety'), 18)
 })
 
+test_that('Generic sfc_GEOMETRY works if the features are polygonal', {
+  rast <- make_square_raster(1:100)
+  polys <- st_as_sfc(c('POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))',
+                       'MULTIPOLYGON (((2 2, 4 2, 4 4, 2 4, 2 2)), ((4 4, 8 4, 8 8, 4 8, 4 4)))'),
+                     crs=sf::st_crs(rast))
+
+  expect_equal(exact_extract(rast, polys, 'count'),
+               c(4, 4+16))
+})
+
+test_that('Generic sfc_GEOMETRY fails if a feature is not polygonal', {
+  rast <- make_square_raster(1:100)
+  features <- st_as_sfc(c('POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))',
+                          'POINT (2 7)'), crs=sf::st_crs(rast))
+
+  expect_error(exact_extract(rast, features, 'sum'),
+               'must be polygonal')
+})
+
 test_that('We ignore portions of the polygon that extend outside the raster', {
   rast <- raster::raster(matrix(1:(360*720), nrow=360),
                          xmn=-180, xmx=180, ymn=-90, ymx=90,
