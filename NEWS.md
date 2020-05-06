@@ -3,6 +3,7 @@
 - Add include_cell argument to exact_extract (Michael Sumner)
 - Fix error thrown by exact_extract when a polygon is partially outside the extent of the value raster but fully within the extent of the weighting raster.
 - Avoid error when processing polygons with a Z dimension on GEOS 3.6
+- Support sfc_GEOMETRY inputs if all features are polygonal
 
 # version 0.2.1
 
