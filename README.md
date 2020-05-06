@@ -42,13 +42,13 @@ library(exactextractr)
 brazil <- st_as_sf(getData('GADM', country='BRA', level=2))
 
 # Pull gridded precipitation data
-prec <- getData('worldclim', var='prec', res=10)[[12]]
+prec <- getData('worldclim', var='prec', res=10)
 
-# Find the mean precipitation amount for each municipality
-brazil$mean_prec <- exact_extract(prec, brazil, 'mean')
+# Calculate vector of mean December precipitation amount for each municipality
+brazil$mean_dec_prec <- exact_extract(prec[[12]], brazil, 'mean')
 
-# Find min and max precipitation amount in a single pass
-brazil[, c('min_prec', 'max_prec')] <- exact_extract(prec, brazil, c('min', 'max'))
+# Calculate data frame of min and max precipitation for all months
+brazil <- cbind(brazil, exact_extract(prec, brazil, c('min', 'max')))
 ```
 
 #### Summary Operations
@@ -111,7 +111,7 @@ operation. (The
 from the `raster` package will calculate the cell areas for us.)
 
 ```r
-brazil$mean_prec_weighted <- exact_extract(prec, brazil, 'weighted_mean', weights=area(prec))
+brazil$mean_dec_prec_weighted <- exact_extract(prec[[12]], brazil, 'weighted_mean', weights=area(prec))
 ```
 
 With the relatively small polygons used in this example, the error introduced
@@ -172,9 +172,9 @@ A more verbose equivalent to the `weighted_mean` usage demonstrated could be wri
 
 ```r
 
-stk <- stack(list(prec=prec, area=area(prec)))
+stk <- stack(list(prec=prec[[12]], area=area(prec)))
 
-brazil$mean_prec_weighted <-
+brazil$mean_dec_prec_weighted <-
   exact_extract(stk, brazil, function(values, coverage_frac)
                                weighted.mean(values$prec, values$area*coverage_frac, na.rm=TRUE))
 ```
@@ -209,8 +209,8 @@ obtained from execution on an AWS `t2.medium` instance.
 
 ```r
 microbenchmark(
-  a <- exact_extract(prec, brazil, weighted.mean),
-  b <- extract(prec, brazil, mean, na.rm=TRUE), times=5)
+  a <- exact_extract(prec[[12]], brazil, weighted.mean),
+  b <- extract(prec[[12]], brazil, mean, na.rm=TRUE), times=5)
   
 # Unit: seconds
 #               expr         min          lq        mean     median          uq        max neval
