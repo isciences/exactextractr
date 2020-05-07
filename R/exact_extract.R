@@ -64,7 +64,7 @@ if (!isGeneric("exact_extract")) {
 #'                               and the value of a second weighting raster provided
 #'                               as \code{weights}}
 #'  \item{\code{weighted_sum} - the sum of defined raster cell values, multiplied by
-#'                              the fraction of each cell taht is covered by the polygon
+#'                              the fraction of each cell that is covered by the polygon
 #'                               and the value of a second weighting raster provided
 #'                               as \code{weights}}
 #' }
