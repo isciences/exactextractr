@@ -1,4 +1,4 @@
-# version 0.2.2
+# version 0.3.0
 
 - Add include_cell argument to exact_extract (Michael Sumner)
 - Fix error thrown by exact_extract when a polygon is partially outside the extent of the value raster but fully within the extent of the weighting raster.
