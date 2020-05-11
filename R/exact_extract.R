@@ -93,8 +93,11 @@ if (!isGeneric("exact_extract")) {
 #'                                R code). If a polygon covers more than \code{max_cells_in_memory}
 #'                                raster cells, it will be processed in multiple chunks.
 #' @param     progress if \code{TRUE}, display a progress bar during processing
+#'                     (this is available only if `parallel == FALSE`)
 #' @param     weights  a weighting raster to be used with the \code{weighted_mean}
 #'                     and \code{weighted_sum} summary operations.
+#' @param     parallel if \code{TRUE}, extraction over polygons is executed
+#'                     through parallelized computation (default is \code{FALSE}).
 #' @param     ... additional arguments to pass to \code{fun}
 #' @return a vector or list of data frames, depending on the type of \code{x} and the
 #'         value of \code{fun} (see Details)
@@ -127,8 +130,8 @@ NULL
 #' @useDynLib exactextractr
 #' @rdname exact_extract
 #' @export
-setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE) {
-  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress, max_cells_in_memory=max_cells_in_memory, include_cell=include_cell)
+setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE, parallel=FALSE) {
+  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress, max_cells_in_memory=max_cells_in_memory, include_cell=include_cell, parallel=parallel)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -147,7 +150,7 @@ emptyVector <- function(rast) {
          numeric())
 }
 
-.exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE) {
+.exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE, parallel=FALSE) {
   if(inherits(y, 'sfc_GEOMETRY')) {
     if (!all(sf::st_dimension(y) == 2)) {
       stop("Features in sfc_GEOMETRY must be polygonal")
@@ -196,7 +199,26 @@ emptyVector <- function(rast) {
          "does not accept additional arguments ...")
   }
 
-  if (progress && length(y) > 1) {
+
+  n_cores <- if (parallel == FALSE) {
+    1
+  } else {
+    if (!requireNamespace("parallel", quietly = TRUE)) {
+      warning(paste(
+        "Package \"parallel\" is needed for parallelized computation;",
+        "switching to singlecore mode."
+      ))
+      1
+    } else if (is.numeric(parallel)) {
+      min(as.integer(parallel), parallel::detectCores()-1, length(y))
+    } else {
+      min(parallel::detectCores()-1, length(y))
+    }
+  }
+  parallel <- n_cores > 1
+
+
+  if (progress && length(y) > 1 && !parallel) {
     n <- length(y)
     pb <- utils::txtProgressBar(min = 0, max = n, initial=0, style=3)
     update_progress <- function() {
@@ -216,11 +238,49 @@ emptyVector <- function(rast) {
       weights <- readStart(weights)
     }
 
-    if (is.character(fun)) {
-      results <- sapply(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
+    appfn <- if (is.null(fun)) { # return list of data frames
+      if (!parallel) function(X, FUN, n_cores, ...) {
+        lapply(X=X, FUN=FUN, ...)
+      } else if (Sys.info()["sysname"] != "Windows") function(X, FUN, n_cores, ...) {
+        parallel::mclapply(X=X, FUN=FUN, mc.cores = n_cores, ...)
+      } else function(X, FUN, n_cores, ...) {
+        cl <- parallel::makeCluster(n_cores)
+        parallel::clusterExport(
+          cl = cl,
+          varlist = c("weights", "fun", "max_cells_in_memory", "include_xy", "include_cell"),
+          envir = parent.env(environment())
+        )
+        m <- parallel::parLapply(cl=cl, X=X, fun=FUN, ...)
+        parallel::stopCluster(cl)
+        m
+      }
+    } else {
+      if (!parallel) function(X, FUN, n_cores, ...) {
+        sapply(X=X, FUN=FUN, ...)
+      } else if (Sys.info()["sysname"] != "Windows") function(X, FUN, n_cores, ...) {
+        simplify2array(
+          parallel::mclapply(X=X, FUN=FUN, mc.cores = n_cores, ...),
+          higher = FALSE
+        )
+      } else function(X, FUN, n_cores, ...) {
+        cl <- parallel::makeCluster(n_cores)
+        parallel::clusterExport(
+          cl = cl,
+          varlist = c("weights", "fun", "max_cells_in_memory", "include_xy", "include_cell"),
+          envir = parent.env(environment())
+        )
+        m <- parallel::parSapply(cl=cl, X=X, FUN=FUN, ...)
+        parallel::stopCluster(cl)
+        m
+      }
+    }
+
+    out <- if (is.character(fun)) {
+      results <- appfn(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
+        r <- CPP_stats(x, weights, wkb, fun, max_cells_in_memory)
         update_progress()
-        CPP_stats(x, weights, wkb, fun, max_cells_in_memory)
-      })
+        r
+      }, n_cores=n_cores)
 
       if (length(fun) == 1 && raster::nlayers(x) == 1) {
         # Just return a vector of stat results
@@ -239,12 +299,6 @@ emptyVector <- function(rast) {
         return(as.data.frame(results))
       }
     } else {
-      if (is.null(fun)) {
-        appfn <- lapply # return list of data frames
-      } else {
-        appfn <- sapply
-      }
-
       appfn(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
         ret <- CPP_exact_extract(x, wkb)
 
@@ -313,8 +367,9 @@ emptyVector <- function(rast) {
             return(fun(vals, cov_fracs, ...))
           }
         }
-      })
+      }, n_cores=n_cores)
     }
+    out
   }, finally={
     readStop(x)
     if (!is.null(weights)) {
