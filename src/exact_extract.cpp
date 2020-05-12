@@ -382,6 +382,10 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
         else if (stats[i] == std::string("weighted_mean")) stat_results(j, i) = raster_stats[j].weighted_mean();
         else if (stats[i] == std::string("weighted_sum")) stat_results(j, i) = raster_stats[j].weighted_sum();
 
+        else if (stats[i] == std::string("variance")) stat_results(j, i) = raster_stats[j].variance();
+        else if (stats[i] == std::string("stdev")) stat_results(j, i) = raster_stats[j].stdev();
+        else if (stats[i] == std::string("coefficient_of_variation")) stat_results(j, i) = raster_stats[j].coefficient_of_variation();
+
         else Rcpp::stop("Unknown stat: " + stats[i]);
       }
     }
