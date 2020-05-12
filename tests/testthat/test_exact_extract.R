@@ -80,6 +80,9 @@ test_that("Basic stat functions work", {
   expect_equal(exact_extract(rast, square, fun='majority'), 5)
   expect_equal(exact_extract(rast, square, fun='minority'), 1)
   expect_equal(exact_extract(rast, square, fun='variety'), 9)
+  expect_equal(exact_extract(rast, square, fun='variance'), 5)
+  expect_equal(exact_extract(rast, square, fun='stdev'), sqrt(5))
+  expect_equal(exact_extract(rast, square, fun='coefficient_of_variation'), sqrt(5)/5)
 
   # Can also do multiple stats at once
   expect_equal(exact_extract(rast, square, fun=c('min', 'max', 'mode')),

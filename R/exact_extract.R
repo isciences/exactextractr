@@ -59,6 +59,13 @@ if (!isGeneric("exact_extract")) {
 #'                          weighted cells, the smallest value will be returned.}
 #'  \item{\code{variety} - the number of distinct values in cells that are wholly
 #'                         or partially covered by the polygon.}
+#'  \item{\code{variance} - the population variance of cell values, weighted by the
+#'                          fraction of each cell that is covered by the polygon.}
+#'  \item{\code{stdev} - the population standard deviation of cell values, weighted
+#'                       by the fraction of each cell that is covered by the polygon.}
+#'  \item{\code{coefficient_of_variation} - the population coefficient of variation of
+#'                       cell values, weighted by the fraction of each cell that is
+#'                       covered by the polygon.}
 #'  \item{\code{weighted_mean} - the mean cell value, weighted by the product of
 #'                               the fraction of each cell covered by the polygon
 #'                               and the value of a second weighting raster provided
