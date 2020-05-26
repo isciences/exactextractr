@@ -27,6 +27,7 @@ pages:
   stage: deploy
   image: rocker/geospatial
   script:
+    - R -e "install.packages('pkgdown')"
     - R -e "devtools::document()"
     - R -e "pkgdown::build_site()"
     - mkdir -p public
