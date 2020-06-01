@@ -70,6 +70,10 @@ The following summary operations are supported:
 | `minority`             | The raster value with the smallest sum of coverage fractions. |
 | `sum`                  | Sum of defined values of raster cells that intersect the polygon, with each raster value weighted by its coverage fraction. |
 | `variety`              | The number of distinct raster values in cells wholly or partially covered by the polygon. |
+| `variance`             | The population variance of cell values, weighted by the fraction of each cell that is covered by the polygon. |
+| `stdev`                | The population standard deviation of cell values, weighted by the fraction of each cell that is covered by the polygon. |
+| `coefficient_of_variation` | The population coefficient of variation of cell values, weighted by the fraction of each cell that is covered by the polygon. |
+
 
 Two additional summary operations require the use of a second weighting raster,
 provided in the `weights` argument to 
