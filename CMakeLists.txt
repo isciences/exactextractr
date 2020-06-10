@@ -9,6 +9,13 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0)
+    # gcc 4.9 doesn't fully support C++14, yet CMake doesn't bail when we
+    # set CMAKE_CXX_STANDARD_REQUIRED
+    # https://cmake.org/pipermail/cmake/2017-March/065102.html
+    message(FATAL_ERROR "gcc 5.0+ is required to build exactextract")
+endif()
+
 include(GNUInstallDirs)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -22,6 +29,20 @@ configure_file(src/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h)
 
 if (GEOS_VERSION_MAJOR LESS 3 OR GEOS_VERSION_MINOR LESS 5)
    message(FATAL_ERROR "GEOS version 3.5 or later is required.")
+endif()
+
+if (GDAL_FOUND)
+    # Check GDAL version (requires CMake 3.14)
+    if (${CMAKE_VERSION} VERSION_LESS 3.14.0)
+        message(WARNING "GDAL 2.0+ is required but detected GDAL version is unknown.")
+    elseif(${GDAL_VERSION} VERSION_LESS 2.0)
+        unset(GDAL_FOUND)
+    endif()
+endif()
+if (NOT GDAL_FOUND)
+    message(WARNING
+    "GDAL version >= 2.0 was not found. It is still possible to build and test libexactextract, but the "
+    "exactextract executable cannot be built or installed.")
 endif()
 
 # Download Catch (header-only library)
@@ -239,8 +260,4 @@ if (GDAL_FOUND)
     install(TARGETS ${BIN_NAME}
             RUNTIME
             DESTINATION bin)
-else(GDAL_FOUND)
-    message(WARNING
-            "GDAL was not found. It is still possible to build and test libexactextract, but the "
-            "exactextract executable cannot be built or installed.")
 endif(GDAL_FOUND)
