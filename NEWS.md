@@ -1,6 +1,8 @@
 # version 0.4.0
 
 - Add named summary operations for variance, standard deviation, coefficient of variation
+- Avoid floating point robustness error when computing stats on certain polygons using
+  different resolution value and weighting rasters.
 
 # version 0.3.0
 

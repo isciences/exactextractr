@@ -663,3 +663,18 @@ test_that('Z dimension is ignored, if present', {
   expect_equal(exact_extract(values, poly, 'sum'), 70.5) # CPP code path
   expect_equal(exact_extract(values, poly, function(x,f) sum(x*f)), 70.5) # R code path
 })
+
+test_that('No error thrown when weighting with different resolution grid (regression)', {
+   poly <- st_as_sfc(structure(list(
+     '01060000000200000001030000000100000008000000065bb0055b7866401c222222223233c0454444242e776640338ee338842d33c0abaaaacac0776640338ee338962733c0676666469f776640a4aaaaaa362033c03a8ee3784f7866404f555555a41c33c0a64ffa840b7966406c1cc771522133c0454444645a796640f4a44ffa9c2b33c0065bb0055b7866401c222222223233c0010300000001000000080000004b9ff4499f7c6640a3aaaaaaaaaa32c0bdbbbb3b747a6640f8ffff7f549632c0ea933e09aa7b664004b6608b399132c0b1055bb0637e6640dc388e63278f32c0d9822d58827e6640dc388ee3109432c09a999979837c6640590bb660159c32c0676666867c7d664070777777039c32c04b9ff4499f7c6640a3aaaaaaaaaa32c0'),
+     class='WKB'), EWKB=TRUE)
+
+   v <- raster(matrix(1:360*720, nrow=360, ncol=720),
+               xmn=-180, xmx=180, ymn=-90, ymx=90)
+
+   w <- raster(matrix(1:360*720*36, nrow=360*6, ncol=720*6),
+               xmn=-180, xmx=180, ymn=-90, ymx=90)
+
+   exact_extract(v, poly, 'weighted_sum', weights=w)
+   succeed()
+})
