@@ -58,10 +58,11 @@ class S4RasterSource : public RasterSource {
 public:
   S4RasterSource(Rcpp::S4 rast) : m_grid(Grid<bounded_extent>::make_empty()), m_rast(rast) {
     Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-    Rcpp::Function extentFn = raster["extent"];
+
+    Rcpp::S4 extent = rast.slot("extent");
+
     Rcpp::Function resFn = raster["res"];
 
-    Rcpp::S4 extent = extentFn(rast);
     Rcpp::NumericVector res = resFn(rast);
 
     m_grid = {{
