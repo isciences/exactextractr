@@ -37,6 +37,26 @@ using exactextract::raster_cell_intersection;
 using exactextract::RasterStats;
 using exactextract::RasterSource;
 
+static Grid<bounded_extent> make_grid(const Rcpp::S4 & rast) {
+  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+
+  Rcpp::S4 extent = rast.slot("extent");
+
+  Rcpp::Function resFn = raster["res"];
+
+  Rcpp::NumericVector res = resFn(rast);
+
+  return {{
+    extent.slot("xmin"),
+    extent.slot("ymin"),
+    extent.slot("xmax"),
+    extent.slot("ymax"),
+    },
+    res[0],
+    res[1]
+  };
+}
+
 // Construct a Raster using an R matrix for storage
 class NumericMatrixRaster : public exactextract::AbstractRaster<double> {
 public:
@@ -57,23 +77,7 @@ private:
 class S4RasterSource : public RasterSource {
 public:
   S4RasterSource(Rcpp::S4 rast) : m_grid(Grid<bounded_extent>::make_empty()), m_rast(rast) {
-    Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-
-    Rcpp::S4 extent = rast.slot("extent");
-
-    Rcpp::Function resFn = raster["res"];
-
-    Rcpp::NumericVector res = resFn(rast);
-
-    m_grid = {{
-      extent.slot("xmin"),
-      extent.slot("ymin"),
-      extent.slot("xmax"),
-      extent.slot("ymax"),
-      },
-      res[0],
-      res[1]
-    };
+    m_grid = make_grid(rast);
   }
 
   const Grid<bounded_extent> &grid() const override {
@@ -144,19 +148,6 @@ struct GEOSAutoHandle {
 
   GEOSContextHandle_t handle;
 };
-
-static Grid<bounded_extent> make_grid(const Rcpp::S4 & rast) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-
-  Rcpp::Function extentFn = raster["extent"];
-  Rcpp::Function resFn = raster["res"];
-
-  Rcpp::S4 extent = extentFn(rast);
-  Rcpp::NumericVector res = resFn(rast);
-
-  return {{ extent.slot("xmin"), extent.slot("ymin"), extent.slot("xmax"), extent.slot("ymax") },
-            res[0], res[1] };
-}
 
 // Return a smart pointer to a Geometry, given WKB input
 static geom_ptr read_wkb(const GEOSContextHandle_t & context, const Rcpp::RawVector & wkb) {
