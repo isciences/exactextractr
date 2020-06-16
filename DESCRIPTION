@@ -13,7 +13,7 @@ SystemRequirements:
 Imports: 
   Rcpp (>= 0.12.12),
   methods,
-  raster,
+  raster (>= 3.3-3),
   sf,
 URL: https://isciences.gitlab.io/exactextractr/, https://github.com/isciences/exactextractr
 BugReports: https://github.com/isciences/exactextractr/issues

@@ -57,26 +57,30 @@ static Grid<bounded_extent> make_grid(const Rcpp::S4 & rast) {
   };
 }
 
-// Construct a Raster using an R matrix for storage
-class NumericMatrixRaster : public exactextract::AbstractRaster<double> {
+// Construct a Raster using an R vector for storage
+class NumericVectorRaster : public exactextract::AbstractRaster<double> {
 public:
-  NumericMatrixRaster(const Rcpp::NumericMatrix & mat, const Grid<bounded_extent> & g) :
+  NumericVectorRaster(const Rcpp::NumericVector & vec, const Grid<bounded_extent> & g) :
     AbstractRaster<double>(g),
-    m_mat(mat)
+    m_vec(vec)
   {}
 
   double operator()(size_t row, size_t col) const final {
-    return m_mat(row, col);
+    return m_vec[row*cols() + col];
   }
 
 private:
-  const Rcpp::NumericMatrix m_mat;
+  const Rcpp::NumericVector m_vec;
 };
 
 // Read raster values from an R raster object
 class S4RasterSource : public RasterSource {
 public:
-  S4RasterSource(Rcpp::S4 rast) : m_grid(Grid<bounded_extent>::make_empty()), m_rast(rast) {
+  S4RasterSource(Rcpp::S4 rast, int band) :
+    m_grid(Grid<bounded_extent>::make_empty()),
+    m_rast(rast),
+    m_band(band)
+  {
     m_grid = make_grid(rast);
   }
 
@@ -90,25 +94,26 @@ public:
 
     auto cropped_grid = m_grid.crop(box);
 
-    Rcpp::NumericMatrix rast_values;
+    Rcpp::NumericVector rast_values(0);
 
     if (cropped_grid.empty()) {
-      rast_values = Rcpp::no_init(0, 0);
+      //rast_values = Rcpp::no_init(0);
     } else {
       rast_values = getValuesBlockFn(m_rast,
                                      1 + cropped_grid.row_offset(m_grid),
                                      cropped_grid.rows(),
                                      1 + cropped_grid.col_offset(m_grid),
                                      cropped_grid.cols(),
-                                     "matrix");
+                                     Rcpp::Named("lyrs", m_band + 1));
     }
 
-    return std::make_unique<NumericMatrixRaster>(rast_values, cropped_grid);
+    return std::make_unique<NumericVectorRaster>(rast_values, cropped_grid);
   }
 
 private:
   Grid<bounded_extent> m_grid;
   Rcpp::S4 m_rast;
+  int m_band;
 };
 
 // GEOS warning handler
@@ -259,13 +264,6 @@ static int get_nlayers(Rcpp::S4 & rast) {
   return static_cast<int>(nlayersVec[0]);
 }
 
-static Rcpp::S4 layer(Rcpp::S4 & rast, int n) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function subsetFn = raster["subset"];
-
-  return subsetFn(rast, n+1);
-}
-
 // [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               Rcpp::Nullable<Rcpp::S4> weights,
@@ -284,7 +282,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     std::vector<S4RasterSource> rsrc;
     rsrc.reserve(nlayers);
     for (int i = 0; i < nlayers; i++) {
-      rsrc.emplace_back(layer(rast, i));
+      rsrc.emplace_back(rast, i);
     }
 
     std::unique_ptr<S4RasterSource> rweights;
@@ -296,7 +294,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
         Rcpp::stop("Weighting raster must have only a single layer.");
       }
 
-      rweights = std::make_unique<S4RasterSource>(layer(weights_s4, 0));
+      rweights = std::make_unique<S4RasterSource>(weights_s4, 0);
       weighted = true;
     }
 
