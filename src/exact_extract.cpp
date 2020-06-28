@@ -206,7 +206,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
 
   if (nrow > 0) {
     size_t row_us = 1 + coverage_fractions.grid().row_offset(grid);
-    if (row_us > std::numeric_limits<int>::max()) {
+    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
 
     }
   }
@@ -215,14 +215,14 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
   int col = NA_INTEGER;
   if (nrow > 0) {
     size_t row_us = (1 + coverage_fractions.grid().row_offset(grid));
-    if (row_us > std::numeric_limits<int>::max()) {
+    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
       throw std::runtime_error("Cannot represent row offset as an R integer");
     }
     row = static_cast<int>(row_us);
   }
   if (ncol > 0) {
     size_t col_us = (1 + coverage_fractions.grid().col_offset(grid));
-    if (col_us > std::numeric_limits<int>::max()) {
+    if (col_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
       throw std::runtime_error("Cannot represent column offset as an R integer");
     }
     col = static_cast<int>(col_us);
