@@ -1,6 +1,6 @@
 Package: exactextractr
 Title: Fast Extraction from Raster Datasets using Polygons
-Version: 0.4.0
+Version: 0.5.0
 Authors@R: c(
         person("Daniel Baston", email = "dbaston@isciences.com", role = c("aut", "cre")),
         person("ISciences, LLC", role="cph"))
