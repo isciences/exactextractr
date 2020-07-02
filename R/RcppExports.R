@@ -13,3 +13,7 @@ CPP_stats <- function(rast, weights, wkb, stats, max_cells_in_memory) {
     .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, weights, wkb, stats, max_cells_in_memory)
 }
 
+CPP_resample <- function(rast_in, rast_out, stat) {
+    .Call('_exactextractr_CPP_resample', PACKAGE = 'exactextractr', rast_in, rast_out, stat)
+}
+

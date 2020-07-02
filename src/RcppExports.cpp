@@ -45,11 +45,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// CPP_resample
+Rcpp::S4 CPP_resample(Rcpp::S4& rast_in, Rcpp::S4& rast_out, const Rcpp::StringVector& stat);
+RcppExport SEXP _exactextractr_CPP_resample(SEXP rast_inSEXP, SEXP rast_outSEXP, SEXP statSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::S4& >::type rast_in(rast_inSEXP);
+    Rcpp::traits::input_parameter< Rcpp::S4& >::type rast_out(rast_outSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::StringVector& >::type stat(statSEXP);
+    rcpp_result_gen = Rcpp::wrap(CPP_resample(rast_in, rast_out, stat));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 2},
     {"_exactextractr_CPP_coverage_fraction", (DL_FUNC) &_exactextractr_CPP_coverage_fraction, 3},
     {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 5},
+    {"_exactextractr_CPP_resample", (DL_FUNC) &_exactextractr_CPP_resample, 3},
     {NULL, NULL, 0}
 };
 

@@ -2,6 +2,7 @@
 
 exportMethods(coverage_fraction)
 exportMethods(exact_extract)
+exportMethods(exact_resample)
 import(raster)
 import(sf)
 importFrom(Rcpp,evalCpp)

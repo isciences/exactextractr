@@ -27,6 +27,7 @@
 using geom_ptr= std::unique_ptr<GEOSGeometry, std::function<void(GEOSGeometry*)>>;
 using wkb_reader_ptr = std::unique_ptr<GEOSWKBReader, std::function<void(GEOSWKBReader*)>>;
 
+using exactextract::Box;
 using exactextract::Matrix;
 using exactextract::Grid;
 using exactextract::subdivide;
@@ -280,6 +281,31 @@ static int get_nlayers(Rcpp::S4 & rast) {
   return static_cast<int>(nlayersVec[0]);
 }
 
+static double get_stat_value(const RasterStats<double> & stats, const std::string & stat_name) {
+  if (stat_name == "mean") return stats.mean();
+
+  else if (stat_name == "sum") return stats.sum();
+  else if (stat_name == "count") return stats.count();
+
+  else if (stat_name == "min") return stats.min().value_or(NA_REAL);
+  else if (stat_name == "max") return stats.max().value_or(NA_REAL);
+
+  else if (stat_name == "mode") return stats.mode().value_or(NA_REAL);
+  else if (stat_name == "majority") return stats.mode().value_or(NA_REAL);
+  else if (stat_name == "minority") return stats.minority().value_or(NA_REAL);
+
+  else if (stat_name == "variety") return stats.variety();
+  else if (stat_name == "weighted_mean") return stats.weighted_mean();
+  else if (stat_name == "weighted_sum") return stats.weighted_sum();
+
+  else if (stat_name == "variance") return stats.variance();
+  else if (stat_name == "stdev") return stats.stdev();
+  else if (stat_name == "coefficient_of_variation") return stats.coefficient_of_variation();
+
+  else Rcpp::stop("Unknown stat: " + stat_name);
+}
+
+
 // [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               Rcpp::Nullable<Rcpp::S4> weights,
@@ -397,4 +423,57 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     // throw predictible exception class
     Rcpp::stop(e.what());
   }
+}
+
+// [[Rcpp::export]]
+Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
+                      Rcpp::S4 & rast_out,
+                      const Rcpp::StringVector & stat) {
+  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+  Rcpp::Function rasterFn = raster["raster"];
+  Rcpp::Function valuesFn = raster["values<-"];
+
+  if (stat.size() != 1) {
+    Rcpp::stop("Only a single operation may be used for resampling.");
+  }
+
+  S4RasterSource rsrc(rast_in);
+
+  Rcpp::S4 out = rasterFn(rast_out);
+
+  auto grid_in = make_grid(rast_in);
+  auto grid_out = make_grid(rast_out);
+
+  std::string stat_name = Rcpp::as<std::string>(stat[0]);
+
+  Rcpp::NumericMatrix values_out = Rcpp::no_init(grid_out.rows(), grid_out.cols());
+
+  for (size_t row = 0; row < grid_out.rows(); row++) {
+    // Read enough source raster data to process an entire destination row at
+    // a time, since getValuesBlock calls have a lot of overhead.
+    auto y = grid_out.y_for_row(row);
+    auto ymin = y - grid_out.dy();
+    auto ymax = y + grid_out.dy();
+
+    Box row_box{ grid_out.xmin(), ymin, grid_out.xmax(), ymax };
+    auto values = rsrc.read_box(row_box, 0);
+
+    for (size_t col = 0; col < grid_out.cols(); col++) {
+      RasterStats<double> stats;
+
+      Box cell = grid_cell(grid_out, row, col);
+      auto coverage_fraction = raster_cell_intersection(grid_in, cell);
+
+      auto& cov_grid = coverage_fraction.grid();
+
+      if (!cov_grid.empty()) {
+        stats.process(coverage_fraction, *values);
+      }
+
+      values_out(row, col) = get_stat_value(stats, stat_name);
+    }
+  }
+
+  out = valuesFn(out, values_out);
+  return out;
 }

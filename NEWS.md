@@ -1,3 +1,7 @@
+# version 0.5.0
+
+- Add exact_resample
+
 # version 0.4.0
 
 - Add named summary operations for variance, standard deviation, coefficient of variation
