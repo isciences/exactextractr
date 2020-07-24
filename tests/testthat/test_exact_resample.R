@@ -59,3 +59,18 @@ test_that("error thrown if rasters have different CRS", {
     exact_resample(src, dst, 'sum'),
     'same CRS')
 })
+
+test_that("warning raised if one CRS undefined", {
+  a <- make_square_raster(1:100, crs='+init=epsg:4326')
+  b <- make_square_raster(1:100, crs=NA)
+
+  expect_warning(
+    exact_resample(a, b, 'sum'),
+    'No CRS specified for destination'
+  )
+
+  expect_warning(
+    exact_resample(b, a, 'sum'),
+    'No CRS specified for source'
+  )
+})

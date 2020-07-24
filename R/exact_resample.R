@@ -36,7 +36,13 @@ setMethod('exact_resample',
           signature(x='RasterLayer', y='RasterLayer'),
           function(x, y, fun) {
             if (sf::st_crs(x) != sf::st_crs(y)) {
-              stop('Destination grid must have same CRS as source.')
+              if (is.na(sf::st_crs(x))) {
+                warning("No CRS specified for source raster; assuming it has the same CRS as destination raster.")
+              } else if (is.na(sf::st_crs(y))) {
+                warning("No CRS specified for destination raster; assuming it has the same CRS as source raster.")
+              } else {
+                stop('Destination raster must have same CRS as source.')
+              }
             }
 
             x <- raster::readStart(x)
