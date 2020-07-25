@@ -15,41 +15,6 @@ library(testthat)
 library(exactextractr)
 context('exact_extract')
 
-default_proj <- '+init=epsg:26918' # UTM 18N; avoid wgs84 to keep cartesian calcs in sf
-
-make_rect <- function(xmin, ymin, xmax, ymax, crs) {
-  sf::st_sfc(
-    sf::st_polygon(
-      list(
-        matrix(
-          c(xmin, ymin,
-            xmax, ymin,
-            xmax, ymax,
-            xmin, ymax,
-            xmin, ymin),
-          ncol=2,
-          byrow=TRUE))),
-    crs=crs)
-}
-
-make_circle <- function(x, y, r, crs) {
-  suppressWarnings(sf::st_buffer(
-    sf::st_sfc(
-      sf::st_point(c(x, y)),
-      crs=crs),
-    r))
-}
-
-make_square_raster <- function(vals, crs=default_proj) {
-  n <- sqrt(length(vals))
-
-  stopifnot(as.integer(n) == n)
-
-  raster::raster(matrix(vals, nrow=n, byrow=TRUE),
-                 xmn=0, xmx=n, ymn=0, ymx=n,
-                 crs=crs)
-}
-
 test_that("Basic stat functions work", {
   # This test just verifies a successful journey from R
   # to C++ and back. The correctness of the algorithm

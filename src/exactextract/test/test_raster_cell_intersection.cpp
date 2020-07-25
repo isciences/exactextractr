@@ -31,7 +31,7 @@ static GEOSContextHandle_t init_geos() {
     return context;
 }
 
-TEST_CASE("Basic", "[raster-cell-intersection]" ) {
+TEST_CASE("Basic rectangle", "[raster-cell-intersection]" ) {
     GEOSContextHandle_t context = init_geos();
 
     Grid<bounded_extent> ex{{0, 0, 3, 3}, 1, 1}; // 3x3 grid
@@ -45,7 +45,51 @@ TEST_CASE("Basic", "[raster-cell-intersection]" ) {
             {0.50, 1.0, 0.50},
             {0.25, 0.5, 0.25}
     });
+
+    // check alternate interface for rectangles
+    auto rci2 = raster_cell_intersection(ex, geos_get_box(context, g.get()));
+
+    CHECK( rci == rci2 );
+
 }
+
+TEST_CASE("Basic non-rectangle", "[raster-cell-intersection]" ) {
+    GEOSContextHandle_t context = init_geos();
+
+    Grid<bounded_extent> ex{{0, 0, 3, 3}, 1, 1}; // 3x3 grid
+
+    auto g = GEOSGeom_read_r(context, "POLYGON ((0.5 0.5, 2.5 0.5, 2.5 2.0, 2.0 2.0, 2.0 2.5, 0.5 2.5, 0.5 0.5))");
+
+    Raster<float> rci = raster_cell_intersection(ex, context, g.get());
+
+    check_cell_intersections(rci, {
+            {0.25, 0.5, 0.00},
+            {0.50, 1.0, 0.50},
+            {0.25, 0.5, 0.25}
+    });
+}
+
+TEST_CASE("Small polygon optimization", "[raster-cell-intersection]") {
+    auto context = init_geos();
+
+    Grid<bounded_extent> ex{{0, 0, 3, 3}, 1, 1}; // 3x3 grid
+
+    // small polygon entirely contained in a single cell
+    auto g = GEOSGeom_read_r(context, "POLYGON ((0.5 0.5, 0.6 0.5, 0.6 0.6, 0.5 0.5))");
+    double g_area;
+    CHECK( GEOSArea_r(context, g.get(), &g_area) );
+
+    auto rci = raster_cell_intersection(ex, context, g.get());
+
+    CHECK( rci.rows() == 1 );
+    CHECK( rci.cols() == 1 );
+    CHECK( rci(0, 0) == static_cast<float>(g_area) );
+    CHECK( rci.xmin() == 0 );
+    CHECK( rci.xmax() == 1 );
+    CHECK( rci.ymin() == 0 );
+    CHECK( rci.ymax() == 1 );
+}
+
 
 TEST_CASE("Geometry extent larger than raster", "[raster-cell-intersection]") {
     GEOSContextHandle_t context = init_geos();
@@ -115,6 +159,12 @@ TEST_CASE("Geometry entirely outside raster", "[raster-cell-intersection]") {
 
     CHECK ( rci.rows() == 0 );
     CHECK ( rci.cols() == 0 );
+
+    // check alternate pathway for rectangles
+    auto rci_rect = raster_cell_intersection(ex, geos_get_box(context, g.get()));
+
+    CHECK ( rci_rect.rows() == 0 );
+    CHECK ( rci_rect.cols() == 0 );
 }
 
 TEST_CASE("Invalid geometry with detached inner ring outside raster", "[raster-cell-intersection]") {
