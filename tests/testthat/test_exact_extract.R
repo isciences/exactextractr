@@ -15,6 +15,8 @@ library(testthat)
 library(exactextractr)
 context('exact_extract')
 
+default_proj <- '+init=epsg:26918' # UTM 18N; avoid wgs84 to keep cartesian calcs in sf
+
 make_rect <- function(xmin, ymin, xmax, ymax, crs) {
   sf::st_sfc(
     sf::st_polygon(
@@ -38,7 +40,7 @@ make_circle <- function(x, y, r, crs) {
     r))
 }
 
-make_square_raster <- function(vals, crs='+proj=longlat +datum=WGS84') {
+make_square_raster <- function(vals, crs=default_proj) {
   n <- sqrt(length(vals))
 
   stopifnot(as.integer(n) == n)
@@ -557,9 +559,7 @@ test_that('Error thrown if value raster and weighting raster have incompatible g
 })
 
 test_that('Error is raised if function has unexpected signature', {
-  rast <- raster::raster(matrix(1:100, nrow=10),
-                         xmn=0, xmx=10, ymn=0, ymx=10,
-                         crs='+proj=longlat +datum=WGS84')
+  rast <- make_square_raster(1:100)
 
   poly <- make_circle(5, 5, 3, sf::st_crs(rast))
 
@@ -581,9 +581,7 @@ test_that('Error is raised for unknown summary operation', {
 })
 
 test_that('Error is raised if arguments passed to summary operation', {
-  rast <- raster::raster(matrix(1:100, nrow=10),
-                         xmn=0, xmx=10, ymn=0, ymx=10,
-                         crs='+proj=longlat +datum=WGS84')
+  rast <- make_square_raster(1:100)
 
   poly <- make_circle(5, 5, 3, sf::st_crs(rast))
 
