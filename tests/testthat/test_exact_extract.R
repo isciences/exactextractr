@@ -641,3 +641,37 @@ test_that('No error thrown when weighting with different resolution grid (regres
    exact_extract(v, poly, 'weighted_sum', weights=w)
    succeed()
 })
+
+test_that('We can get data frame output if we request it', {
+  rast <- make_square_raster(1:100)
+  names(rast) <- 'z'
+  poly <- c(make_circle(5, 5, 3, sf::st_crs(rast)),
+            make_circle(3, 1, 1, sf::st_crs(rast)))
+
+  vals <- exact_extract(rast, poly, 'mean', progress=FALSE)
+
+  # named summary operation
+  vals_df <- exact_extract(rast, poly, 'mean', force_df=TRUE, progress=FALSE)
+  expect_s3_class(vals_df, 'data.frame')
+  expect_equal(vals, vals_df[['mean']])
+
+  # R function
+  vals2_df <- exact_extract(rast, poly, weighted.mean, force_df=TRUE, progress=FALSE)
+  expect_s3_class(vals2_df, 'data.frame')
+  expect_equal(vals, vals2_df[['result']], tol=1e-6)
+})
+
+test_that('We can have include the input raster name in column names even if
+           the input raster has only one layer', {
+  rast <- make_square_raster(1:100)
+  names(rast) <- 'z'
+  poly <- c(make_circle(5, 5, 3, sf::st_crs(rast)),
+            make_circle(3, 1, 1, sf::st_crs(rast)))
+
+  vals <- exact_extract(rast, poly, c('mean', 'sum'), progress=FALSE)
+  expect_named(vals, c('mean', 'sum'))
+
+  # named summary operations
+  vals_named <- exact_extract(rast, poly, c('mean', 'sum'), full_colnames=TRUE, progress=FALSE)
+  expect_named(vals_named, c('mean.z', 'sum.z'))
+})

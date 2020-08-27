@@ -33,7 +33,8 @@ if (!isGeneric("exact_extract")) {
 #' of the summary operation for each feature in the input. If the input
 #' raster has multiple layers, or if multiple summary operations are specified,
 #' \code{exact_extract} will return a data frame with a row for each feature
-#' and a column for each summary operation / layer combination.
+#' and a column for each summary operation / layer combination. (The
+#' \code{force_df} can be used to always return a data frame instead of a vector.)
 #'
 #' The following summary operations are supported:
 #'
@@ -102,6 +103,13 @@ if (!isGeneric("exact_extract")) {
 #' @param     progress if \code{TRUE}, display a progress bar during processing
 #' @param     weights  a weighting raster to be used with the \code{weighted_mean}
 #'                     and \code{weighted_sum} summary operations.
+#' @param     force_df always return a data frame instead of a vector, even if
+#'                     \code{x} has only one layer and \code{fun} has length 1
+#' @param     full_colnames include the names of \code{x} in the names of the
+#'                          returned data frame, even if \code{x} has only one
+#'                          layer. This is useful when the results of multiple
+#'                          calls to \code{exact_extract} are combined with
+#'                          \code{cbind}.
 #' @param     ... additional arguments to pass to \code{fun}
 #' @return a vector or list of data frames, depending on the type of \code{x} and the
 #'         value of \code{fun} (see Details)
@@ -134,8 +142,21 @@ NULL
 #' @useDynLib exactextractr
 #' @rdname exact_extract
 #' @export
-setMethod('exact_extract', signature(x='Raster', y='sf'), function(x, y, fun=NULL, ..., include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE) {
-  exact_extract(x, sf::st_geometry(y), fun=fun, ..., include_xy=include_xy, progress=progress, max_cells_in_memory=max_cells_in_memory, include_cell=include_cell)
+setMethod('exact_extract', signature(x='Raster', y='sf'),
+          function(x, y, fun=NULL, ...,
+                   include_xy=FALSE,
+                   progress=TRUE,
+                   max_cells_in_memory=30000000,
+                   include_cell=FALSE,
+                   force_df=FALSE,
+                   full_colnames=FALSE) {
+  exact_extract(x, sf::st_geometry(y), fun=fun, ...,
+                include_xy=include_xy,
+                progress=progress,
+                max_cells_in_memory=max_cells_in_memory,
+                include_cell=include_cell,
+                force_df=force_df,
+                full_colnames=full_colnames)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -154,7 +175,14 @@ emptyVector <- function(rast) {
          numeric())
 }
 
-.exact_extract <- function(x, y, fun=NULL, ..., weights=NULL, include_xy=FALSE, progress=TRUE, max_cells_in_memory=30000000, include_cell=FALSE) {
+.exact_extract <- function(x, y, fun=NULL, ...,
+                           weights=NULL,
+                           include_xy=FALSE,
+                           progress=TRUE,
+                           max_cells_in_memory=30000000,
+                           include_cell=FALSE,
+                           force_df=FALSE,
+                           full_colnames=FALSE) {
   if(inherits(y, 'sfc_GEOMETRY')) {
     if (!all(sf::st_dimension(y) == 2)) {
       stop("Features in sfc_GEOMETRY must be polygonal")
@@ -224,35 +252,45 @@ emptyVector <- function(rast) {
     }
 
     if (is.character(fun)) {
+      # Compute all stats in C++
       results <- sapply(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
         update_progress()
         CPP_stats(x, weights, wkb, fun, max_cells_in_memory)
       })
 
-      if (length(fun) == 1 && raster::nlayers(x) == 1) {
+      if (length(fun) == 1 && raster::nlayers(x) == 1 && !force_df) {
         # Just return a vector of stat results
         return(as.vector(results))
       } else {
         # Return a data frame with a column for each stat
-        if (raster::nlayers(x) > 1) {
+        if (raster::nlayers(x) > 1 || full_colnames) {
           z <- expand.grid(names(x), fun, stringsAsFactors=TRUE)
           colnames <- mapply(paste, z[[2]], z[[1]], MoreArgs=list(sep='.'))
         } else {
           colnames <- fun
         }
 
-        results <- t(results)
+        if (is.matrix(results)) {
+          results <- t(results)
+        } else {
+          results <- matrix(results, nrow=length(results))
+        }
+
         dimnames(results) <- list(NULL, colnames)
         return(as.data.frame(results))
       }
     } else {
       if (is.null(fun)) {
-        appfn <- lapply # return list of data frames
+        # Return values and coverage fractions to user as a
+        # list of data frames
+        appfn <- lapply
       } else {
+        # Pass values and coverage fractions to an R function;
+        # return results to user
         appfn <- sapply
       }
 
-      appfn(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
+      ret <- appfn(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
         ret <- CPP_exact_extract(x, wkb)
 
         if (length(ret$weights) > 0) {
@@ -321,6 +359,12 @@ emptyVector <- function(rast) {
           }
         }
       })
+
+      if (force_df) {
+        ret <- data.frame(result = ret)
+      }
+
+      return(ret)
     }
   }, finally={
     readStop(x)

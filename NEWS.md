@@ -1,6 +1,7 @@
 # version 0.5.0
 
 - Add exact_resample
+- Add force_df and full_colnames arguments to exact_extract, to obtain output in a consistent format
 
 # version 0.4.0
 
