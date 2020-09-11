@@ -106,7 +106,7 @@ fi
 
 if test "${geosok}" = no; then
   AC_MSG_CHECKING(geos: linking with ${GEOS_STATIC_CLIBS})
-  ${CXX} ${CXXFLAGS} -o geos_test geos_test.cpp ${GEOS_STATIC_CLIBS} 2> errors.txt
+  ${CXX} ${CXXFLAGS} ${GEOS_CXXFLAGS} -o geos_test geos_test.cpp ${GEOS_STATIC_CLIBS} 2> errors.txt
   if test `echo $?` -ne 0 ; then
     geosok=no
     AC_MSG_RESULT(no)

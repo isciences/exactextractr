@@ -1855,7 +1855,7 @@ fi
 if test "${geosok}" = no; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking geos: linking with ${GEOS_STATIC_CLIBS}" >&5
 $as_echo_n "checking geos: linking with ${GEOS_STATIC_CLIBS}... " >&6; }
-  ${CXX} ${CXXFLAGS} -o geos_test geos_test.cpp ${GEOS_STATIC_CLIBS} 2> errors.txt
+  ${CXX} ${CXXFLAGS} ${GEOS_CXXFLAGS} -o geos_test geos_test.cpp ${GEOS_STATIC_CLIBS} 2> errors.txt
   if test `echo $?` -ne 0 ; then
     geosok=no
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
