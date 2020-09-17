@@ -110,6 +110,9 @@ if (!isGeneric("exact_extract")) {
 #'                          layer. This is useful when the results of multiple
 #'                          calls to \code{exact_extract} are combined with
 #'                          \code{cbind}.
+#' @param      stack_apply  if \code{TRUE}, apply \code{fun} to each layer of
+#'                          \code{x} independently. If \code{FALSE}, apply \code{fun}
+#'                          to all layers of \code{x} simultaneously.
 #' @param     ... additional arguments to pass to \code{fun}
 #' @return a vector or list of data frames, depending on the type of \code{x} and the
 #'         value of \code{fun} (see Details)
@@ -149,14 +152,16 @@ setMethod('exact_extract', signature(x='Raster', y='sf'),
                    max_cells_in_memory=30000000,
                    include_cell=FALSE,
                    force_df=FALSE,
-                   full_colnames=FALSE) {
+                   full_colnames=FALSE,
+                   stack_apply=FALSE) {
   exact_extract(x, sf::st_geometry(y), fun=fun, ...,
                 include_xy=include_xy,
                 progress=progress,
                 max_cells_in_memory=max_cells_in_memory,
                 include_cell=include_cell,
                 force_df=force_df,
-                full_colnames=full_colnames)
+                full_colnames=full_colnames,
+                stack_apply=stack_apply)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -182,7 +187,8 @@ emptyVector <- function(rast) {
                            max_cells_in_memory=30000000,
                            include_cell=FALSE,
                            force_df=FALSE,
-                           full_colnames=FALSE) {
+                           full_colnames=FALSE,
+                           stack_apply=FALSE) {
   if(inherits(y, 'sfc_GEOMETRY')) {
     if (!all(sf::st_dimension(y) == 2)) {
       stop("Features in sfc_GEOMETRY must be polygonal")
@@ -280,17 +286,7 @@ emptyVector <- function(rast) {
         return(as.data.frame(results))
       }
     } else {
-      if (is.null(fun)) {
-        # Return values and coverage fractions to user as a
-        # list of data frames
-        appfn <- lapply
-      } else {
-        # Pass values and coverage fractions to an R function;
-        # return results to user
-        appfn <- sapply
-      }
-
-      ret <- appfn(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
+      ret <- lapply(sf::st_as_binary(y, EWKB=TRUE), function(wkb) {
         ret <- CPP_exact_extract(x, wkb)
 
         if (length(ret$weights) > 0) {
@@ -318,30 +314,13 @@ emptyVector <- function(rast) {
         }
 
         if (include_xy) {
-          if (nrow(vals) == 0) {
-            vals$x <- numeric()
-            vals$y <- numeric()
-          } else {
-            x_coords <- raster::xFromCol(x, col=ret$col:(ret$col+ncol(ret$weights) - 1))
-            y_coords <- raster::yFromRow(x, row=ret$row:(ret$row+nrow(ret$weights) - 1))
-
-            vals$x <- rep.int(x_coords, times=nrow(ret$weights))
-            vals$y <- rep(y_coords, each=ncol(ret$weights))
-          }
+           vals <- .appendXY(vals, x, ret$row, nrow(ret$weights), ret$col, ncol(ret$weights))
         }
 
         if (include_cell) {
-          if (nrow(vals) == 0) {
-            vals$cell <- numeric()
-          } else {
-            rows <- rep(ret$row:(ret$row+nrow(ret$weights) - 1), each=ncol(ret$weights))
-            cols <- rep.int(ret$col:(ret$col+ncol(ret$weights) - 1),
-                                     times = nrow(ret$weights))
-            vals$cell <- raster::cellFromRowCol(x,
-                                           row=rows,
-                                           col=cols)
-          }
+          vals <- .appendCell(vals, x, ret$row, nrow(ret$weights), ret$col, ncol(ret$weights))
         }
+
         cov_fracs <- as.vector(t(ret$weights))
         vals <- vals[cov_fracs > 0, , drop=FALSE]
         cov_fracs <- cov_fracs[cov_fracs > 0]
@@ -353,15 +332,43 @@ emptyVector <- function(rast) {
           return(vals)
         } else {
           if (ncol(vals) == 1) {
+            # Only one layer, nothing appended (cells or XY)
             return(fun(vals[,1], cov_fracs, ...))
           } else {
-            return(fun(vals, cov_fracs, ...))
+            if (stack_apply) {
+              # Pass each layer in stack to callback individually
+              nlay <- raster::nlayers(x)
+              appended_cols <- seq_len(ncol(vals))[-seq_len(nlay)]
+
+              if (length(appended_cols) == 0) {
+                result <- lapply(seq_len(nlay), function(z)
+                  fun(vals[, z], cov_fracs, ...))
+              } else {
+                result <- lapply(seq_len(nlay), function(z)
+                  fun(cbind(data.frame(value=vals[, z]),
+                            vals[, c(appended_cols)]), cov_fracs, ...))
+              }
+
+              names(result) <- paste('fun', names(x), sep='.')
+              return(do.call(data.frame, result))
+            } else {
+              # Pass all layers to callback, to be handled together
+              return(fun(vals, cov_fracs, ...))
+            }
           }
         }
       })
 
-      if (force_df) {
-        ret <- data.frame(result = ret)
+      if (!is.null(fun)) {
+        if (class(ret[[1]]) == 'data.frame') {
+          ret <- do.call(rbind, ret)
+        } else {
+          ret <- simplify2array(ret)
+
+          if (force_df) {
+            ret <- data.frame(result = ret)
+          }
+        }
       }
 
       return(ret)
@@ -372,6 +379,34 @@ emptyVector <- function(rast) {
       readStop(weights)
     }
   })
+}
+
+.appendXY <- function(vals_df, rast, first_row, nrow, first_col, ncol) {
+  if (nrow(vals_df) == 0) {
+    vals_df$x <- numeric()
+    vals_df$y <- numeric()
+  } else {
+    x_coords <- raster::xFromCol(rast, col=seq(first_col, first_col + ncol - 1))
+    y_coords <- raster::yFromRow(rast, row=seq(first_row, first_row + nrow - 1))
+
+    vals_df$x <- rep(x_coords, times=nrow)
+    vals_df$y <- rep(y_coords, each=ncol)
+  }
+
+  return(vals_df)
+}
+
+.appendCell <- function(vals_df, rast, first_row, nrow, first_col, ncol) {
+  if (nrow(vals_df) == 0) {
+    vals_df$cell <- numeric()
+  } else {
+    rows <- rep(seq(first_row, first_row + nrow - 1), each = ncol)
+    cols <- rep(seq(first_col, first_col + ncol - 1), times = nrow)
+
+    vals_df$cell <- raster::cellFromRowCol(rast, row=rows, col=cols)
+  }
+
+  return(vals_df)
 }
 
 #' @useDynLib exactextractr
