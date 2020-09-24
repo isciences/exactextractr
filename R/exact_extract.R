@@ -35,6 +35,8 @@ if (!isGeneric("exact_extract")) {
 #' \code{exact_extract} will return a data frame with a row for each feature
 #' and a column for each summary operation / layer combination. (The
 #' \code{force_df} can be used to always return a data frame instead of a vector.)
+#' In all of the summary operations, \code{NA} values in the raster are ignored
+#' (i.e., \code{na.rm = TRUE).)
 #'
 #' The following summary operations are supported:
 #'
