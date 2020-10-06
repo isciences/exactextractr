@@ -721,3 +721,45 @@ test_that('We can have include the input raster name in column names even if
   vals_named <- exact_extract(rast, poly, c('mean', 'sum'), full_colnames=TRUE, progress=FALSE)
   expect_named(vals_named, c('mean.z', 'sum.z'))
 })
+
+test_that('We can summarize a categorical raster by returning a data frame from a custom function', {
+  set.seed(456) # smaller circle does not have class 5
+
+  classes <- c(1, 2, 3, 5)
+
+  rast <- raster::raster(xmn = 0, xmx = 10, ymn = 0, ymx = 10, res = 1)
+  values(rast) <- sample(classes, length(rast), replace = TRUE)
+
+  circles <- c(
+    make_circle(5, 4, 2, sf::st_crs(rast)),
+    make_circle(3, 1, 1, sf::st_crs(rast)))
+
+  # approach 1: classes known in advance
+  result <- exact_extract(rast, circles, function(x, c) {
+    row <- lapply(classes, function(cls) sum(c[x == cls]))
+    names(row) <- paste('sum', classes, sep='_')
+    do.call(data.frame, row)
+  }, progress = FALSE)
+
+  expect_named(result, c('sum_1', 'sum_2', 'sum_3', 'sum_5'))
+
+  # check a single value
+  expect_equal(result[2, 'sum_3'],
+               exact_extract(rast, circles[2, ], function(x, c) {
+                sum(c[x == 3])
+               }))
+
+  if (requireNamespace('dplyr', quietly = TRUE)) {
+    # approach 2: classes not known in advance (requires dplyr::bind_rows)
+    result2 <- exact_extract(rast, circles, function(x, c) {
+      found_classes <- unique(x)
+      row <- lapply(found_classes, function(cls) sum(c[x == cls]))
+      names(row) <- paste('sum', found_classes, sep='_')
+      do.call(data.frame, row)
+    }, progress = FALSE)
+
+    for (colname in names(result)) {
+      expect_equal(result[[colname]], dplyr::coalesce(result2[[colname]], 0))
+    }
+  }
+})

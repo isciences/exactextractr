@@ -4,6 +4,8 @@
 - Add force_df and full_colnames arguments to exact_extract, to obtain output in a consistent format
 - Add stack_apply argument to exact_extract to apply an R function individually to each layer in
   a RasterStack / RasterBrick.
+- Support returning a data frame from an R function applied to each polygon, then combining those
+  data frames with dplyr::bind_rows
 
 # version 0.4.0
 
