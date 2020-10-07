@@ -2,6 +2,8 @@
 
 - Add exact_resample
 - Add force_df and full_colnames arguments to exact_extract, to obtain output in a consistent format
+- Add stack_apply argument to exact_extract to apply an R function individually to each layer in
+  a RasterStack / RasterBrick.
 
 # version 0.4.0
 

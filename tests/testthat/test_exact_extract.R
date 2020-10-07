@@ -162,7 +162,7 @@ test_that('Generic sfc_GEOMETRY works if the features are polygonal', {
                        'MULTIPOLYGON (((2 2, 4 2, 4 4, 2 4, 2 2)), ((4 4, 8 4, 8 8, 4 8, 4 4)))'),
                      crs=sf::st_crs(rast))
 
-  expect_equal(exact_extract(rast, polys, 'count'),
+  expect_equal(exact_extract(rast, polys, 'count', progress = FALSE),
                c(4, 4+16))
 })
 
@@ -171,7 +171,7 @@ test_that('Generic sfc_GEOMETRY fails if a feature is not polygonal', {
   features <- st_as_sfc(c('POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))',
                           'POINT (2 7)'), crs=sf::st_crs(rast))
 
-  expect_error(exact_extract(rast, features, 'sum'),
+  expect_error(exact_extract(rast, features, 'sum', progress = FALSE),
                'must be polygonal')
 })
 
@@ -303,6 +303,52 @@ test_that('We can pass extracted RasterStack values to a C++ function', {
     expect_equal(nrow(twostats), 1)
     expect_named(twostats, c('variety.a', 'variety.b', 'mean.a', 'mean.b'))
   }
+})
+
+test_that('We can apply the same function to each layer of a RasterStack', {
+  set.seed(123)
+
+  stk <- raster::stack(list(a = make_square_raster(runif(100)),
+                            b = make_square_raster(runif(100))))
+
+  circles <- c(
+    make_circle(5, 4, 2, sf::st_crs(stk)),
+    make_circle(3, 1, 1, sf::st_crs(stk)))
+
+  # by default layers are processed together
+  expect_error(
+    exact_extract(stk, circles, weighted.mean, progress=FALSE),
+    'must have the same length'
+  )
+
+  # but we can process them independently with stack_apply
+  means <- exact_extract(stk, circles, weighted.mean, progress=FALSE, stack_apply=TRUE)
+
+  expect_named(means, c('fun.a', 'fun.b'))
+
+  # results are same as we would get by processing layers independently
+  for (i in 1:raster::nlayers(stk)) {
+    expect_equal(means[, i], exact_extract(stk[[i]], circles, weighted.mean, progress=FALSE))
+  }
+})
+
+test_that('We can use the stack_apply argument with include_xy and include_cols', {
+  set.seed(123)
+
+  stk <- raster::stack(list(a = make_square_raster(runif(100)),
+                            b = make_square_raster(runif(100))))
+
+  circles <- c(
+    make_circle(5, 4, 2, sf::st_crs(stk)),
+    make_circle(3, 1, 1, sf::st_crs(stk)))
+
+  result <- exact_extract(stk, circles, include_xy = TRUE, stack_apply = TRUE, progress = FALSE,
+                          function(df, frac) {
+                            weighted.mean(df$value[df$y > 1],
+                                          frac[df$y > 1])
+                          })
+
+  expect_named(result, c('fun.a', 'fun.b'))
 })
 
 test_that('We can summarize a RasterStack / RasterBrick using weights from a RasterLayer', {
