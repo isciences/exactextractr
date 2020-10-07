@@ -242,6 +242,7 @@ test_that('Incorrect argument types are handled gracefully', {
   expect_error(exact_extract(rast, multipoint, 'unable to find.* method'))
   expect_error(exact_extract(rast, multilinesetring, 'unable to find.* method'))
   expect_error(exact_extract(rast, geometrycollection, 'unable to find.* method'))
+
 })
 
 test_that('We can extract values from a RasterStack', {
@@ -462,14 +463,14 @@ test_that('We can optionally get cell center coordinates included in our output'
 
   expect_equal(results[, 'cell'], raster::cellFromXY(rast, results[, c('x', 'y')]))
 
-  # check the XY values of an individal cell with a known coverage fraction
+  # check the XY values of an individual cell with a known coverage fraction
   expect_equal( results[results[, 'x']==3.5 & results[,'y']==4.5, 'coverage_fraction'],
                 0.2968749999999998,
                 tolerance=1e-8,
                 check.attributes=FALSE)
 
   # we can also send the weights to a callback
-  exact_extract(rast, st_sf(data.frame(id=1), geom=poly), include_xy=TRUE, fun=function(values, weights) {
+  exact_extract(rast, sf::st_sf(data.frame(id=1), geom=poly), include_xy=TRUE, fun=function(values, weights) {
     expect_equal(3, ncol(values))
   })
 })
@@ -762,4 +763,35 @@ test_that('We can summarize a categorical raster by returning a data frame from 
       expect_equal(result[[colname]], dplyr::coalesce(result2[[colname]], 0))
     }
   }
+})
+
+test_that('Error is thrown when using include_xy or include_cell with named summary operation', {
+  rast <- make_square_raster(1:100)
+
+  poly <- make_circle(2.1, 2.1, 1, crs = sf::st_crs(rast))
+
+  expect_error(exact_extract(rast, poly, 'sum', include_xy = TRUE))
+
+  expect_error(exact_extract(rast, poly, 'sum', include_cell = TRUE))
+})
+
+test_that('We can append columns from the source data frame in the results', {
+  rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    fid = c(2, 9),
+    size = c('large', 'small'),
+    geometry =  c(
+    make_circle(5, 4, 2, sf::st_crs(rast)),
+    make_circle(3, 1, 1, sf::st_crs(rast))))
+
+  result_1 <- exact_extract(rast, circles, 'mean', append_cols = c('size', 'fid'), progress = FALSE)
+  expect_named(result_1, c('size', 'fid', 'mean'))
+
+  result_2 <- exact_extract(rast, circles, weighted.mean, append_cols = c('size', 'fid'), progress = FALSE)
+  # result_2 won't be identical to result_2 because the column names are different
+  # instead, check that the naming is consistent with what we get from the force_df argument
+  expect_identical(result_2,
+                   cbind(sf::st_drop_geometry(circles[, c('size', 'fid')]),
+                         exact_extract(rast, circles, weighted.mean, force_df = TRUE)))
 })
