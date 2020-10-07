@@ -27,6 +27,7 @@ pages:
   stage: deploy
   image: rocker/geospatial
   script:
+    - apt-get update && apt-get install --no-install-recommends -y libharfbuzz-dev libfribidi-dev
     - R -e "install.packages('pkgdown')"
     - R -e "devtools::document()"
     - R -e "pkgdown::build_site()"
