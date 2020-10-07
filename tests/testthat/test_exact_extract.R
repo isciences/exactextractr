@@ -765,14 +765,24 @@ test_that('We can summarize a categorical raster by returning a data frame from 
   }
 })
 
-test_that('Error is thrown when using include_xy or include_cell with named summary operation', {
+test_that('Error is thrown when using include_* with named summary operation', {
   rast <- make_square_raster(1:100)
 
-  poly <- make_circle(2.1, 2.1, 1, crs = sf::st_crs(rast))
+  circles <- st_sf(
+    fid = c(2, 9),
+    size = c('large', 'small'),
+    geometry =  c(
+    make_circle(5, 4, 2, sf::st_crs(rast)),
+    make_circle(3, 1, 1, sf::st_crs(rast))))
 
-  expect_error(exact_extract(rast, poly, 'sum', include_xy = TRUE))
+  expect_error(exact_extract(rast, circles, 'sum', include_xy = TRUE),
+               'include_xy must be FALSE')
 
-  expect_error(exact_extract(rast, poly, 'sum', include_cell = TRUE))
+  expect_error(exact_extract(rast, circles, 'sum', include_cell = TRUE),
+               'include_cell must be FALSE')
+
+  expect_error(exact_extract(rast, circles, 'sum', include_cols = 'fid'),
+               'include_cols not supported')
 })
 
 test_that('We can append columns from the source data frame in the results', {
@@ -794,4 +804,19 @@ test_that('We can append columns from the source data frame in the results', {
   expect_identical(result_2,
                    cbind(sf::st_drop_geometry(circles[, c('size', 'fid')]),
                          exact_extract(rast, circles, weighted.mean, force_df = TRUE)))
+})
+
+test_that('We can include columns from the source data frame in returned data frames', {
+  rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    fid = c(2, 9),
+    size = c('large', 'small'),
+    geometry =  c(
+    make_circle(5, 4, 2, sf::st_crs(rast)),
+    make_circle(3, 1, 1, sf::st_crs(rast))))
+
+  combined_result <- do.call(rbind, exact_extract(rast, circles, include_cols = 'fid'))
+  expect_named(combined_result, c('fid', 'value', 'coverage_fraction'))
+
 })

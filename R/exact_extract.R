@@ -36,7 +36,7 @@ if (!isGeneric("exact_extract")) {
 #' and a column for each summary operation / layer combination. (The
 #' \code{force_df} can be used to always return a data frame instead of a vector.)
 #' In all of the summary operations, \code{NA} values in the raster are ignored
-#' (i.e., \code{na.rm = TRUE).)
+#' (i.e., \code{na.rm = TRUE}.)
 #'
 #' The following summary operations are supported:
 #'
@@ -104,16 +104,21 @@ if (!isGeneric("exact_extract")) {
 #'                          layer. This is useful when the results of multiple
 #'                          calls to \code{exact_extract} are combined with
 #'                          \code{cbind}.
-#' @param     include_xy if \code{TRUE}, and \code{fun} is \code{NULL}, augment
-#'                       the returned data frames with columns for cell center
-#'                       coordinates (\code{x} and \code{y}). If \code{TRUE} and
-#'                       \code{fun} is not \code{NULL}, add \code{x} and {y} to
-#'                       the data frame passed to \code{fun}.
 #' @param     include_cell if \code{TRUE}, and \code{fun} is \code{NULL}, augment
-#'                       the returned data frames with a column for the cell
-#'                       index (\code{cell}). If \code{TRUE} and \code{fun} is
-#'                       not \code{NULL}, add \code{cell} to the data frame
-#'                       passed to \code{fun}.
+#'                       the returned data frame for each feature with a column
+#'                       for the cell index (\code{cell}). If \code{TRUE} and
+#'                       \code{fun} is not \code{NULL}, add \code{cell} to the
+#'                       data frame passed to \code{fun} for each feature.
+#' @param     include_cols an optional character vector of column names in
+#'                         \code{y} to be added to the data frame for each
+#'                         feature that is either returned (when \code{fun} is
+#'                         \code{NULL}) or passed to \code{fun}.
+#' @param     include_xy if \code{TRUE}, and \code{fun} is \code{NULL}, augment
+#'                       the returned data frame for each feature with columns
+#'                       for cell center coordinates (\code{x} and \code{y}). If
+#'                       \code{TRUE} and \code{fun} is not \code{NULL}, add
+#'                       \code{x} and {y} to the data frame passed to \code{fun}
+#'                       for each feature.
 #' @param     stack_apply   if \code{TRUE}, apply \code{fun} to each layer of
 #'                          \code{x} independently. If \code{FALSE}, apply \code{fun}
 #'                          to all layers of \code{x} simultaneously.
@@ -164,7 +169,8 @@ setMethod('exact_extract', signature(x='Raster', y='sf'),
                    force_df=FALSE,
                    full_colnames=FALSE,
                    stack_apply=FALSE,
-                   append_cols=NULL) {
+                   append_cols=NULL,
+                   include_cols=NULL) {
   .exact_extract(x, y, fun=fun, ...,
                 include_xy=include_xy,
                 progress=progress,
@@ -173,7 +179,8 @@ setMethod('exact_extract', signature(x='Raster', y='sf'),
                 force_df=force_df,
                 full_colnames=full_colnames,
                 stack_apply=stack_apply,
-                append_cols=append_cols)
+                append_cols=append_cols,
+                include_cols=include_cols)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -201,7 +208,8 @@ emptyVector <- function(rast) {
                            force_df=FALSE,
                            full_colnames=FALSE,
                            stack_apply=FALSE,
-                           append_cols=NULL) {
+                           append_cols=NULL,
+                           include_cols=NULL) {
   if(!is.null(append_cols)) {
     if (!inherits(y, 'sf')) {
       stop(sprintf('append_cols only supported for sf arguments (received %s)',
@@ -264,8 +272,12 @@ emptyVector <- function(rast) {
       stop("include_xy must be FALSE for named summary operations")
     }
 
-    if (include_cell){
+    if (include_cell) {
       stop("include_cell must be FALSE for named summary operations")
+    }
+
+    if (!is.null(include_cols)) {
+      stop("include_cols not supported for named_summary operations (see argument append_cols)")
     }
   }
 
@@ -361,6 +373,14 @@ emptyVector <- function(rast) {
 
         if (include_cell) {
           vals <- .appendCell(vals, x, ret$row, nrow(ret$weights), ret$col, ncol(ret$weights))
+        }
+
+        if (!is.null(include_cols)) {
+          # use vals as first argument to cbind, then rearrange names so that
+          # include_cols come first
+          vals <- cbind(vals,
+                        sf::st_drop_geometry(y[feature_num, include_cols]),
+                        row.names = NULL)[, c(include_cols, names(vals))]
         }
 
         cov_fracs <- as.vector(t(ret$weights))
