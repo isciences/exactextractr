@@ -363,7 +363,11 @@ emptyVector <- function(rast) {
 
       if (!is.null(fun)) {
         if (class(ret[[1]]) == 'data.frame') {
-          ret <- do.call(rbind, ret)
+          if (requireNamespace('dplyr', quietly = TRUE)) {
+            ret <- dplyr::bind_rows(ret) # handle column name mismatches
+          } else {
+            ret <- do.call(rbind, ret)
+          }
         } else {
           ret <- simplify2array(ret)
 
