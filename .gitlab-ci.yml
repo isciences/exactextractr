@@ -1,40 +1,79 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
 stages:
   - test
-  - deploy
+  - build
+  - release
 
-test-latest:
-  stage: test
-  image: rocker/geospatial:latest
-  script:
-    - apt-get update && apt-get install --no-install-recommends -y devscripts
-    - R -e "devtools::document()"
-    - R -e "devtools::check()"
-    - R -e "install.packages('DT'); covr::gitlab(quiet=FALSE)"
-  artifacts:
-    paths:
-      - public
+variables:
+  CONTAINER_TEST_IMAGE: isciences/exactextract:$CI_COMMIT_REF_NAME
+  CONTAINER_RELEASE_IMAGE: isciences/exactextract:latest
 
-test-devel:
-  stage: test
-  image: rocker/geospatial:devel
+.unittest_template: &unittest_definition
   script:
-    - apt-get update && apt-get install --no-install-recommends -y devscripts
-    - R -e "remotes::install_github('r-spatial/sf')"
-    - R -e "devtools::document()"
-    - R -e "devtools::check()"
+    - mkdir build-coverage
+    - cd build-coverage
+    - cmake -DCMAKE_BUILD_TYPE=Coverage ..
+    - make -j2 catch_tests
+    - valgrind --leak-check=full --error-exitcode=1 ./catch_tests
+  after_script:
+    - cd build-coverage
+    - lcov --capture --directory CMakeFiles --output-file coverage.info
+    - bash <(curl -s https://codecov.io/bash)
+
+test:geos35:
+  stage: test
+  image: isciences/exactextract-test-env:geos35
+  <<: *unittest_definition
+  
+test:geos36:
+  stage: test
+  image: isciences/exactextract-test-env:geos36
+  <<: *unittest_definition
+  
+test:geos37:
+  stage: test
+  image: isciences/exactextract-test-env:geos37
+  <<: *unittest_definition
+
+test:geos38:
+  stage: test
+  image: isciences/exactextract-test-env:geos38
+  <<: *unittest_definition
+
+build:
+  stage: build
+  script:
+    - docker login -u ci4isciences -p $DOCKERHUB_PW
+    - docker build --pull -t $CONTAINER_TEST_IMAGE .
+    - docker push $CONTAINER_TEST_IMAGE
 
 pages:
-  stage: deploy
-  image: rocker/geospatial
+  stage: release
+  image: isciences/exactextract-build-env:latest
   script:
-    - R -e "install.packages('pkgdown')"
-    - R -e "devtools::document()"
-    - R -e "pkgdown::build_site()"
-    - mkdir -p public
-    - mv docs/* public
+    - mkdir build-docs
+    - cd build-docs
+    - cmake ..
+    - make doc_doxygen
+    - mv html ../public
   artifacts:
     paths:
       - public
   only:
     - master
-    - gitlab-pages
+
+release-image:
+  stage: release
+  script:
+    - docker login -u ci4isciences -p $DOCKERHUB_PW
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+    - docker push $CONTAINER_RELEASE_IMAGE
+
+  only:
+    - master
+
