@@ -41,6 +41,9 @@ test_that("Basic stat functions work", {
   # Calling with a string computes a named operation from the C++ library
   expect_equal(exact_extract(rast, square, fun='count'), 4)
   expect_equal(exact_extract(rast, square, fun='mean'), 5)
+  expect_equal(exact_extract(rast, square, fun='median'), 5)
+  expect_equal(exact_extract(rast, square, fun='quantile', quantiles=0.25), 3.5)
+  expect_equal(exact_extract(rast, square, fun='quantile', quantiles=0.75), 6.5)
   expect_equal(exact_extract(rast, square, fun='min'), 1)
   expect_equal(exact_extract(rast, square, fun='max'), 9)
   expect_equal(exact_extract(rast, square, fun='mode'), 5)
@@ -55,7 +58,7 @@ test_that("Basic stat functions work", {
   expect_equal(exact_extract(rast, square, fun=c('min', 'max', 'mode')),
                data.frame(min=1, max=9, mode=5))
 
-  expect_equal(exact_extract(rast, c(square, square), fun=c('min', 'max', 'mode')),
+  expect_equal(exact_extract(rast, c(square, square), fun=c('min', 'max', 'mode'), progress = FALSE),
                data.frame(min=c(1, 1), max=c(9, 9), mode=c(5, 5)))
 })
 
@@ -242,7 +245,6 @@ test_that('Incorrect argument types are handled gracefully', {
   expect_error(exact_extract(rast, multipoint, 'unable to find.* method'))
   expect_error(exact_extract(rast, multilinesetring, 'unable to find.* method'))
   expect_error(exact_extract(rast, geometrycollection, 'unable to find.* method'))
-
 })
 
 test_that('We can extract values from a RasterStack', {
@@ -472,7 +474,7 @@ test_that('We can optionally get cell center coordinates included in our output'
   # we can also send the weights to a callback
   exact_extract(rast, sf::st_sf(data.frame(id=1), geom=poly), include_xy=TRUE, fun=function(values, weights) {
     expect_equal(3, ncol(values))
-  })
+  }, progress=FALSE)
 })
 
 test_that('Warning is raised on CRS mismatch', {
@@ -816,7 +818,39 @@ test_that('We can include columns from the source data frame in returned data fr
     make_circle(5, 4, 2, sf::st_crs(rast)),
     make_circle(3, 1, 1, sf::st_crs(rast))))
 
-  combined_result <- do.call(rbind, exact_extract(rast, circles, include_cols = 'fid'))
+  combined_result <- do.call(rbind, exact_extract(rast, circles, include_cols = 'fid', progress = FALSE))
   expect_named(combined_result, c('fid', 'value', 'coverage_fraction'))
+})
 
+test_that('We can get multiple quantiles with the "quantiles" argument', {
+ rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    fid = c(2, 9),
+    size = c('large', 'small'),
+    geometry =  c(
+    make_circle(5, 4, 2, sf::st_crs(rast)),
+    make_circle(3, 1, 1, sf::st_crs(rast))))
+
+  result <- exact_extract(rast, circles, 'quantile', quantiles=c(0.25, 0.50, 0.75), progress=FALSE)
+  expect_true(inherits(result, 'data.frame'))
+
+  expect_named(result, c('q25', 'q50', 'q75'))
+})
+
+test_that('Error is thrown if quantiles not specified or not valid', {
+ rast <- make_square_raster(1:100)
+ square <- make_rect(2, 2, 4, 4, crs=sf::st_crs(rast))
+
+ expect_error(exact_extract(rast, square, 'quantile'),
+              'Quantiles not specified')
+
+ expect_error(exact_extract(rast, square, 'quantile', quantiles=NA),
+              'must be between 0 and 1')
+
+ expect_error(exact_extract(rast, square, 'quantile', quantiles=c(0.5, 1.1)),
+              'must be between 0 and 1')
+
+ expect_error(exact_extract(rast, square, 'quantile', quantiles=numeric()),
+              'Quantiles not specified')
 })

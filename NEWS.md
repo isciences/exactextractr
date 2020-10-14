@@ -4,6 +4,7 @@
 - Add force_df and full_colnames arguments to exact_extract, to obtain output in a consistent format
 - Add include_cols and append_cols arguments to exact_extract for linking pixels values or  summarized 
   results to input features
+- Add median and quantile summary operations
 - Add stack_apply argument to exact_extract to apply an R function individually to each layer in
   a RasterStack / RasterBrick.
 - Support returning a data frame from an R function applied to each polygon, then combining those

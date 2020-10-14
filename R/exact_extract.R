@@ -51,6 +51,11 @@ if (!isGeneric("exact_extract")) {
 #'                       the fraction of the cell that is covered by the polygon}
 #'  \item{\code{mean} - the mean cell value, weighted by the fraction of each cell
 #'                      that is covered by the polygon}
+#'  \item{\code{median} - the median cell value, weighted by the fraction of each
+#'                        cell that is covered by the polygon}
+#'  \item{\code{quantile} - arbitrary quantile(s) of cell values, specified in
+#'                          \code{quantiles}, weighted by the fraction of each
+#'                          cell that is covered by the polygon}
 #'  \item{\code{mode} - the most common cell value, weighted by the fraction of
 #'                      each cell that is covered by the polygon. Where multiple
 #'                      values occupy the same maximum number of weighted cells,
@@ -94,6 +99,7 @@ if (!isGeneric("exact_extract")) {
 #' @param     fun an optional function or character vector, as described below
 #' @param     weights  a weighting raster to be used with the \code{weighted_mean}
 #'                     and \code{weighted_sum} summary operations.
+#' @param     quantiles   quantiles to be computed when \code{fun == 'quantile'}
 #' @param     append_cols when \code{fun} is not \code{NULL}, an optional
 #'                        character vector of columns from \code{y} to be
 #'                        included in returned data frame.
@@ -170,7 +176,8 @@ setMethod('exact_extract', signature(x='Raster', y='sf'),
                    full_colnames=FALSE,
                    stack_apply=FALSE,
                    append_cols=NULL,
-                   include_cols=NULL) {
+                   include_cols=NULL,
+                   quantiles=NULL) {
   .exact_extract(x, y, fun=fun, ...,
                 include_xy=include_xy,
                 progress=progress,
@@ -180,7 +187,8 @@ setMethod('exact_extract', signature(x='Raster', y='sf'),
                 full_colnames=full_colnames,
                 stack_apply=stack_apply,
                 append_cols=append_cols,
-                include_cols=include_cols)
+                include_cols=include_cols,
+                quantiles=quantiles)
 })
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -209,7 +217,8 @@ emptyVector <- function(rast) {
                            full_colnames=FALSE,
                            stack_apply=FALSE,
                            append_cols=NULL,
-                           include_cols=NULL) {
+                           include_cols=NULL,
+                           quantiles=NULL) {
   if(!is.null(append_cols)) {
     if (!inherits(y, 'sf')) {
       stop(sprintf('append_cols only supported for sf arguments (received %s)',
@@ -304,21 +313,20 @@ emptyVector <- function(rast) {
     if (is.character(fun)) {
       # Compute all stats in C++
       results <- sapply(sf::st_as_binary(sf::st_geometry(y), EWKB=TRUE), function(wkb) {
+        ret <- CPP_stats(x, weights, wkb, fun, max_cells_in_memory, quantiles)
         update_progress()
-        CPP_stats(x, weights, wkb, fun, max_cells_in_memory)
+        return(ret)
       })
 
-      if (length(fun) == 1 && raster::nlayers(x) == 1 && !force_df) {
+      if (length(fun) == 1 &&
+          raster::nlayers(x) == 1 &&
+          (is.null(quantiles) || length(quantiles) == 1) &&
+          !force_df) {
         # Just return a vector of stat results
         return(as.vector(results))
       } else {
         # Return a data frame with a column for each stat
-        if (raster::nlayers(x) > 1 || full_colnames) {
-          z <- expand.grid(names(x), fun, stringsAsFactors=TRUE)
-          colnames <- mapply(paste, z[[2]], z[[1]], MoreArgs=list(sep='.'))
-        } else {
-          colnames <- fun
-        }
+        colnames <- .cppStatColNames(x, fun, full_colnames, quantiles)
 
         if (is.matrix(results)) {
           results <- t(results)
@@ -477,6 +485,22 @@ emptyVector <- function(rast) {
   }
 
   return(vals_df)
+}
+
+.cppStatColNames <- function(rast, stat_names, full_colnames, quantiles) {
+  quantile_index = which(stat_names == 'quantile')
+  if (length(quantile_index) != 0) {
+    stat_names <- c(stat_names[seq_along(stat_names) < quantile_index],
+                    sprintf('q%02d', as.integer(100 * quantiles)),
+                    stat_names[seq_along(stat_names) > quantile_index])
+  }
+
+  if (raster::nlayers(rast) > 1 || full_colnames) {
+    z <- expand.grid(names(rast), stat_names, stringsAsFactors=TRUE)
+    mapply(paste, z[[2]], z[[1]], MoreArgs=list(sep='.'))
+  } else {
+    stat_names
+  }
 }
 
 #' @useDynLib exactextractr

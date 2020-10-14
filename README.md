@@ -66,6 +66,8 @@ The following summary operations are supported:
 | `majority` (or `mode`) | The raster value with the largest sum of coverage fractions. |
 | `max`                  | Maximum defined value of cells that intersect the polygon, ignoring coverage fractions. |
 | `mean`                 | Mean defined value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
+| `median`               | Median defined value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
+| `quantile`             | Arbitrary quantile value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
 | `min`                  | Minimum defined value of cells that intersect the polygon, ignoring coverage fractions. |
 | `minority`             | The raster value with the smallest sum of coverage fractions. |
 | `sum`                  | Sum of defined values of raster cells that intersect the polygon, with each raster value weighted by its coverage fraction. |
