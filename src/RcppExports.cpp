@@ -5,18 +5,6 @@
 
 using namespace Rcpp;
 
-// CPP_exact_extract
-Rcpp::List CPP_exact_extract(Rcpp::S4& rast, const Rcpp::RawVector& wkb);
-RcppExport SEXP _exactextractr_CPP_exact_extract(SEXP rastSEXP, SEXP wkbSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::S4& >::type rast(rastSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
-    rcpp_result_gen = Rcpp::wrap(CPP_exact_extract(rast, wkb));
-    return rcpp_result_gen;
-END_RCPP
-}
 // CPP_coverage_fraction
 Rcpp::S4 CPP_coverage_fraction(Rcpp::S4& rast, const Rcpp::RawVector& wkb, bool crop);
 RcppExport SEXP _exactextractr_CPP_coverage_fraction(SEXP rastSEXP, SEXP wkbSEXP, SEXP cropSEXP) {
@@ -27,6 +15,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
     Rcpp::traits::input_parameter< bool >::type crop(cropSEXP);
     rcpp_result_gen = Rcpp::wrap(CPP_coverage_fraction(rast, wkb, crop));
+    return rcpp_result_gen;
+END_RCPP
+}
+// CPP_exact_extract
+Rcpp::List CPP_exact_extract(Rcpp::S4& rast, const Rcpp::RawVector& wkb);
+RcppExport SEXP _exactextractr_CPP_exact_extract(SEXP rastSEXP, SEXP wkbSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::S4& >::type rast(rastSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
+    rcpp_result_gen = Rcpp::wrap(CPP_exact_extract(rast, wkb));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -61,8 +61,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 2},
     {"_exactextractr_CPP_coverage_fraction", (DL_FUNC) &_exactextractr_CPP_coverage_fraction, 3},
+    {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 2},
     {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 6},
     {"_exactextractr_CPP_resample", (DL_FUNC) &_exactextractr_CPP_resample, 3},
     {NULL, NULL, 0}
