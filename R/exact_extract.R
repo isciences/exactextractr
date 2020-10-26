@@ -349,58 +349,20 @@ emptyVector <- function(rast) {
       ret <- lapply(seq_along(geoms), function(feature_num) {
         wkb <- sf::st_as_binary(geoms[[feature_num]], EWKB=TRUE)
 
-        ret <- CPP_exact_extract(x, wkb)
-
-        if (length(ret$weights) > 0) {
-          vals <- raster::getValuesBlock(x,
-                                         row=ret$row,
-                                         col=ret$col,
-                                         nrow=nrow(ret$weights),
-                                         ncol=ncol(ret$weights))
-
-          if(is.matrix(vals)) {
-            vals <- as.data.frame(vals)
-          } else {
-            vals <- data.frame(value=vals)
-          }
-        } else {
-          # Polygon does not intersect raster.
-          # Construct a zero-row data frame with correct column names/types.
-          vals <- do.call(data.frame, lapply(seq_len(raster::nlayers(x)),
-                                                     function(i) emptyVector(x[[i]])))
-          if (raster::nlayers(x) == 1) {
-            names(vals) <- 'value'
-          } else {
-            names(vals) <- names(x)
-          }
-        }
-
-        if (include_xy) {
-           vals <- .appendXY(vals, x, ret$row, nrow(ret$weights), ret$col, ncol(ret$weights))
-        }
-
-        if (include_cell) {
-          vals <- .appendCell(vals, x, ret$row, nrow(ret$weights), ret$col, ncol(ret$weights))
-        }
-
         if (!is.null(include_cols)) {
-          # use vals as first argument to cbind, then rearrange names so that
-          # include_cols come first
-          vals <- cbind(vals,
-                        sf::st_drop_geometry(y[feature_num, include_cols]),
-                        row.names = NULL)[, c(include_cols, names(vals))]
+          include_cols <- sf::st_drop_geometry(y[feature_num, include_cols])
         }
 
-        cov_fracs <- as.vector(t(ret$weights))
-        vals <- vals[cov_fracs > 0, , drop=FALSE]
-        cov_fracs <- cov_fracs[cov_fracs > 0]
+        df <- CPP_exact_extract(x, NULL, wkb, include_xy, include_cell, include_cols)
 
         update_progress()
 
         if (is.null(fun)) {
-          vals$coverage_fraction <- cov_fracs
-          return(vals)
+          return(df)
         } else {
+          cov_fracs <- df$coverage_fraction
+          vals <- df[, -which(names(df) == 'coverage_fraction'), drop=FALSE]
+
           if (ncol(vals) == 1) {
             # Only one layer, nothing appended (cells or XY)
             return(fun(vals[,1], cov_fracs, ...))

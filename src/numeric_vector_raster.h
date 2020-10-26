@@ -10,12 +10,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#pragma once
 
 #include <Rcpp.h>
 
 #include "exactextract/src/raster.h"
 
 // Construct a Raster using an R vector for storage
+// This class uses row-major storage, consistent with the return value of
+// raster::getValuesBlock, but inconsistent with the representation of
+// matrices in R.
 class NumericVectorRaster : public exactextract::AbstractRaster<double> {
 public:
   NumericVectorRaster(const Rcpp::NumericVector & vec, const exactextract::Grid<exactextract::bounded_extent> & g) :
@@ -25,6 +29,10 @@ public:
 
   double operator()(size_t row, size_t col) const final {
     return m_vec[row*cols() + col];
+  }
+
+  const Rcpp::NumericVector vec() const {
+    return m_vec;
   }
 
 private:

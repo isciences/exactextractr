@@ -13,6 +13,8 @@
 
 // [[Rcpp::plugins("cpp14")]]
 
+#pragma once
+
 #include <memory>
 
 #include <Rcpp.h>

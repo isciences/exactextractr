@@ -39,53 +39,126 @@ using exactextract::raster_cell_intersection;
 using exactextract::RasterStats;
 using exactextract::RasterSource;
 
+#include <vector>
+#include <string>
 
 // [[Rcpp::export]]
-Rcpp::List CPP_exact_extract(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
+Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
+                                  Rcpp::Nullable<Rcpp::S4> & weights,
+                                  const Rcpp::RawVector & wkb,
+                                  bool include_xy,
+                                  bool include_cell_number,
+                                  Rcpp::Nullable<Rcpp::List> & include_cols) {
   GEOSAutoHandle geos;
+  Rcpp::Function names("names");
 
   auto grid = make_grid(rast);
-  auto coverage_fractions = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
+  auto weights_grid = exactextract::Grid<bounded_extent>::make_empty();
+  auto common_grid = grid;
 
-  size_t nrow = coverage_fractions.rows();
-  size_t ncol = coverage_fractions.cols();
+  S4RasterSource rsrc(rast);
+  int src_nlayers = get_nlayers(rast);
+  Rcpp::CharacterVector src_names = names(rast);
 
-  Rcpp::NumericMatrix weights = Rcpp::no_init(nrow, ncol);
-  for (size_t i = 0; i < nrow; i++) {
-    for (size_t j = 0; j < ncol; j++) {
-      weights(i, j) = coverage_fractions(i ,j);
+  std::unique_ptr<S4RasterSource> rweights;
+  int weights_nlayers = 0;
+  Rcpp::CharacterVector weights_names;
+  if (!weights.isNull()) {
+    Rcpp::S4 weights_s4 = weights.get();
+    weights_nlayers = get_nlayers(weights_s4);
+    weights_grid = make_grid(weights_s4);
+    common_grid = grid.common_grid(weights_grid);
+
+    rweights = std::make_unique<S4RasterSource>(weights_s4);
+    weights_names = names(weights_s4);
+  }
+
+  auto geom = read_wkb(geos.handle, wkb);
+
+  auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
+
+  common_grid = common_grid.crop(bbox);
+
+  auto coverage_fractions = raster_cell_intersection(common_grid, geos.handle, geom.get());
+  auto& cov_grid = coverage_fractions.grid();
+
+  Rcpp::List cols;
+
+  Rcpp::NumericVector coverage_fraction_vec = as_vector(coverage_fractions);
+  Rcpp::LogicalVector covered = coverage_fraction_vec > 0;
+
+  if (include_cols.isNotNull()) {
+    Rcpp::List include_cols_list = include_cols.get();
+    Rcpp::CharacterVector include_names = include_cols_list.attr("names");
+    for (int i = 0; i < include_names.size(); i++) {
+      std::string name(include_names[i]);
+      cols[name] = include_cols_list[name];
     }
   }
 
-  if (nrow > 0) {
-    size_t row_us = 1 + coverage_fractions.grid().row_offset(grid);
-    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
+  for (int i = 0; i < src_nlayers; i++) {
+    auto values = rsrc.read_box(cov_grid.extent(), i);
+    const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
 
+    // TODO Perhaps extend this to preserve types (integer, logical.)
+    // A bit challenging, since we don't know the type of the raster
+    // until we call getValuesBlock, and even then we can't be sure
+    // that the returned type is correct (as in a RasterStack with mixed types.)
+    // Since R integers are only 32-bit, we are not going to lose data by
+    // converting everything to numeric, although we pay a storage penalty.
+    Rcpp::NumericVector value_vec = r->vec();
+    if (grid.dx() != common_grid.dx() || grid.dy() != common_grid.dy() ||
+        value_vec.size() != covered.size()) {
+      // Transform values to common grid
+      RasterView<double> rt(*r, common_grid);
+      value_vec = as_vector(rt);
+    }
+
+    value_vec = value_vec[covered];
+
+    if (src_nlayers == 1) {
+      cols["value"] = value_vec;
+    } else {
+      cols[std::string(src_names[i])] = value_vec;
     }
   }
 
-  int row = NA_INTEGER;
-  int col = NA_INTEGER;
-  if (nrow > 0) {
-    size_t row_us = (1 + coverage_fractions.grid().row_offset(grid));
-    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
-      throw std::runtime_error("Cannot represent row offset as an R integer");
+  for (int i = 0; i < weights_nlayers; i++) {
+    auto values = rweights->read_box(cov_grid.extent(), i);
+    const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
+
+    Rcpp::NumericVector weight_vec = r->vec();
+
+    if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
+        weight_vec.size() != covered.size()) {
+      // Transform weights to common grid
+      RasterView<double> rt (*r, common_grid);
+
+      weight_vec = as_vector(rt);
     }
-    row = static_cast<int>(row_us);
-  }
-  if (ncol > 0) {
-    size_t col_us = (1 + coverage_fractions.grid().col_offset(grid));
-    if (col_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
-      throw std::runtime_error("Cannot represent column offset as an R integer");
+
+    weight_vec = weight_vec[covered];
+
+    if (weights_nlayers == 1) {
+      cols["weight"] = weight_vec;
+    } else {
+      cols[std::string(weights_names[i])] = weight_vec;
     }
-    col = static_cast<int>(col_us);
   }
 
-  return Rcpp::List::create(
-    Rcpp::Named("row")     = row,
-    Rcpp::Named("col")     = col,
-    Rcpp::Named("weights") = weights
-  );
+  if (include_xy) {
+    // TODO these should probably be from the common grid?
+    cols["x"] = get_x_values(rast, cov_grid)[covered];
+    cols["y"] = get_y_values(rast, cov_grid)[covered];
+  }
+
+  if (include_cell_number) {
+    cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+  }
+
+  cols["coverage_fraction"] = coverage_fraction_vec[covered];
+
+  return Rcpp::DataFrame(cols);
 }
 
 

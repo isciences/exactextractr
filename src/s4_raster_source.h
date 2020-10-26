@@ -10,6 +10,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#pragma once
 
 #include <memory>
 
@@ -26,7 +27,10 @@ public:
   S4RasterSource(Rcpp::S4 rast) :
     m_grid(exactextract::Grid<exactextract::bounded_extent>::make_empty()),
     m_rast(rast),
-    m_last_box(0, 0, 0, 0)
+    m_last_box(std::numeric_limits<double>::quiet_NaN(),
+               std::numeric_limits<double>::quiet_NaN(),
+               std::numeric_limits<double>::quiet_NaN(),
+               std::numeric_limits<double>::quiet_NaN())
   {
     m_grid = make_grid(rast);
   }
