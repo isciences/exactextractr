@@ -240,11 +240,7 @@ emptyVector <- function(rast) {
       stop("Weights must be a Raster object.")
     }
 
-    if (!is.character(fun)) {
-      stop("Weighting raster can only be used with named summary operations.")
-    }
-
-    if (!any(startsWith(fun, "weighted"))) {
+    if (is.character(fun) && !any(startsWith(fun, "weighted"))) {
       warning("Weights provided but no requested operations use them.")
     }
 
@@ -353,7 +349,7 @@ emptyVector <- function(rast) {
           include_cols <- sf::st_drop_geometry(y[feature_num, include_cols])
         }
 
-        df <- CPP_exact_extract(x, NULL, wkb, include_xy, include_cell, include_cols)
+        df <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols)
 
         update_progress()
 
@@ -363,6 +359,8 @@ emptyVector <- function(rast) {
           cov_fracs <- df$coverage_fraction
           vals <- df[, -which(names(df) == 'coverage_fraction'), drop=FALSE]
 
+
+
           if (ncol(vals) == 1) {
             # Only one layer, nothing appended (cells or XY)
             return(fun(vals[,1], cov_fracs, ...))
@@ -370,6 +368,10 @@ emptyVector <- function(rast) {
             if (stack_apply) {
               # Pass each layer in stack to callback individually
               nlay <- raster::nlayers(x)
+
+              # TODO check length of weights; it must be 1 or nlay
+
+
               appended_cols <- seq_len(ncol(vals))[-seq_len(nlay)]
 
               if (length(appended_cols) == 0) {

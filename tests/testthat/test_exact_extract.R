@@ -380,15 +380,6 @@ test_that('We can summarize a RasterStack / RasterBrick using weights from a Ras
                "Weights must be a Raster")
 })
 
-test_that('We get an error trying to use weights without a named summary operation', {
-  rast <- make_square_raster(1:100)
-  weights <- make_square_raster(runif(100))
-  circle <- make_circle(5, 4, 2, sf::st_crs(rast))
-
-  expect_error(exact_extract(rast, circle, function(value, coverage_fraction) { value }, weights=weights),
-               'Weighting raster can only be used with named summary operations')
-})
-
 test_that('We get acceptable default values when processing a polygon that does not intersect the raster', {
   rast <- raster::raster(matrix(runif(100), nrow=5),
                          xmn=-180, xmx=180, ymn=-65, ymx=85,
@@ -853,4 +844,79 @@ test_that('Error is thrown if quantiles not specified or not valid', {
 
  expect_error(exact_extract(rast, square, 'quantile', quantiles=numeric()),
               'Quantiles not specified')
+})
+
+test_that('When value and weighting rasters have different grids, cell numbers refer to value raster', {
+  anom <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90, res=10)
+  values(anom) <- rnorm(length(anom))
+
+  pop <- raster(xmn=-180, xmx=180, ymn=-65, ymx=85, res=5)
+  values(pop) <- rlnorm(length(pop))
+
+  circle <- make_circle(17, 21, 18, sf::st_crs(anom))
+
+  suppressWarnings({
+    extracted <- exact_extract(anom, circle, weights=pop, include_cell=TRUE)[[1]]
+  })
+
+  expect_equal(extracted$value, anom[extracted$cell])
+})
+
+test_that('Warning emitted when value raster is disaggregated', {
+  r1 <- make_square_raster(1:100)
+  r2 <- make_square_raster(runif(100))
+  r1d <- raster::disaggregate(r1, 2)
+  r2d <- raster::disaggregate(r2, 2)
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(r1))
+
+  # no warning, values and weights have same resolution
+  expect_silent(exact_extract(r1, circle, weights=r2))
+
+  # no warning, values have higher resolution than weights
+  expect_silent(exact_extract(r1d, circle, weights=r2))
+
+  # warning, weights have higher resolution than values
+  expect_warning(exact_extract(r1, circle, weights=r2d),
+                 'value .* disaggregated')
+})
+
+test_that('Error raised when value raster is disaggregated and unweighted sum/count requested', {
+  r1 <- make_square_raster(1:100)
+  r1d <- raster::disaggregate(r1, 2)
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(r1))
+
+  # no error, requested operations either expect disaggregation
+  # or are not impacted by it
+  exact_extract(r1, circle, c('weighted_sum', 'weighted_mean', 'mean'), weights=r1d)
+
+  # on the other hand, "count" would be messed up by the disaggregation
+  expect_error(exact_extract(r1, circle, c('weighted_sum', 'count'), weights=r1d),
+               'raster is disaggregated')
+
+  # as would "sum"
+  expect_error(exact_extract(r1, circle, c('weighted_sum', 'count'), weights=r1d),
+               'raster is disaggregated')
+
+  # no problem if the weights are disaggregated, though
+  expect_silent(exact_extract(r1d, circle, c('weighted_sum', 'count'), weights=r1))
+})
+
+test_that('Both value and weighting rasters can be a stack', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('a', 'b', 'c')
+
+  weights <- stack(replicate(2, make_square_raster(rbinom(100, 2, 0.5))))
+  names(weights) <- c('w1', 'w2')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  extracted <- exact_extract(vals, circle, weights=weights)[[1]]
+
+  expect_named(extracted, c('a', 'b', 'c', 'w1', 'w2', 'coverage_fraction'))
+
+  exact_extract(vals, circle, function(values, coverage_fractions) {
+    expect_named(values, c('a', 'b', 'c'))
+  }, weights = weights)
 })

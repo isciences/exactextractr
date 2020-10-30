@@ -71,6 +71,10 @@ Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
 
     rweights = std::make_unique<S4RasterSource>(weights_s4);
     weights_names = names(weights_s4);
+
+    if (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy()) {
+      Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
+    }
   }
 
   auto geom = read_wkb(geos.handle, wkb);
@@ -193,6 +197,13 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
       weighted = true;
     }
 
+    auto geom = read_wkb(geos.handle, wkb);
+    auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
+
+    auto grid = weighted ? rsrc.grid().common_grid(rweights->grid()) : rsrc.grid();
+
+    bool disaggregated = (grid.dx() < rsrc.grid().dx() || grid.dy() < rsrc.grid().dy());
+
     bool store_values = false;
     int stat_result_size = 0;
     for (const auto & stat : stats) {
@@ -210,6 +221,11 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
           (stat == std::string("weighted_mean") ||
           stat == std::string("weighted_sum"))) {
         Rcpp::stop("Weighted stat requested but no weights provided.");
+      }
+
+      if (disaggregated && (stat == std::string("count") ||
+                            stat == std::string("sum"))) {
+        Rcpp::stop("Cannot compute 'count' or 'sum' when value raster is disaggregated to resolution of weights.");
       }
 
       if (stat == std::string("quantile")) {
@@ -237,11 +253,6 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     }
 
     Rcpp::NumericMatrix stat_results = Rcpp::no_init(nlayers, stat_result_size);
-
-    auto geom = read_wkb(geos.handle, wkb);
-    auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
-
-    auto grid = weighted ? rsrc.grid().common_grid(rweights->grid()) : rsrc.grid();
 
     if (bbox.intersects(grid.extent())) {
       auto cropped_grid = grid.crop(bbox);
