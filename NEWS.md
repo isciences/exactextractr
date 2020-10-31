@@ -1,3 +1,7 @@
+# version 0.5.1
+
+- Fix bug causing progress bar to jump to 100%
+
 # version 0.5.0
 
 - Add exact_resample
