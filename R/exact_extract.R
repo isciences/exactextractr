@@ -286,8 +286,10 @@ emptyVector <- function(rast) {
     }
   }
 
-  if (progress && length(y) > 1) {
-    n <- length(y)
+  geoms <- sf::st_geometry(y)
+
+  if (progress && length(geoms) > 1) {
+    n <- length(geoms)
     pb <- utils::txtProgressBar(min = 0, max = n, initial=0, style=3)
     update_progress <- function() {
       i <- 1 + utils::getTxtProgressBar(pb)
@@ -308,7 +310,7 @@ emptyVector <- function(rast) {
 
     if (is.character(fun)) {
       # Compute all stats in C++
-      results <- sapply(sf::st_as_binary(sf::st_geometry(y), EWKB=TRUE), function(wkb) {
+      results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
         ret <- CPP_stats(x, weights, wkb, fun, max_cells_in_memory, quantiles)
         update_progress()
         return(ret)
@@ -340,8 +342,6 @@ emptyVector <- function(rast) {
         return(ret)
       }
     } else {
-      geoms <- sf::st_geometry(y)
-
       ret <- lapply(seq_along(geoms), function(feature_num) {
         wkb <- sf::st_as_binary(geoms[[feature_num]], EWKB=TRUE)
 

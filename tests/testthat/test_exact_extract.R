@@ -965,7 +965,7 @@ test_that('We get an error if using stack_apply with incompatible stacks', {
   names(vals) <- c('a', 'b', 'c')
 
   weights <- stack(replicate(2, make_square_raster(runif(100))))
-  names(weights) <- c('d', 'e', 'f')
+  names(weights) <- c('d', 'e')
 
   circle <- make_circle(2, 7, 3, sf::st_crs(vals))
 
@@ -991,4 +991,34 @@ test_that('Layers are implicity renamed if value layers have same name as weight
   result <- exact_extract(vals, circle, weights=weights)[[1]]
   # FIXME not sure what the adjusted names should actually be
   expect_named(result, c('a', 'b', 'ax', 'bx', 'coverage_fraction'))
+})
+
+test_that('Progress bar updates incrementally', {
+
+  rast <- make_square_raster(1:100)
+
+  npolys <- 13
+
+  polys <- st_sf(fid = seq_len(npolys),
+                 geometry = st_sfc(replicate(npolys, {
+                   x <- runif(1, min=0, max=10)
+                   y <- runif(1, min=0, max=10)
+                   r <- runif(1, min=0, max=2)
+                   make_circle(x, y, r, crs=sf::st_crs(rast))
+                 }), crs=sf::st_crs(rast)))
+
+  for (fun in list('sum', weighted.mean)) {
+    for (input in list(polys, sf::st_geometry(polys))) {
+      output <- capture.output(q <- exact_extract(rast, input, fun))
+      lines <- strsplit(output, '\r', fixed=TRUE)[[1]]
+      numlines <- lines[endsWith(lines, '%')]
+      len <- nchar(numlines[1])
+      pcts <- as.integer(substr(numlines, len - 3, len - 1))
+
+      expect_length(pcts, 1 + npolys)
+      expect_equal(pcts[1], 0)
+      expect_equal(pcts[length(pcts)], 100)
+      expect_false(is.unsorted(pcts))
+    }
+  }
 })
