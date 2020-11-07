@@ -355,40 +355,80 @@ emptyVector <- function(rast) {
 
         if (is.null(fun)) {
           return(df)
-        } else {
-          cov_fracs <- df$coverage_fraction
-          vals <- df[, -which(names(df) == 'coverage_fraction'), drop=FALSE]
+        }
+        ###
 
+        num_values <- raster::nlayers(x)
+        num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
+        num_included <- ncol(df) - 1 - num_values - num_weights # x, y, cell
 
+        # TODO change return structure of CPP_exact_extract so this stuff
+        # doesn't have to be parsed out?
+        vals_df <- df[, seq_len(num_values), drop=FALSE]
+        weights_df <- df[, num_values + seq_len(num_weights), drop=FALSE]
+        included_cols_df <- df[, num_values + num_weights + seq_len(num_included), drop=FALSE]
+        cov_fracs <- df$coverage_fraction
 
-          if (ncol(vals) == 1) {
-            # Only one layer, nothing appended (cells or XY)
-            return(fun(vals[,1], cov_fracs, ...))
+        if (stack_apply || (num_values == 1 && num_weights <= 1)) {
+          if (num_values > 1 && num_weights > 1 && num_values != num_weights) {
+            stop(sprintf("Can't apply function layerwise with stacks of %d value layers and %d layers", num_values, num_weights))
+          }
+
+          num_results <- max(num_weights, num_values)
+
+          if (num_weights == 0) {
+            vi <- seq_len(num_values)
           } else {
-            if (stack_apply) {
-              # Pass each layer in stack to callback individually
-              nlay <- raster::nlayers(x)
+            # Compute indices for the value and weight layers that should be
+            # processed together
+            vi <- rep_len(seq_len(num_values), num_results)
+            wi <- rep_len(seq_len(num_weights), num_results)
 
-              # TODO check length of weights; it must be 1 or nlay
-
-
-              appended_cols <- seq_len(ncol(vals))[-seq_len(nlay)]
-
-              if (length(appended_cols) == 0) {
-                result <- lapply(seq_len(nlay), function(z)
-                  fun(vals[, z], cov_fracs, ...))
-              } else {
-                result <- lapply(seq_len(nlay), function(z)
-                  fun(cbind(data.frame(value=vals[, z]),
-                            vals[, c(appended_cols)]), cov_fracs, ...))
-              }
-
-              names(result) <- paste('fun', names(x), sep='.')
-              return(do.call(data.frame, result))
-            } else {
-              # Pass all layers to callback, to be handled together
-              return(fun(vals, cov_fracs, ...))
+            if (num_values == num_weights) {
+              # process in parallel
+              vi <- seq_len(num_values)
+              wi <- seq_len(num_weights)
+            } else if (num_values == 1 && num_weights > 1) {
+              # recycle values
+              vi <- rep.int(1, num_weights)
+              wi <- seq_len(num_weights)
+            } else if (num_values > 1 && num_weights == 1) {
+              # recycle weights
+              vi <- seq_len(num_values)
+              wi <- rep.int(1, num_values)
             }
+          }
+
+          result <- lapply(seq_len(num_results), function(i) {
+            vx <- vals_df[, vi[i]]
+            if (num_included > 0) {
+              vx <- cbind(data.frame(value = vx), included_cols_df)
+            }
+            if (num_weights == 0) {
+              fun(vx, cov_fracs, ...)
+            } else {
+              fun(vx, cov_fracs, weights_df[, wi[i]], ...)
+            }
+          })
+
+          if (num_results == 1) {
+            return(result[[1]])
+          }
+
+          if (num_weights == 0) {
+            names(result) <- paste('fun', names(x), sep='.')
+          } else {
+            names(result) <- sprintf('fun.%s.%s', names(x)[vi], names(weights)[wi])
+          }
+
+          return(do.call(data.frame, result))
+        } else {
+          # Pass all layers to callback, to be handled together
+          # Included columns (x/y/cell) are passed with the values.
+          if (num_weights == 0) {
+            return(fun(cbind(vals_df, included_cols_df), cov_fracs, ...))
+          } else {
+            return(fun(cbind(vals_df, included_cols_df), cov_fracs, weights_df, ...))
           }
         }
       })

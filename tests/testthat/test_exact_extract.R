@@ -916,7 +916,79 @@ test_that('Both value and weighting rasters can be a stack', {
 
   expect_named(extracted, c('a', 'b', 'c', 'w1', 'w2', 'coverage_fraction'))
 
-  exact_extract(vals, circle, function(values, coverage_fractions) {
-    expect_named(values, c('a', 'b', 'c'))
+  exact_extract(vals, circle, function(v, c, w) {
+    expect_named(v, names(vals))
+    expect_named(w, names(weights))
   }, weights = weights)
+})
+
+test_that('We can use stack_apply with both values and weights', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('v1', 'v2', 'v3')
+
+  weights <- stack(replicate(3, make_square_raster(rbinom(100, 2, 0.5))))
+  names(weights) <- c('w1', 'w2', 'w3')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  weighted_mean <- function(v, c, w) {
+    expect_equal(length(v), length(c))
+    expect_equal(length(v), length(w))
+
+    weighted.mean(v, c*w)
+  }
+
+  # stack of values, stack of weights: values and weights are applied pairwise
+  result <- exact_extract(vals, circle, weighted_mean, weights = weights, stack_apply = TRUE)
+  expect_named(result, c('fun.v1.w1', 'fun.v2.w2', 'fun.v3.w3'))
+  expect_equal(result$fun.v2.w2,
+               exact_extract(vals[[2]], circle, 'weighted_mean', weights=weights[[2]]),
+               tol = 1e-6)
+
+  # stack of values, layer of weights: weights are recycled
+  result <- exact_extract(vals, circle, weighted_mean, weights = weights[[2]], stack_apply = TRUE)
+  expect_named(result, c('fun.v1.w2', 'fun.v2.w2', 'fun.v3.w2'))
+  expect_equal(result$fun.v1.w2,
+               exact_extract(vals[[1]], circle, 'weighted_mean', weights=weights[[2]]),
+               tol = 1e-6)
+
+  # layer of values, stack of weights: values are recycled
+  result <- exact_extract(vals[[3]], circle, weighted_mean, weights = weights, stack_apply = TRUE)
+  expect_named(result, c('fun.v3.w1', 'fun.v3.w2', 'fun.v3.w3'))
+  expect_equal(result$fun.v3.w1,
+               exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[1]]),
+               tol = 1e-6)
+})
+
+test_that('We get an error if using stack_apply with incompatible stacks', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('a', 'b', 'c')
+
+  weights <- stack(replicate(2, make_square_raster(runif(100))))
+  names(weights) <- c('d', 'e', 'f')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  expect_error(
+    exact_extract(vals, circle, function(v, c, w) 1, weights=weights, stack_apply=TRUE),
+    "Can't apply")
+})
+
+test_that('Layers are implicity renamed if value layers have same name as weight layers', {
+  # this happens when a stack is created and no names are provided
+  # raster package assigns layer.1, layer.2
+  # here we assign our own identical names to avoid relying on raster package
+  # implementation detail
+
+  vals <- stack(replicate(2, make_square_raster(runif(100))))
+  names(vals) <- c('a', 'b')
+
+  weights <- stack(replicate(2, make_square_raster(runif(100))))
+  names(weights) <- c('a', 'b')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  result <- exact_extract(vals, circle, weights=weights)[[1]]
+  # FIXME not sure what the adjusted names should actually be
+  expect_named(result, c('a', 'b', 'ax', 'bx', 'coverage_fraction'))
 })
