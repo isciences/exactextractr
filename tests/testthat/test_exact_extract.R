@@ -979,7 +979,6 @@ test_that('Layers are implicity renamed if value layers have same name as weight
   # raster package assigns layer.1, layer.2
   # here we assign our own identical names to avoid relying on raster package
   # implementation detail
-
   vals <- stack(replicate(2, make_square_raster(runif(100))))
   names(vals) <- c('a', 'b')
 
@@ -989,8 +988,7 @@ test_that('Layers are implicity renamed if value layers have same name as weight
   circle <- make_circle(2, 7, 3, sf::st_crs(vals))
 
   result <- exact_extract(vals, circle, weights=weights)[[1]]
-  # FIXME not sure what the adjusted names should actually be
-  expect_named(result, c('a', 'b', 'ax', 'bx', 'coverage_fraction'))
+  expect_named(result, c('a', 'b', 'a.1', 'b.1', 'coverage_fraction'))
 })
 
 test_that('Progress bar updates incrementally', {

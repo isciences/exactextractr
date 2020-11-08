@@ -146,7 +146,15 @@ Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
     if (weights_nlayers == 1) {
       cols["weight"] = weight_vec;
     } else {
-      cols[std::string(weights_names[i])] = weight_vec;
+      std::string colname(weights_names[i]);
+      if (cols.containsElementNamed(colname.c_str())) {
+        // append ".1" to the column name, to match the behavior of
+        // data.frame(). We're safe to just add ".1" (instead of incrementing
+        // .1 to .2, for example) because duplicated names within the values
+        // or weight stack will already have been made unique by raster::stack()
+        colname = colname + ".1"; // append .1
+      }
+      cols[colname] = weight_vec;
     }
   }
 
