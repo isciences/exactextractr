@@ -6,6 +6,8 @@
 # version 0.5.1
 
 - Fix bug causing progress bar to jump to 100%
+- Fix check for data frame in return from R function in exact_extract to allow for derived data
+  frame types such as tibbles.
 
 # version 0.5.0
 
