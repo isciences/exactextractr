@@ -371,10 +371,6 @@ test_that('We can summarize a RasterStack / RasterBrick using weights from a Ras
                           weighted_mean.b = 163.0014),
                tolerance=1e-6)
 
-  # error when trying to use a stack as weights
-  expect_error(exact_extract(stk, circle, 'weighted_mean', weights=stk),
-               "Weighting raster must have only a single layer")
-
   # error when trying to use a non-raster as weights
   expect_error(exact_extract(stk, circle, 'weighted_mean', weights='stk'),
                "Weights must be a Raster")
@@ -889,7 +885,7 @@ test_that('Error raised when value raster is disaggregated and unweighted sum/co
 
   # no error, requested operations either expect disaggregation
   # or are not impacted by it
-  exact_extract(r1, circle, c('weighted_sum', 'weighted_mean', 'mean'), weights=r1d)
+  expect_silent(exact_extract(r1, circle, c('weighted_sum', 'weighted_mean', 'mean'), weights=r1d))
 
   # on the other hand, "count" would be messed up by the disaggregation
   expect_error(exact_extract(r1, circle, c('weighted_sum', 'count'), weights=r1d),
@@ -920,6 +916,50 @@ test_that('Both value and weighting rasters can be a stack', {
     expect_named(v, names(vals))
     expect_named(w, names(weights))
   }, weights = weights)
+})
+
+test_that('Named summary operations support both stacks of values and weights', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('v1', 'v2', 'v3')
+
+  weights <- stack(replicate(3, make_square_raster(rbinom(100, 2, 0.5))))
+  names(weights) <- c('w1', 'w2', 'w3')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  stats <- c('sum', 'weighted_mean')
+
+  # stack of values, stack of weights: values and weights are applied pairwise
+  result <- exact_extract(vals, circle, stats, weights=weights)
+  expect_named(result, c(
+    'sum.v1', 'sum.v2', 'sum.v3',
+    'weighted_mean.v1.w1', 'weighted_mean.v2.w2', 'weighted_mean.v3.w3'))
+  expect_equal(result$sum.v1, exact_extract(vals[[1]], circle, 'sum'))
+  expect_equal(result$sum.v2, exact_extract(vals[[2]], circle, 'sum'))
+  expect_equal(result$sum.v3, exact_extract(vals[[3]], circle, 'sum'))
+  expect_equal(result$weighted_mean.v1, exact_extract(vals[[1]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.v2, exact_extract(vals[[2]], circle, 'weighted_mean', weights=weights[[2]]))
+  expect_equal(result$weighted_mean.v3, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[3]]))
+
+  # stack of values, layer of weights: weights are recycled
+  result <- exact_extract(vals, circle, stats, weights=weights[[1]])
+  expect_named(result, c(
+    'sum.v1', 'sum.v2', 'sum.v3',
+    'weighted_mean.v1', 'weighted_mean.v2', 'weighted_mean.v3'))
+  expect_equal(result$sum.v1, exact_extract(vals[[1]], circle, 'sum'))
+  expect_equal(result$sum.v2, exact_extract(vals[[2]], circle, 'sum'))
+  expect_equal(result$sum.v3, exact_extract(vals[[3]], circle, 'sum'))
+  expect_equal(result$weighted_mean.v1, exact_extract(vals[[1]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.v2, exact_extract(vals[[2]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.v3, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[1]]))
+
+  # layer of values, stack of weights: values are recycled
+  result <- exact_extract(vals[[3]], circle, stats, weights=weights)
+  expect_named(result, c('sum', 'weighted_mean.w1', 'weighted_mean.w2', 'weighted_mean.w3'))
+  expect_equal(result$sum, exact_extract(vals[[3]], circle, 'sum'))
+  expect_equal(result$weighted_mean.w1, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.w2, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[2]]))
+  expect_equal(result$weighted_mean.w3, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[3]]))
 })
 
 test_that('We can use stack_apply with both values and weights', {
@@ -1019,4 +1059,50 @@ test_that('Progress bar updates incrementally', {
       expect_false(is.unsorted(pcts))
     }
   }
+})
+
+test_that('generated column names follow expected pattern', {
+  values <- c('v1', 'v2', 'v3')
+  weights <- c('w1', 'w2', 'w3')
+
+  stats <- c('mean', 'weighted_mean')
+
+  # layer of values, no weights
+  expect_equal(.cppStatColNames(values[[2]], NULL, c('mean', 'sum'), TRUE, numeric()),
+               c('mean.v2', 'sum.v2'))
+  expect_equal(.cppStatColNames(values[[2]], NULL, c('mean', 'sum'), FALSE, numeric()),
+               c('mean', 'sum'))
+
+  # stack of values, no weights
+  expect_equal(.cppStatColNames(values, NULL, c('mean', 'sum'), TRUE, numeric()),
+               c('mean.v1', 'mean.v2', 'mean.v3',
+                 'sum.v1', 'sum.v2', 'sum.v3'))
+  expect_equal(.cppStatColNames(values, NULL, c('mean', 'sum'), FALSE, numeric()),
+               c('mean.v1', 'mean.v2', 'mean.v3',
+                 'sum.v1', 'sum.v2', 'sum.v3'))
+
+  # values, weights processed in parallel
+  expect_equal(.cppStatColNames(values, weights, stats, TRUE, numeric()),
+               c('mean.v1', 'mean.v2', 'mean.v3',
+                 'weighted_mean.v1.w1', 'weighted_mean.v2.w2', 'weighted_mean.v3.w3'))
+
+  # values recycled (full names)
+  expect_equal(.cppStatColNames(values[1], weights, stats, TRUE, numeric()),
+               c('mean.v1', 'mean.v1', 'mean.v1',
+                 'weighted_mean.v1.w1', 'weighted_mean.v1.w2', 'weighted_mean.v1.w3'))
+
+  # here the values are always the same so we don't bother adding them to the names
+  expect_equal(.cppStatColNames(values[1], weights, stats, FALSE, numeric()),
+               c('mean', 'mean', 'mean',
+                 'weighted_mean.w1', 'weighted_mean.w2', 'weighted_mean.w3'))
+
+  # weights recycled (full names)
+  expect_equal(.cppStatColNames(values, weights[1], stats, TRUE, numeric()),
+               c('mean.v1', 'mean.v2', 'mean.v3',
+                 'weighted_mean.v1.w1', 'weighted_mean.v2.w1', 'weighted_mean.v3.w1'))
+
+  # here the weights are always the same so we don't bother adding them to the name
+  expect_equal(.cppStatColNames(values, weights[1], stats, FALSE, numeric()),
+               c('mean.v1', 'mean.v2', 'mean.v3',
+                 'weighted_mean.v1', 'weighted_mean.v2', 'weighted_mean.v3'))
 })

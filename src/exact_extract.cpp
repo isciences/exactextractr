@@ -173,7 +173,17 @@ Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
   return Rcpp::DataFrame(cols);
 }
 
+template<typename T>
+static bool requires_stored_values(T s) {
+  return s == "mode" ||
+    s == "majority" ||
+    s == "minority" ||
+    s == "variety" ||
+    s == "median" ||
+    s == "quantile";
+}
 
+// Return a matrix with one row per stat and one row per raster layer
 // [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               Rcpp::Nullable<Rcpp::S4> weights,
@@ -194,11 +204,13 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
     std::unique_ptr<S4RasterSource> rweights;
     bool weighted = false;
+    int nweights = 0;
     if (weights.isNotNull()) {
       Rcpp::S4 weights_s4 = weights.get();
+      nweights = get_nlayers(weights_s4);
 
-      if (get_nlayers(weights_s4) != 1) {
-        Rcpp::stop("Weighting raster must have only a single layer.");
+      if (nlayers > 1 && nweights > 1 && nlayers != nweights) {
+        Rcpp::stop("Incompatible number of layers in value and weighting rasters");
       }
 
       rweights = std::make_unique<S4RasterSource>(weights_s4);
@@ -215,21 +227,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     bool store_values = false;
     int stat_result_size = 0;
     for (const auto & stat : stats) {
-      // explicit construction of std::string seems necessary to avoid ambiguous overload error
-      if (stat == std::string("mode") ||
-          stat == std::string("majority") ||
-          stat == std::string("minority") ||
-          stat == std::string("variety") ||
-          stat == std::string("median") ||
-          stat == std::string("quantile")) {
-        store_values = true;
-      }
-
-      if (!weighted &&
-          (stat == std::string("weighted_mean") ||
-          stat == std::string("weighted_sum"))) {
-        Rcpp::stop("Weighted stat requested but no weights provided.");
-      }
+      store_values = store_values || requires_stored_values(stat);
 
       if (disaggregated && (stat == std::string("count") ||
                             stat == std::string("sum"))) {
@@ -254,13 +252,15 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
       }
     }
 
+    int nresults = std::max(nlayers, nweights);
+
     std::vector<RasterStats<double>> raster_stats;
-    raster_stats.reserve(nlayers);
-    for (int i = 0; i < nlayers; i++) {
+    raster_stats.reserve(nresults);
+    for (int i = 0; i < nresults; i++) {
       raster_stats.emplace_back(store_values);
     }
 
-    Rcpp::NumericMatrix stat_results = Rcpp::no_init(nlayers, stat_result_size);
+    Rcpp::NumericMatrix stat_results = Rcpp::no_init(nresults, stat_result_size);
 
     if (bbox.intersects(grid.extent())) {
       auto cropped_grid = grid.crop(bbox);
@@ -271,11 +271,30 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
         if (!cov_grid.empty()) {
           if (weighted) {
-            auto weights = rweights->read_box(cov_grid.extent(), 0);
+            if (nlayers > nweights) {
+              // recycle weights
+              auto weights = rweights->read_box(cov_grid.extent(), 0);
 
-            for (int i = 0; i < nlayers; i++) {
-              auto values = rsrc.read_box(cov_grid.extent(), i);
-              raster_stats[i].process(coverage_fraction, *values, *weights);
+              for (int i = 0; i < nlayers; i++) {
+                auto values = rsrc.read_box(cov_grid.extent(), i);
+                raster_stats[i].process(coverage_fraction, *values, *weights);
+              }
+            } else if (nweights > nlayers) {
+              // recycle values
+              auto values = rsrc.read_box(cov_grid.extent(), 0);
+
+              for (int i = 0; i < nweights; i++) {
+                auto weights = rweights->read_box(cov_grid.extent(), i);
+                raster_stats[i].process(coverage_fraction, *values, *weights);
+              }
+            } else {
+              // process values and weights in parallel
+              for (int i = 0; i < nlayers; i++) {
+                auto values = rsrc.read_box(cov_grid.extent(), i);
+                auto weights = rweights->read_box(cov_grid.extent(), i);
+
+                raster_stats[i].process(coverage_fraction, *values, *weights);
+              }
             }
           } else {
             for (int i = 0; i < nlayers; i++) {
@@ -287,7 +306,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
       }
     }
 
-    for (int j = 0; j < nlayers; j++) {
+    for (int j = 0; j < nresults; j++) {
       const auto& rs = raster_stats[j];
 
       int i = 0;

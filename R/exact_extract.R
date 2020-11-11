@@ -309,22 +309,24 @@ emptyVector <- function(rast) {
     }
 
     if (is.character(fun)) {
-      # Compute all stats in C++
+      # Compute all stats in C++.
+      # CPP_stats returns a matrix, which gets turned into a column by sapply
+      # Results has one column per feature and one row per stat/raster layer
+      if(is.null(weights) && any(.isWeighted(fun))) {
+        stop("Weighted stat requested but no weights provided.")
+      }
+
       results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
         ret <- CPP_stats(x, weights, wkb, fun, max_cells_in_memory, quantiles)
         update_progress()
         return(ret)
       })
 
-      if (length(fun) == 1 &&
-          raster::nlayers(x) == 1 &&
-          (is.null(quantiles) || length(quantiles) == 1) &&
-          !force_df) {
-        # Just return a vector of stat results
-        return(as.vector(results))
+      if (!is.matrix(results) && !force_df) {
+        return(results)
       } else {
         # Return a data frame with a column for each stat
-        colnames <- .cppStatColNames(x, fun, full_colnames, quantiles)
+        colnames <- .cppStatColNames(names(x), names(weights), fun, full_colnames, quantiles)
 
         if (is.matrix(results)) {
           results <- t(results)
@@ -334,6 +336,10 @@ emptyVector <- function(rast) {
 
         dimnames(results) <- list(NULL, colnames)
         ret <- as.data.frame(results)
+
+        # drop duplicated columns (occurs when an unweighted stat is
+        # requested alongside a weighted stat, with a stack of weights)
+        ret <- ret[, unique(names(ret)), drop = FALSE]
 
         if (!is.null(append_cols)) {
           ret <- cbind(sf::st_drop_geometry(y[, append_cols]), ret)
@@ -356,7 +362,6 @@ emptyVector <- function(rast) {
         if (is.null(fun)) {
           return(df)
         }
-        ###
 
         num_values <- raster::nlayers(x)
         num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
@@ -375,39 +380,17 @@ emptyVector <- function(rast) {
           }
 
           num_results <- max(num_weights, num_values)
-
-          if (num_weights == 0) {
-            vi <- seq_len(num_values)
-          } else {
-            # Compute indices for the value and weight layers that should be
-            # processed together
-            vi <- rep_len(seq_len(num_values), num_results)
-            wi <- rep_len(seq_len(num_weights), num_results)
-
-            if (num_values == num_weights) {
-              # process in parallel
-              vi <- seq_len(num_values)
-              wi <- seq_len(num_weights)
-            } else if (num_values == 1 && num_weights > 1) {
-              # recycle values
-              vi <- rep.int(1, num_weights)
-              wi <- seq_len(num_weights)
-            } else if (num_values > 1 && num_weights == 1) {
-              # recycle weights
-              vi <- seq_len(num_values)
-              wi <- rep.int(1, num_values)
-            }
-          }
+          ind <- .valueWeightIndexes(num_values, num_weights)
 
           result <- lapply(seq_len(num_results), function(i) {
-            vx <- vals_df[, vi[i]]
+            vx <- vals_df[, ind$values[i]]
             if (num_included > 0) {
               vx <- cbind(data.frame(value = vx), included_cols_df)
             }
             if (num_weights == 0) {
               fun(vx, cov_fracs, ...)
             } else {
-              fun(vx, cov_fracs, weights_df[, wi[i]], ...)
+              fun(vx, cov_fracs, weights_df[, ind$weights[i]], ...)
             }
           })
 
@@ -418,7 +401,7 @@ emptyVector <- function(rast) {
           if (num_weights == 0) {
             names(result) <- paste('fun', names(x), sep='.')
           } else {
-            names(result) <- sprintf('fun.%s.%s', names(x)[vi], names(weights)[wi])
+            names(result) <- sprintf('fun.%s.%s', names(x)[ind$values], names(weights)[ind$weights])
           }
 
           return(do.call(data.frame, result))
@@ -491,7 +474,34 @@ emptyVector <- function(rast) {
   return(vals_df)
 }
 
-.cppStatColNames <- function(rast, stat_names, full_colnames, quantiles) {
+.isWeighted <- function(stat_name) {
+  stat_name %in% c('weighted_mean', 'weighted_sum')
+}
+
+#' Compute indexes for the value and weight layers that should be
+#' processed together
+.valueWeightIndexes <- function(num_values, num_weights) {
+  if (num_weights == 0) {
+    vi <- seq_len(num_values)
+    wi <- NA
+  } else if (num_values == num_weights) {
+    # process in parallel
+    vi <- seq_len(num_values)
+    wi <- seq_len(num_weights)
+  } else if (num_values == 1 && num_weights > 1) {
+    # recycle values
+    vi <- rep.int(1, num_weights)
+    wi <- seq_len(num_weights)
+  } else if (num_values > 1 && num_weights == 1) {
+    # recycle weights
+    vi <- seq_len(num_values)
+    wi <- rep.int(1, num_values)
+  }
+
+  list(values = vi, weights = wi)
+}
+
+.cppStatColNames <- function(value_names, weight_names, stat_names, full_colnames, quantiles) {
   quantile_index = which(stat_names == 'quantile')
   if (length(quantile_index) != 0) {
     stat_names <- c(stat_names[seq_along(stat_names) < quantile_index],
@@ -499,9 +509,34 @@ emptyVector <- function(rast) {
                     stat_names[seq_along(stat_names) > quantile_index])
   }
 
-  if (raster::nlayers(rast) > 1 || full_colnames) {
-    z <- expand.grid(names(rast), stat_names, stringsAsFactors=TRUE)
-    mapply(paste, z[[2]], z[[1]], MoreArgs=list(sep='.'))
+  ind <- .valueWeightIndexes(length(value_names), length(weight_names))
+  vn <- value_names[ind$values]
+  wn <- weight_names[ind$weights]
+
+  if (length(vn) > 1 || full_colnames) {
+    # determine all combinations of index and stat
+    z <- expand.grid(index=seq_along(vn),
+                     stat=stat_names, stringsAsFactors=FALSE)
+    z$value <- vn[z$index]
+    if (is.null(wn)) {
+      z$weights <- NA
+    } else {
+      z$weights <- wn[z$index]
+    }
+
+    # construct column names for each index, stat
+    # add weight layer name only if layer is ambiguously weighted
+    mapply(function(stat, value, weight) {
+      ret <- stat
+      if (full_colnames || length(value_names) > 1) {
+        ret <- paste(ret, value, sep='.')
+      }
+      if (.isWeighted(stat) && (full_colnames || length(weight_names) > 1)) {
+        ret <- paste(ret, weight, sep='.')
+      }
+
+      return(ret)
+    }, z$stat, z$value, z$weight, USE.NAMES = FALSE)
   } else {
     stat_names
   }

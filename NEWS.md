@@ -1,3 +1,8 @@
+# version 0.6.0
+
+- Support use of RasterStack weights in exact_extract named summary operations
+- Support use of weights in exact_extract R summary functions
+
 # version 0.5.1
 
 - Fix bug causing progress bar to jump to 100%
