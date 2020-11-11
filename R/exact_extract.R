@@ -430,7 +430,7 @@ emptyVector <- function(rast) {
       })
 
       if (!is.null(fun)) {
-        if (class(ret[[1]]) == 'data.frame') {
+        if (all(sapply(ret, is.data.frame))) {
           if (requireNamespace('dplyr', quietly = TRUE)) {
             ret <- dplyr::bind_rows(ret) # handle column name mismatches
           } else {
