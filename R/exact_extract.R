@@ -326,7 +326,7 @@ emptyVector <- function(rast) {
         return(results)
       } else {
         # Return a data frame with a column for each stat
-        colnames <- .cppStatColNames(names(x), names(weights), fun, full_colnames, quantiles)
+        colnames <- .resultColNames(names(x), names(weights), fun, full_colnames, quantiles)
 
         if (is.matrix(results)) {
           results <- t(results)
@@ -398,11 +398,7 @@ emptyVector <- function(rast) {
             return(result[[1]])
           }
 
-          if (num_weights == 0) {
-            names(result) <- paste('fun', names(x), sep='.')
-          } else {
-            names(result) <- sprintf('fun.%s.%s', names(x)[ind$values], names(weights)[ind$weights])
-          }
+          names(result) <- .resultColNames(names(x), names(weights), fun, full_colnames)
 
           return(do.call(data.frame, result))
         } else {
@@ -472,74 +468,6 @@ emptyVector <- function(rast) {
   }
 
   return(vals_df)
-}
-
-.isWeighted <- function(stat_name) {
-  stat_name %in% c('weighted_mean', 'weighted_sum')
-}
-
-#' Compute indexes for the value and weight layers that should be
-#' processed together
-.valueWeightIndexes <- function(num_values, num_weights) {
-  if (num_weights == 0) {
-    vi <- seq_len(num_values)
-    wi <- NA
-  } else if (num_values == num_weights) {
-    # process in parallel
-    vi <- seq_len(num_values)
-    wi <- seq_len(num_weights)
-  } else if (num_values == 1 && num_weights > 1) {
-    # recycle values
-    vi <- rep.int(1, num_weights)
-    wi <- seq_len(num_weights)
-  } else if (num_values > 1 && num_weights == 1) {
-    # recycle weights
-    vi <- seq_len(num_values)
-    wi <- rep.int(1, num_values)
-  }
-
-  list(values = vi, weights = wi)
-}
-
-.cppStatColNames <- function(value_names, weight_names, stat_names, full_colnames, quantiles) {
-  quantile_index = which(stat_names == 'quantile')
-  if (length(quantile_index) != 0) {
-    stat_names <- c(stat_names[seq_along(stat_names) < quantile_index],
-                    sprintf('q%02d', as.integer(100 * quantiles)),
-                    stat_names[seq_along(stat_names) > quantile_index])
-  }
-
-  ind <- .valueWeightIndexes(length(value_names), length(weight_names))
-  vn <- value_names[ind$values]
-  wn <- weight_names[ind$weights]
-
-  if (length(vn) > 1 || full_colnames) {
-    # determine all combinations of index and stat
-    z <- expand.grid(index=seq_along(vn),
-                     stat=stat_names, stringsAsFactors=FALSE)
-    z$value <- vn[z$index]
-    if (is.null(wn)) {
-      z$weights <- NA
-    } else {
-      z$weights <- wn[z$index]
-    }
-
-    # construct column names for each index, stat
-    # add weight layer name only if layer is ambiguously weighted
-    mapply(function(stat, value, weight) {
-      ret <- stat
-      if (full_colnames || length(value_names) > 1) {
-        ret <- paste(ret, value, sep='.')
-      }
-      if (.isWeighted(stat) && (full_colnames || length(weight_names) > 1)) {
-        ret <- paste(ret, weight, sep='.')
-      }
-
-      return(ret)
-    }, z$stat, z$value, z$weight, USE.NAMES = FALSE)
-  } else {
-    stat_names
-  }
 }
 
 #' @useDynLib exactextractr

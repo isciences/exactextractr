@@ -327,7 +327,7 @@ test_that('We can apply the same function to each layer of a RasterStack', {
   # but we can process them independently with stack_apply
   means <- exact_extract(stk, circles, weighted.mean, progress=FALSE, stack_apply=TRUE)
 
-  expect_named(means, c('fun.a', 'fun.b'))
+  expect_named(means, c('weighted.mean.a', 'weighted.mean.b'))
 
   # results are same as we would get by processing layers independently
   for (i in 1:raster::nlayers(stk)) {
@@ -986,14 +986,14 @@ test_that('We can use stack_apply with both values and weights', {
                tol = 1e-6)
 
   # stack of values, layer of weights: weights are recycled
-  result <- exact_extract(vals, circle, weighted_mean, weights = weights[[2]], stack_apply = TRUE)
+  result <- exact_extract(vals, circle, weighted_mean, weights = weights[[2]], stack_apply = TRUE, full_colnames = TRUE)
   expect_named(result, c('fun.v1.w2', 'fun.v2.w2', 'fun.v3.w2'))
   expect_equal(result$fun.v1.w2,
                exact_extract(vals[[1]], circle, 'weighted_mean', weights=weights[[2]]),
                tol = 1e-6)
 
   # layer of values, stack of weights: values are recycled
-  result <- exact_extract(vals[[3]], circle, weighted_mean, weights = weights, stack_apply = TRUE)
+  result <- exact_extract(vals[[3]], circle, weighted_mean, weights = weights, stack_apply = TRUE, full_colnames = TRUE)
   expect_named(result, c('fun.v3.w1', 'fun.v3.w2', 'fun.v3.w3'))
   expect_equal(result$fun.v3.w1,
                exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[1]]),
@@ -1067,42 +1067,70 @@ test_that('generated column names follow expected pattern', {
 
   stats <- c('mean', 'weighted_mean')
 
+  test_mean <- function(x, c) { weighted.mean(x, c) }
+
   # layer of values, no weights
-  expect_equal(.cppStatColNames(values[[2]], NULL, c('mean', 'sum'), TRUE, numeric()),
+  # named summary operations
+  expect_equal(.resultColNames(values[[2]], NULL, c('mean', 'sum'), TRUE),
                c('mean.v2', 'sum.v2'))
-  expect_equal(.cppStatColNames(values[[2]], NULL, c('mean', 'sum'), FALSE, numeric()),
+  expect_equal(.resultColNames(values[[2]], NULL, c('mean', 'sum'), FALSE),
                c('mean', 'sum'))
 
+  # generic method (we can recover its name)
+  expect_equal(.resultColNames(values[[2]], NULL, weighted.mean, TRUE),
+               'weighted.mean.v2')
+  expect_equal(.resultColNames(values[[2]], NULL, weighted.mean, FALSE),
+               'weighted.mean')
+
+  # regular function (we can't recover its name)
+  expect_equal(.resultColNames(values[[2]], NULL, test_mean, TRUE),
+               'fun.v2')
+  expect_equal(.resultColNames(values[[2]], NULL, test_mean, FALSE),
+               'fun')
+
   # stack of values, no weights
-  expect_equal(.cppStatColNames(values, NULL, c('mean', 'sum'), TRUE, numeric()),
-               c('mean.v1', 'mean.v2', 'mean.v3',
-                 'sum.v1', 'sum.v2', 'sum.v3'))
-  expect_equal(.cppStatColNames(values, NULL, c('mean', 'sum'), FALSE, numeric()),
-               c('mean.v1', 'mean.v2', 'mean.v3',
-                 'sum.v1', 'sum.v2', 'sum.v3'))
+  for (full_colnames in c(TRUE, FALSE)) {
+    expect_equal(.resultColNames(values, NULL, c('mean', 'sum'), full_colnames),
+                 c('mean.v1', 'mean.v2', 'mean.v3',
+                   'sum.v1', 'sum.v2', 'sum.v3'))
+    expect_equal(.resultColNames(values, NULL, test_mean, full_colnames),
+                 c('fun.v1', 'fun.v2', 'fun.v3'))
+  }
 
   # values, weights processed in parallel
-  expect_equal(.cppStatColNames(values, weights, stats, TRUE, numeric()),
-               c('mean.v1', 'mean.v2', 'mean.v3',
-                 'weighted_mean.v1.w1', 'weighted_mean.v2.w2', 'weighted_mean.v3.w3'))
+  for (full_colnames in c(TRUE, FALSE)) {
+    expect_equal(.resultColNames(values, weights, stats, full_colnames),
+                 c('mean.v1', 'mean.v2', 'mean.v3',
+                   'weighted_mean.v1.w1', 'weighted_mean.v2.w2', 'weighted_mean.v3.w3'))
+    expect_equal(.resultColNames(values, weights, test_mean, full_colnames),
+                 c('fun.v1.w1', 'fun.v2.w2', 'fun.v3.w3'))
+  }
 
   # values recycled (full names)
-  expect_equal(.cppStatColNames(values[1], weights, stats, TRUE, numeric()),
+  expect_equal(.resultColNames(values[1], weights, stats, TRUE),
                c('mean.v1', 'mean.v1', 'mean.v1',
                  'weighted_mean.v1.w1', 'weighted_mean.v1.w2', 'weighted_mean.v1.w3'))
+  expect_equal(.resultColNames(values[1], weights, test_mean, TRUE),
+               c('fun.v1.w1', 'fun.v1.w2', 'fun.v1.w3'))
 
   # here the values are always the same so we don't bother adding them to the names
-  expect_equal(.cppStatColNames(values[1], weights, stats, FALSE, numeric()),
+  expect_equal(.resultColNames(values[1], weights, stats, FALSE),
                c('mean', 'mean', 'mean',
                  'weighted_mean.w1', 'weighted_mean.w2', 'weighted_mean.w3'))
+  expect_equal(.resultColNames(values[1], weights, test_mean, FALSE),
+               c('fun.w1', 'fun.w2', 'fun.w3'))
 
   # weights recycled (full names)
-  expect_equal(.cppStatColNames(values, weights[1], stats, TRUE, numeric()),
+  expect_equal(.resultColNames(values, weights[1], stats, TRUE),
                c('mean.v1', 'mean.v2', 'mean.v3',
                  'weighted_mean.v1.w1', 'weighted_mean.v2.w1', 'weighted_mean.v3.w1'))
+  expect_equal(.resultColNames(values, weights[1], test_mean, TRUE),
+               c('fun.v1.w1', 'fun.v2.w1', 'fun.v3.w1'))
 
   # here the weights are always the same so we don't bother adding them to the name
-  expect_equal(.cppStatColNames(values, weights[1], stats, FALSE, numeric()),
+  expect_equal(.resultColNames(values, weights[1], stats, FALSE),
                c('mean.v1', 'mean.v2', 'mean.v3',
                  'weighted_mean.v1', 'weighted_mean.v2', 'weighted_mean.v3'))
+  expect_equal(.resultColNames(values, weights[1], test_mean, FALSE),
+               c('fun.v1', 'fun.v2', 'fun.v3'))
 })
