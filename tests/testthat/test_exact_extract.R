@@ -912,10 +912,31 @@ test_that('Both value and weighting rasters can be a stack', {
 
   expect_named(extracted, c('a', 'b', 'c', 'w1', 'w2', 'coverage_fraction'))
 
+  # stack of values, stack of weights: both passed as data frames
   exact_extract(vals, circle, function(v, c, w) {
+    expect_true(is.data.frame(v))
+    expect_true(is.data.frame(w))
     expect_named(v, names(vals))
     expect_named(w, names(weights))
   }, weights = weights)
+
+  # stack of values, single layer of weights: weights passed as vector
+  exact_extract(vals, circle, function(v, c, w) {
+    expect_true(is.data.frame(v))
+    expect_true(is.vector(w))
+  }, weights = weights[[1]])
+
+  # single layer of values, stack of weights: values passed as vector
+  exact_extract(vals[[1]], circle, function(v, c, w) {
+    expect_true(is.vector(v))
+    expect_true(is.data.frame(w))
+  }, weights = weights)
+
+  # single layer of values, single layer of weights: both passed as vector
+  exact_extract(vals[[1]], circle, function(v, c, w) {
+    expect_true(is.vector(v))
+    expect_true(is.vector(w))
+  }, weights = weights[[1]])
 })
 
 test_that('Named summary operations support both stacks of values and weights', {

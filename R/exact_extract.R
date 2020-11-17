@@ -404,10 +404,14 @@ emptyVector <- function(rast) {
         } else {
           # Pass all layers to callback, to be handled together
           # Included columns (x/y/cell) are passed with the values.
+          # Pass single-column data frames as vectors.
+          vals_df <- .singleColumnToVector(cbind(vals_df, included_cols_df))
+          weights_df <- .singleColumnToVector(weights_df)
+
           if (num_weights == 0) {
-            return(fun(cbind(vals_df, included_cols_df), cov_fracs, ...))
+            return(fun(vals_df, cov_fracs, ...))
           } else {
-            return(fun(cbind(vals_df, included_cols_df), cov_fracs, weights_df, ...))
+            return(fun(vals_df, cov_fracs, weights_df, ...))
           }
         }
       })
@@ -440,6 +444,14 @@ emptyVector <- function(rast) {
       raster::readStop(weights)
     }
   })
+}
+
+.singleColumnToVector <- function(df) {
+  if (ncol(df) == 1) {
+    df[, 1]
+  } else {
+    df
+  }
 }
 
 .appendXY <- function(vals_df, rast, first_row, nrow, first_col, ncol) {
