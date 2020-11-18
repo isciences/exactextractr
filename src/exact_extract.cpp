@@ -43,12 +43,12 @@ using exactextract::RasterSource;
 #include <string>
 
 // [[Rcpp::export]]
-Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
-                                  Rcpp::Nullable<Rcpp::S4> & weights,
-                                  const Rcpp::RawVector & wkb,
-                                  bool include_xy,
-                                  bool include_cell_number,
-                                  Rcpp::Nullable<Rcpp::List> & include_cols) {
+Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
+                             Rcpp::Nullable<Rcpp::S4> & weights,
+                             const Rcpp::RawVector & wkb,
+                             bool include_xy,
+                             bool include_cell_number,
+                             Rcpp::Nullable<Rcpp::List> & include_cols) {
   GEOSAutoHandle geos;
   Rcpp::Function names("names");
 
@@ -58,6 +58,7 @@ Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
 
   S4RasterSource rsrc(rast);
   int src_nlayers = get_nlayers(rast);
+  // TODO somehow cache surprisingly expensive names() calls between function calls?
   Rcpp::CharacterVector src_names = names(rast);
 
   std::unique_ptr<S4RasterSource> rweights;
@@ -86,6 +87,11 @@ Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
   auto coverage_fractions = raster_cell_intersection(common_grid, geos.handle, geom.get());
   auto& cov_grid = coverage_fractions.grid();
 
+  // We can't construct an Rcpp::DataFrame with a variable number of columns
+  // because of a bug in Rcpp (see https://github.com/RcppCore/Rcpp/pull/1099)
+  // Instead, we build up a list, and then create a data frame from the list.
+  // Profiling shows that this ends up in as.data.frame, which is slow.
+  // Once Rcpp 1.0.6 is released, this can be reworked to be simpler and faster.
   Rcpp::List cols;
 
   Rcpp::NumericVector coverage_fraction_vec = as_vector(coverage_fractions);
@@ -94,6 +100,9 @@ Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
   if (include_cols.isNotNull()) {
     Rcpp::List include_cols_list = include_cols.get();
     Rcpp::CharacterVector include_names = include_cols_list.attr("names");
+
+    auto nrows = Rcpp::sum(covered);
+
     for (int i = 0; i < include_names.size(); i++) {
       std::string name(include_names[i]);
       cols[name] = include_cols_list[name];
@@ -170,7 +179,7 @@ Rcpp::DataFrame CPP_exact_extract(Rcpp::S4 & rast,
 
   cols["coverage_fraction"] = coverage_fraction_vec[covered];
 
-  return Rcpp::DataFrame(cols);
+  return cols;
 }
 
 template<typename T>

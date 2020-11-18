@@ -373,7 +373,12 @@ emptyVector <- function(rast) {
           include_cols <- sf::st_drop_geometry(y[feature_num, include_cols])
         }
 
-        df <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols)
+        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols)
+        if (!is.null(include_cols)) {
+          nrow <- length(col_list$coverage_fraction)
+          col_list[names(include_cols)] <- lapply(col_list[names(include_cols)], rep, nrow)
+        }
+        df <- .quickDf(col_list)
 
         update_progress()
 
@@ -409,7 +414,7 @@ emptyVector <- function(rast) {
 
           names(result) <- result_names
 
-          return(do.call(data.frame, result))
+          .quickDf(result)
         } else {
           # Pass all layers to callback, to be handled together
           # Included columns (x/y/cell) are passed with the values.
@@ -453,6 +458,15 @@ emptyVector <- function(rast) {
       raster::readStop(weights)
     }
   })
+}
+
+# faster replacement for as.data.frame when input is a named list
+# with equal-length columns
+# from Advanced R, sec. 24.4.2
+.quickDf <- function(lst) {
+  class(lst) <- 'data.frame'
+  attr(lst, 'row.names') <- .set_row_names(length(lst[[1]]))
+  lst
 }
 
 .singleColumnToVector <- function(df) {

@@ -19,7 +19,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // CPP_exact_extract
-Rcpp::DataFrame CPP_exact_extract(Rcpp::S4& rast, Rcpp::Nullable<Rcpp::S4>& weights, const Rcpp::RawVector& wkb, bool include_xy, bool include_cell_number, Rcpp::Nullable<Rcpp::List>& include_cols);
+Rcpp::List CPP_exact_extract(Rcpp::S4& rast, Rcpp::Nullable<Rcpp::S4>& weights, const Rcpp::RawVector& wkb, bool include_xy, bool include_cell_number, Rcpp::Nullable<Rcpp::List>& include_cols);
 RcppExport SEXP _exactextractr_CPP_exact_extract(SEXP rastSEXP, SEXP weightsSEXP, SEXP wkbSEXP, SEXP include_xySEXP, SEXP include_cell_numberSEXP, SEXP include_colsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
