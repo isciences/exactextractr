@@ -348,6 +348,24 @@ emptyVector <- function(rast) {
         return(ret)
       }
     } else {
+      num_values <- raster::nlayers(x)
+      num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
+
+      if (stack_apply || (num_values == 1 && num_weights <= 1)) {
+        apply_layerwise <- TRUE
+
+        if (num_values > 1 && num_weights > 1 && num_values != num_weights) {
+          stop(sprintf("Can't apply function layerwise with stacks of %d value layers and %d layers", num_values, num_weights))
+        }
+
+        result_names <- .resultColNames(names(x), names(weights), fun, full_colnames)
+        num_results <- max(num_weights, num_values)
+        ind <- .valueWeightIndexes(num_values, num_weights)
+      } else {
+        apply_layerwise <- FALSE
+      }
+
+
       ret <- lapply(seq_along(geoms), function(feature_num) {
         wkb <- sf::st_as_binary(geoms[[feature_num]], EWKB=TRUE)
 
@@ -363,8 +381,6 @@ emptyVector <- function(rast) {
           return(df)
         }
 
-        num_values <- raster::nlayers(x)
-        num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
         num_included <- ncol(df) - 1 - num_values - num_weights # x, y, cell
 
         # TODO change return structure of CPP_exact_extract so this stuff
@@ -374,14 +390,7 @@ emptyVector <- function(rast) {
         included_cols_df <- df[, num_values + num_weights + seq_len(num_included), drop=FALSE]
         cov_fracs <- df$coverage_fraction
 
-        if (stack_apply || (num_values == 1 && num_weights <= 1)) {
-          if (num_values > 1 && num_weights > 1 && num_values != num_weights) {
-            stop(sprintf("Can't apply function layerwise with stacks of %d value layers and %d layers", num_values, num_weights))
-          }
-
-          num_results <- max(num_weights, num_values)
-          ind <- .valueWeightIndexes(num_values, num_weights)
-
+        if (apply_layerwise) {
           result <- lapply(seq_len(num_results), function(i) {
             vx <- vals_df[, ind$values[i]]
             if (num_included > 0) {
@@ -398,7 +407,7 @@ emptyVector <- function(rast) {
             return(result[[1]])
           }
 
-          names(result) <- .resultColNames(names(x), names(weights), fun, full_colnames)
+          names(result) <- result_names
 
           return(do.call(data.frame, result))
         } else {
