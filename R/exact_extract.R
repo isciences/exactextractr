@@ -323,6 +323,7 @@ emptyVector <- function(rast) {
       })
 
       if (!is.matrix(results) && !force_df) {
+        # Single stat? Return a vector unless asked otherwise via force_df.
         return(results)
       } else {
         # Return a data frame with a column for each stat
@@ -350,6 +351,8 @@ emptyVector <- function(rast) {
     } else {
       num_values <- raster::nlayers(x)
       num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
+      value_names <- names(x)
+      weight_names <- names(weights)
 
       if (stack_apply || (num_values == 1 && num_weights <= 1)) {
         apply_layerwise <- TRUE
@@ -358,7 +361,7 @@ emptyVector <- function(rast) {
           stop(sprintf("Can't apply function layerwise with stacks of %d value layers and %d layers", num_values, num_weights))
         }
 
-        result_names <- .resultColNames(names(x), names(weights), fun, full_colnames)
+        result_names <- .resultColNames(value_names, weight_names, fun, full_colnames)
         num_results <- max(num_weights, num_values)
         ind <- .valueWeightIndexes(num_values, num_weights)
       } else {
@@ -373,7 +376,7 @@ emptyVector <- function(rast) {
           include_cols <- sf::st_drop_geometry(y[feature_num, include_cols])
         }
 
-        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols)
+        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols, value_names, weight_names)
         if (!is.null(include_cols)) {
           nrow <- length(col_list$coverage_fraction)
           col_list[names(include_cols)] <- lapply(col_list[names(include_cols)], rep, nrow)
@@ -432,12 +435,15 @@ emptyVector <- function(rast) {
 
       if (!is.null(fun)) {
         if (all(sapply(ret, is.data.frame))) {
+        # function returned a data frame for each polygon? rbind them
           if (requireNamespace('dplyr', quietly = TRUE)) {
             ret <- dplyr::bind_rows(ret) # handle column name mismatches
           } else {
             ret <- do.call(rbind, ret)
           }
         } else {
+          # function returned something else; combine the somethings into
+          # an array
           ret <- simplify2array(ret)
 
           if (force_df) {

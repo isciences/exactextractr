@@ -48,7 +48,9 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              const Rcpp::RawVector & wkb,
                              bool include_xy,
                              bool include_cell_number,
-                             Rcpp::Nullable<Rcpp::List> & include_cols) {
+                             Rcpp::Nullable<Rcpp::List> & include_cols,
+                             Rcpp::Nullable<Rcpp::CharacterVector> & p_rast_names,
+                             Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names) {
   GEOSAutoHandle geos;
   Rcpp::Function names("names");
 
@@ -58,8 +60,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
 
   S4RasterSource rsrc(rast);
   int src_nlayers = get_nlayers(rast);
-  // TODO somehow cache surprisingly expensive names() calls between function calls?
-  Rcpp::CharacterVector src_names = names(rast);
+  Rcpp::CharacterVector src_names = p_rast_names.isNull() ? names(rast) : p_rast_names.get();
 
   std::unique_ptr<S4RasterSource> rweights;
   int weights_nlayers = 0;
@@ -71,7 +72,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     common_grid = grid.common_grid(weights_grid);
 
     rweights = std::make_unique<S4RasterSource>(weights_s4);
-    weights_names = names(weights_s4);
+    weights_names = p_weights_names.isNull() ? names(weights_s4) : p_weights_names.get();
 
     if (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy()) {
       Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
