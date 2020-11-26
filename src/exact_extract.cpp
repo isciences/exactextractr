@@ -50,7 +50,8 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              bool include_cell_number,
                              Rcpp::Nullable<Rcpp::List> & include_cols,
                              Rcpp::Nullable<Rcpp::CharacterVector> & p_rast_names,
-                             Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names) {
+                             Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names,
+                             bool warn_on_disaggregate) {
   GEOSAutoHandle geos;
   Rcpp::Function names("names");
 
@@ -74,7 +75,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     rweights = std::make_unique<S4RasterSource>(weights_s4);
     weights_names = p_weights_names.isNull() ? names(weights_s4) : p_weights_names.get();
 
-    if (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy()) {
+    if (warn_on_disaggregate && (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy())) {
       Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
     }
   }
@@ -101,8 +102,6 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   if (include_cols.isNotNull()) {
     Rcpp::List include_cols_list = include_cols.get();
     Rcpp::CharacterVector include_names = include_cols_list.attr("names");
-
-    auto nrows = Rcpp::sum(covered);
 
     for (int i = 0; i < include_names.size(); i++) {
       std::string name(include_names[i]);

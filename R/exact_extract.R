@@ -376,7 +376,10 @@ emptyVector <- function(rast) {
           include_cols <- sf::st_drop_geometry(y[feature_num, include_cols])
         }
 
-        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols, value_names, weight_names)
+        # only raise a disaggregation warning for the first feature
+        warn_on_disaggregate <- feature_num == 1
+
+        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols, value_names, weight_names, warn_on_disaggregate)
         if (!is.null(include_cols)) {
           nrow <- length(col_list$coverage_fraction)
           col_list[names(include_cols)] <- lapply(col_list[names(include_cols)], rep, nrow)
