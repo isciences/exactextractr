@@ -42,6 +42,7 @@ int get_nlayers(Rcpp::S4 & rast) {
   return static_cast<int>(nlayersVec[0]);
 }
 
+// Determine the column index in 'rast' for every column in 'grid'
 Rcpp::IntegerVector cols_for_x(Rcpp::S4 & rast, Grid grid) {
   Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
   Rcpp::Function colFromX = raster["colFromX"];
@@ -62,6 +63,7 @@ Rcpp::IntegerVector cols_for_x(Rcpp::S4 & rast, Grid grid) {
   return Rcpp::rep(cols, grid.rows());
 }
 
+// Determine the row index in 'rast' for every row in 'grid'
 Rcpp::IntegerVector rows_for_y(Rcpp::S4 & rast, Grid grid) {
   Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
   Rcpp::Function rowFromY = raster["rowFromY"];
@@ -76,6 +78,9 @@ Rcpp::IntegerVector rows_for_y(Rcpp::S4 & rast, Grid grid) {
   return Rcpp::rep_each(rows, grid.cols());
 }
 
+// Determine the x value in 'rast' for every column in 'grid'
+// Although 'grid' can provide x values directly, this ensures consistency
+// with values provided by the 'raster' package.
 Rcpp::NumericVector get_x_values(Rcpp::S4 & rast, Grid grid) {
   Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
   Rcpp::Function xFromCol = raster["xFromCol"];
@@ -84,6 +89,9 @@ Rcpp::NumericVector get_x_values(Rcpp::S4 & rast, Grid grid) {
   return xFromCol(rast, cols);
 }
 
+// Determine the y value in 'rast' for every row in 'grid'
+// Although 'grid' can provide y values directly, this ensures consistency
+// with values provided by the 'raster' package.
 Rcpp::NumericVector get_y_values(Rcpp::S4 & rast, Grid grid) {
   Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
   Rcpp::Function yFromRow = raster["yFromRow"];

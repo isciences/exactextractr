@@ -168,9 +168,15 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   }
 
   if (include_xy) {
-    // TODO these should probably be from the common grid?
-    cols["x"] = get_x_values(rast, cov_grid)[covered];
-    cols["y"] = get_y_values(rast, cov_grid)[covered];
+    // Include xy values from whichever input raster has the higher resolution
+    if (weights_nlayers > 0 && (weights_grid.dx() < grid.dx() || weights_grid.dy() < grid.dy())) {
+      Rcpp::S4 weights_s4 = weights.get();
+      cols["x"] = get_x_values(weights_s4, cov_grid)[covered];
+      cols["y"] = get_y_values(weights_s4, cov_grid)[covered];
+    } else {
+      cols["x"] = get_x_values(rast, cov_grid)[covered];
+      cols["y"] = get_y_values(rast, cov_grid)[covered];
+    }
   }
 
   if (include_cell_number) {

@@ -1177,3 +1177,20 @@ test_that('generated column names follow expected pattern', {
   expect_equal(.resultColNames(values, weights[1], test_mean, FALSE),
                c('fun.v1', 'fun.v2', 'fun.v3'))
 })
+
+test_that('When disaggregating values, xy coordinates refer to disaggregated grid', {
+  rast <- make_square_raster(1:100)
+  rast2 <- raster::disaggregate(rast, 4)
+
+  circle <- make_circle(7.5, 5.5, 0.4, sf::st_crs(rast))
+
+  xy_disaggregated <- exact_extract(rast2, circle, include_xy = TRUE)[[1]][, c('x', 'y')]
+
+  suppressWarnings({
+    xy_weighted <- exact_extract(rast, circle, include_xy = TRUE, weights = rast2)[[1]][, c('x', 'y')]
+    xy_weighted2 <- exact_extract(rast2, circle, include_xy = TRUE, weights = rast)[[1]][, c('x', 'y')]
+  })
+
+  expect_equal(xy_weighted, xy_disaggregated)
+  expect_equal(xy_weighted2, xy_disaggregated)
+})
