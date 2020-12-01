@@ -159,6 +159,28 @@ test_that('MultiPolygons also work', {
   expect_equal(exact_extract(rast, multipoly, fun='variety'), 18)
 })
 
+test_that('sp inputs supported', {
+  rast <- make_square_raster(1:100)
+
+  circles <- c(
+    make_circle(3, 2, 4, sf::st_crs(rast)),
+    make_circle(7, 7, 2, sf::st_crs(raster))
+  )
+  circles_sf <- sf::st_sf(id = 1:2, geometry = circles)
+
+  result <- exact_extract(rast, circles, 'mean', progress = FALSE)
+
+  # SpatialPolygons
+  circles_sp <- sf::as_Spatial(circles)
+  result_sp <- exact_extract(rast, circles_sp, 'mean', progress = FALSE)
+  expect_equal(result, result_sp)
+
+  # SpatialPolygonsDataFrame
+  circles_spdf <- sf::as_Spatial(circles_sf)
+  result_spdf <- exact_extract(rast, circles_spdf, 'mean', progress = FALSE)
+  expect_equal(result, result_spdf)
+})
+
 test_that('Generic sfc_GEOMETRY works if the features are polygonal', {
   rast <- make_square_raster(1:100)
   polys <- st_as_sfc(c('POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))',
