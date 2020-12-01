@@ -381,6 +381,8 @@ emptyVector <- function(rast) {
 
         col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols, value_names, weight_names, warn_on_disaggregate)
         if (!is.null(include_cols)) {
+          # Replicate the include_cols vectors to be as long as the other columns,
+          # so we can use quickDf
           nrow <- length(col_list$coverage_fraction)
           col_list[names(include_cols)] <- lapply(col_list[names(include_cols)], rep, nrow)
         }
