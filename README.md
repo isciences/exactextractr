@@ -30,8 +30,7 @@ method that operates analogously to the
 [`extract`](https://www.rdocumentation.org/packages/raster/topics/extract)
 method in the
 [`raster`](https://CRAN.R-project.org/package=raster) package.
-The snippet below demonstrates the use of this function to compute a mean
-December precipitation for each municipality in Brazil.
+The snippet below demonstrates the use of this function to compute monthly mean precipitation for each municipality in Brazil.
 
 ```r
 library(raster)
@@ -53,10 +52,11 @@ brazil <- cbind(brazil, exact_extract(prec, brazil, c('min', 'max')))
 
 #### Summary Operations
 
-`exactextractr` can summarize raster values using several pre-defined operations as well
-as arbitrary R functions. Pre-defined operations are specified by providing one or more
-operation names to the `fun` parameter of
-[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html).
+`exactextractr` can summarize raster values using several named operations as well
+as arbitrary R functions. Where applicable, a named operation will provide
+better performance and reduced memory usage relative to an equivalent R function.
+Named operations are specified by providing a character vector with one or more 
+operation names to the `fun` parameter of [`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html).
 
 The following summary operations are supported:
 
@@ -64,66 +64,32 @@ The following summary operations are supported:
 | ---------------------- |--------------- |
 | `count`                | Sum of all cell coverage fractions. |
 | `majority` (or `mode`) | The raster value with the largest sum of coverage fractions. |
-| `max`                  | Maximum defined value of cells that intersect the polygon, ignoring coverage fractions. |
-| `mean`                 | Mean defined value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
-| `median`               | Median defined value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
-| `quantile`             | Arbitrary quantile value of cells that intersect the polygon, weighted by the percent of the cell that is covered. |
-| `min`                  | Minimum defined value of cells that intersect the polygon, ignoring coverage fractions. |
+| `max`                  | Maximum value of cells that intersect the polygon, ignoring coverage fractions. |
+| `mean`                 | Mean value of cells that intersect the polygon, weighted by the fraction of the cell that is covered. |
+| `median`               | Median value of cells that intersect the polygon, weighted by the fraction of the cell that is covered. |
+| `quantile`             | Arbitrary quantile value of cells that intersect the polygon, weighted by the fraction of the cell that is covered. |
+| `min`                  | Minimum value of cells that intersect the polygon, ignoring coverage fractions. |
 | `minority`             | The raster value with the smallest sum of coverage fractions. |
-| `sum`                  | Sum of defined values of raster cells that intersect the polygon, with each raster value weighted by its coverage fraction. |
+| `sum`                  | Sum of values of raster cells that intersect the polygon, with each raster value weighted by its coverage fraction. |
 | `variety`              | The number of distinct raster values in cells wholly or partially covered by the polygon. |
 | `variance`             | The population variance of cell values, weighted by the fraction of each cell that is covered by the polygon. |
 | `stdev`                | The population standard deviation of cell values, weighted by the fraction of each cell that is covered by the polygon. |
 | `coefficient_of_variation` | The population coefficient of variation of cell values, weighted by the fraction of each cell that is covered by the polygon. |
 
-
 Two additional summary operations require the use of a second weighting raster,
 provided in the `weights` argument to 
-[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
+[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html):
 
 | Name                   | Description    |                     
 | ---------------------- |--------------- |
 | `weighted_mean`        | Mean defined value of cells that intersect the polygon, weighted by the product of the coverage fraction and the value of a second weighting raster. |
 | `weighted_sum`         | Sum of defined values of raster cells that intersect the polygon, multiplied by the coverage fraction and the value of a second weighting raster. |
 
-These operations are described in more detail below.
+Weighted usage is discussed in more detail [below](#weighted-usage).
 
-### Weighting / Geographic Coordinates
-
-[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
-allows for calculation of summary statistics based on
-multiple raster layers, such as a population-weighted temperature.
-For the `weighted_mean` and `weighted_sum` operations, this is as
-simple as providing a weighting
-[`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
-to the `weights` argument of
-[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html).
-The weighting raster must use the same coordinate system as the primary raster,
-and it must use a grid that is compatible with the primary raster. (The resolutions and
-extents of the rasters need not be the same, but the higher resolution must must be an 
-integer multiple of the lower resolution, and the cell boundaries of both rasters must
-coincide with cell boundaries in the higher-resolution grid.)
-
-One application of this feature is the calculation of zonal statistics on
-raster data in geographic coordinates. The previous calculation of mean
-precipitation amount across Brazilian municipalities assumed that each raster
-cell covered the same area, which is not correct for rasters in geographic
-coordinates (latitude/longitude).
-
-We can correct for varying cell areas by creating a second raster with the area of
-each cell in the primary raster, and using this raster in a `weighted_mean` summary
-operation. (The
-[`area`](https://www.rdocumentation.org/packages/raster/topics/area) function
-from the `raster` package will calculate the cell areas for us.)
-
-```r
-brazil$mean_dec_prec_weighted <- exact_extract(prec[[12]], brazil, 'weighted_mean', weights=area(prec))
-```
-
-With the relatively small polygons used in this example, the error introduced
-by assuming constant cell area is negligible. However, for large polygons that 
-span a wide range of latitudes, this may not be the case.
-
+Undefined (`NA`) values are ignored in all of the named summary operations when 
+they occur in the value raster. When they occur in the weighting raster, they 
+cause the result of the summary operation to be `NA`.
 
 #### Summary Functions
 
@@ -161,40 +127,156 @@ exact_extract(rast, poly, function(values, coverage_fraction)
                             length(unique(values[coverage_fraction > 0.1])))
 ```
 
-A multi-raster summary function can also be written to implement complex
-weighting behavior not captured with the `weighted_mean` or `weighted_sum`
-summary operations. If
-[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
-is called with a
-[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
-instead of a
-[`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class),
-the R summary function will be called with a data frame of raster
-values and a vector of coverage fractions as arguments. Each column in the data
-frame represents values from one layer in the stack, and the columns are named
-using the names of the layers in the stack.
+### Weighted Usage
 
-A more verbose equivalent to the `weighted_mean` usage demonstrated could be written as:
+[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
+allows for calculation of summary statistics based on
+multiple raster layers, such as a population-weighted temperature.
+The weighting raster must use the same coordinate system as the primary raster,
+and it must use a grid that is compatible with the primary raster. (The resolutions and
+extents of the rasters need not be the same, but the higher resolution must must be an 
+integer multiple of the lower resolution, and the cell boundaries of both rasters must
+coincide with cell boundaries in the higher-resolution grid.)
+
+One application of this feature is the calculation of zonal statistics on
+raster data in geographic coordinates. The previous calculation of mean
+precipitation amount across Brazilian municipalities assumed that each raster
+cell covered the same area, which is not correct for rasters in geographic
+coordinates (latitude/longitude).
+
+We can correct for varying cell areas by creating a weighting raster with the area of
+each cell in the primary raster using the 
+[`area`](https://www.rdocumentation.org/packages/raster/topics/area) function
+from the `raster` package.
+
+#### Weighted Summary Operations
+
+Performing a weighted summary with the `weighted_mean` and `weighted_sum` operations
+is as simple as providing a weighting
+[`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+or
+[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+to the `weights` argument of
+[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html).
+
+The area-weighted mean precipitation calculation can be expressed as:
 
 ```r
-
-stk <- stack(list(prec=prec[[12]], area=area(prec)))
-
-brazil$mean_dec_prec_weighted <-
-  exact_extract(stk, brazil, function(values, coverage_frac)
-                               weighted.mean(values$prec, values$area*coverage_frac, na.rm=TRUE))
+brazil$mean_dec_prec_weighted <- exact_extract(prec[[12]], brazil, 'weighted_mean', weights = area(prec))
 ```
 
-Note that the assembly of a
-[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
-to use an R summary function requires that the primary and weighting rasters
-share an extent and resolution, a limitation not shared by the named summary
-operations.
+With the relatively small polygons used in this example, the error introduced
+by assuming constant cell area is negligible. However, for large polygons that 
+span a wide range of latitudes, this may not be the case.
 
+#### Weighted Summary Functions
+
+A weighting raster can also be provided when an R summary function is used.
+When a weighting raster is provided, the summary function must accept a third
+argument containing the values of the weighting raster.
+
+An equivalent to the `weighted_mean` usage above could be written as:
+
+```r
+brazil$mean_dec_prec_weighted <- 
+  exact_extract(prec[[12]], brazil, function(values, coverage_frac, weights) {
+    weighted.mean(values, coverage_frac * weights)
+  }, weights = area(prec))
+```
+
+Or, to calculate the area-weighted mean precipitation for all months:
+
+```r
+brazil <- cbind(brazil,
+  exact_extract(prec, brazil, function(values, coverage_frac, weights) {
+    weighted.mean(values, coverage_frac * weights)
+  },
+  weights = area(prec),
+  stack_apply = TRUE))
+```
+
+In this example, the `stack_apply` argument is set to `TRUE` so that the summary function
+will be applied to each layer of `prec` independently. (If `stack_apply = FALSE`,
+the summary function will be called with all values of `prec` in a 12-column
+data frame.)
+
+### Additional Usages
+
+#### Multi-Raster Summary Functions
+
+A multi-raster summary function can also be written to implement complex
+behavior that requires that multiple layers in a
+[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+be considered simultaneously.
+
+Here, we compute an area-weighted average temperature by calling
+[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
+with a
+[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+of minimum and maximum temperatures, and a
+[`RasterLayer`](https://www.rdocumentation.org/packages/raster/topics/Raster-class),
+of cell areas.
+
+```r
+tmin <- getData('worldclim', var = 'tmin', res = 10)
+tmax <- getData('worldclim', var = 'tmax', res = 10)
+
+temp <- stack(tmin[[12]], tmax[[12]])
+
+brazil$tavg_dec <- exact_extract(temp, brazil,
+  function(values, coverage_fraction, weights) {
+    tavg <- 0.5*(values$tmin12 + values$tmax12)
+    weighted.mean(tavg, coverage_fraction * weights)
+  }, weights = area(prec))
+```
+
+When 
+[`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html)
+is called with a 
+[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+of values or weights and `stack_apply = FALSE` (the default), the values or
+weights from each layer of the 
+[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class)
+will be provided to the summary function as a data frame.
+
+In the example above, the summary function is provided with a data frame of
+values (containing the values for each layer in the `temp` stack), a vector of
+coverage fractions, and a vector of weights.
+
+#### Multi-Valued Summary Functions
+
+In some cases, it is desirable for a summary function to return multiple values
+for each input feature. A common application is to summarize the fraction of
+each polygon that is covered by a given class of a categorical raster.
+This can be accomplished by writing a summary function that returns a one-row
+data frame for each input feature. The data frames for each feature will be 
+combined into a single data frame using using `rbind` or, if it is available, `dplyr::bind_rows`.
+
+In this example, the mean temperature for each municipality is returned for
+each altitude category.
+
+```r
+altitude <- getData('alt', country = 'BRA')
+
+prec_for_altitude <- exact_extract(prec[[12]], brazil, function(prec, frac, alt) {
+  # ignore cells with unknown altitude
+  prec <- prec[!is.na(alt)]
+  frac <- frac[!is.na(alt)]
+  alt <- alt[!is.na(alt)]
+  
+  low <- !is.na(alt) & alt < 500
+  high <- !is.na(alt) & alt >= 500
+
+  data.frame(
+    prec_low_alt = weighted.mean(prec[low], frac[low]),
+    prec_high_alt = weighted.mean(prec[high], frac[high])
+  )
+}, weights = altitude)
+```
 
 ### Rasterization
 
-`exactextractr` can also rasterize polygons though computation of the coverage
+`exactextractr` can rasterize polygons though computation of the coverage
 fraction in each cell. The
 [`coverage_fraction`](https://isciences.gitlab.io/exactextractr/reference/coverage_fraction.html)
 function returns a
@@ -224,15 +306,19 @@ microbenchmark(
 #       b <- extract(...)  136.1710 136.180563 136.741275 136.226435 136.773627 138.354764     5
 ```
 
-Although `exactextractr` is fast, it is still several times slower than the
-command-line [`exactextract`](https://github.com/isciences/exactextract) tool.
-
 Results from `exactextractr` are more accurate than other methods because raster
 pixels that are partially covered by polygons are considered. The significance
 of partial coverage increases for polygons that are small or irregularly shaped.
 For the 5500 Brazilian municipalities used in the example, the error introduced
 by incorrectly handling partial coverage is less than 1% for 88% of
 municipalities and reaches a maximum of 9%.
+
+Although `exactextractr` is fast, it may still be slower than the
+command-line [`exactextract`](https://github.com/isciences/exactextract) tool.
+However, some efficiencies, such as the simultanteous processing of multiple 
+layers in a
+[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class),
+are only possible in `exactextractr`.
 
 ### Dependencies
 
