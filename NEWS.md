@@ -2,6 +2,7 @@
 
 - Support use of RasterStack weights in exact_extract named summary operations
 - Support use of weights in exact_extract R summary functions
+- Support SpatialPolygons and SpatialPolygonsDataFrame inputs
 
 # version 0.5.1
 

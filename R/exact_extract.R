@@ -517,6 +517,18 @@ emptyVector <- function(rast) {
 #' @useDynLib exactextractr
 #' @rdname exact_extract
 #' @export
+setMethod('exact_extract', signature(x='Raster', y='SpatialPolygonsDataFrame'),
+          function(x, y, ...) .exact_extract(x, sf::st_as_sf(y), ...))
+
+#' @useDynLib exactextractr
+#' @rdname exact_extract
+#' @export
+setMethod('exact_extract', signature(x='Raster', y='SpatialPolygons'),
+          function(x, y, ...) .exact_extract(x, sf::st_as_sf(y), ...))
+
+#' @useDynLib exactextractr
+#' @rdname exact_extract
+#' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_MULTIPOLYGON'), .exact_extract)
 
 #' @useDynLib exactextractr
