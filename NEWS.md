@@ -1,3 +1,7 @@
+# version 0.6.0
+
+- Support SpatialPolygons and SpatialPolygonsDataFrame inputs
+
 # version 0.5.1
 
 - Fix bug causing progress bar to jump to 100%
