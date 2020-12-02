@@ -15,7 +15,11 @@
 #include <memory>
 
 #include <Rcpp.h>
-#include <geos_c.h>
+
+#include "geos_r.h"
+#include "raster_utils.h"
+
+#include "s4_raster_source.h"
 
 #include "exactextract/src/geos_utils.h"
 #include "exactextract/src/grid.h"
@@ -23,9 +27,6 @@
 #include "exactextract/src/raster_cell_intersection.h"
 #include "exactextract/src/raster_source.h"
 #include "exactextract/src/raster_stats.h"
-
-using geom_ptr= std::unique_ptr<GEOSGeometry, std::function<void(GEOSGeometry*)>>;
-using wkb_reader_ptr = std::unique_ptr<GEOSWKBReader, std::function<void(GEOSWKBReader*)>>;
 
 using exactextract::Box;
 using exactextract::Matrix;
@@ -38,274 +39,166 @@ using exactextract::raster_cell_intersection;
 using exactextract::RasterStats;
 using exactextract::RasterSource;
 
-static Grid<bounded_extent> make_grid(const Rcpp::S4 & rast) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+#include <vector>
+#include <string>
 
-  Rcpp::S4 extent = rast.slot("extent");
+// [[Rcpp::export]]
+Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
+                             Rcpp::Nullable<Rcpp::S4> & weights,
+                             const Rcpp::RawVector & wkb,
+                             bool include_xy,
+                             bool include_cell_number,
+                             Rcpp::Nullable<Rcpp::List> & include_cols,
+                             Rcpp::Nullable<Rcpp::CharacterVector> & p_rast_names,
+                             Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names,
+                             bool warn_on_disaggregate) {
+  GEOSAutoHandle geos;
+  Rcpp::Function names("names");
 
-  Rcpp::Function resFn = raster["res"];
+  auto grid = make_grid(rast);
+  auto weights_grid = exactextract::Grid<bounded_extent>::make_empty();
+  auto common_grid = grid;
 
-  Rcpp::NumericVector res = resFn(rast);
+  S4RasterSource rsrc(rast);
+  int src_nlayers = get_nlayers(rast);
+  Rcpp::CharacterVector src_names = p_rast_names.isNull() ? names(rast) : p_rast_names.get();
 
-  return {{
-    extent.slot("xmin"),
-    extent.slot("ymin"),
-    extent.slot("xmax"),
-    extent.slot("ymax"),
-    },
-    res[0],
-    res[1]
-  };
-}
+  std::unique_ptr<S4RasterSource> rweights;
+  int weights_nlayers = 0;
+  Rcpp::CharacterVector weights_names;
+  if (!weights.isNull()) {
+    Rcpp::S4 weights_s4 = weights.get();
+    weights_nlayers = get_nlayers(weights_s4);
+    weights_grid = make_grid(weights_s4);
+    common_grid = grid.common_grid(weights_grid);
 
-// Construct a Raster using an R vector for storage
-class NumericVectorRaster : public exactextract::AbstractRaster<double> {
-public:
-  NumericVectorRaster(const Rcpp::NumericVector & vec, const Grid<bounded_extent> & g) :
-    AbstractRaster<double>(g),
-    m_vec(vec)
-  {}
+    rweights = std::make_unique<S4RasterSource>(weights_s4);
+    weights_names = p_weights_names.isNull() ? names(weights_s4) : p_weights_names.get();
 
-  double operator()(size_t row, size_t col) const final {
-    return m_vec[row*cols() + col];
+    if (warn_on_disaggregate && (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy())) {
+      Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
+    }
   }
 
-private:
-  const Rcpp::NumericVector m_vec;
-};
+  auto geom = read_wkb(geos.handle, wkb);
 
-// Read raster values from an R raster object
-class S4RasterSource {
-public:
-  S4RasterSource(Rcpp::S4 rast) :
-    m_grid(Grid<bounded_extent>::make_empty()),
-    m_rast(rast),
-    m_last_box(0, 0, 0, 0)
-  {
-    m_grid = make_grid(rast);
+  auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
+
+  common_grid = common_grid.crop(bbox);
+
+  auto coverage_fractions = raster_cell_intersection(common_grid, geos.handle, geom.get());
+  auto& cov_grid = coverage_fractions.grid();
+
+  // We can't construct an Rcpp::DataFrame with a variable number of columns
+  // because of a bug in Rcpp (see https://github.com/RcppCore/Rcpp/pull/1099)
+  // Instead, we build up a list, and then create a data frame from the list.
+  // Profiling shows that this ends up in as.data.frame, which is slow.
+  // Once Rcpp 1.0.6 is released, this can be reworked to be simpler and faster.
+  Rcpp::List cols;
+
+  Rcpp::NumericVector coverage_fraction_vec = as_vector(coverage_fractions);
+  Rcpp::LogicalVector covered = coverage_fraction_vec > 0;
+
+  if (include_cols.isNotNull()) {
+    Rcpp::List include_cols_list = include_cols.get();
+    Rcpp::CharacterVector include_names = include_cols_list.attr("names");
+
+    for (int i = 0; i < include_names.size(); i++) {
+      std::string name(include_names[i]);
+      cols[name] = include_cols_list[name];
+    }
   }
 
-  const Grid<bounded_extent> &grid() const {
-    return m_grid;
-  }
+  for (int i = 0; i < src_nlayers; i++) {
+    auto values = rsrc.read_box(cov_grid.extent(), i);
+    const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
 
-  std::unique_ptr<exactextract::AbstractRaster<double>> read_box(const exactextract::Box & box, int layer) {
-    auto cropped_grid = m_grid.crop(box);
-
-    if (!(box == m_last_box)) {
-      m_last_box = box;
-
-      Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-      Rcpp::Function getValuesBlockFn = raster["getValuesBlock"];
-
-      if (cropped_grid.empty()) {
-        m_rast_values = Rcpp::no_init(0, 0);
-      } else {
-        // Instead of reading only values for the requested band, we read values
-        // for all requested bands and then cache them to return from subsequent
-        // calls to read_box. There are two reasons for this:
-        // 1) Use of the 'lyrs` argument to getValuesBlock does not work for
-        //    a single band in the CRAN version of raster
-        // 2) Reading everything once avoids the very significant per-call
-        //    overhead of getValuesBlock, which largely comes from operations
-        //    like setting names on the result vector.
-        m_rast_values = getValuesBlockFn(m_rast,
-                                         1 + cropped_grid.row_offset(m_grid),
-                                         cropped_grid.rows(),
-                                         1 + cropped_grid.col_offset(m_grid),
-                                         cropped_grid.cols(),
-                                         Rcpp::Named("format", "m"));
-      }
+    // TODO Perhaps extend this to preserve types (integer, logical.)
+    // A bit challenging, since we don't know the type of the raster
+    // until we call getValuesBlock, and even then we can't be sure
+    // that the returned type is correct (as in a RasterStack with mixed types.)
+    // Since R integers are only 32-bit, we are not going to lose data by
+    // converting everything to numeric, although we pay a storage penalty.
+    Rcpp::NumericVector value_vec = r->vec();
+    if (grid.dx() != common_grid.dx() || grid.dy() != common_grid.dy() ||
+        value_vec.size() != covered.size()) {
+      // Transform values to common grid
+      RasterView<double> rt(*r, common_grid);
+      value_vec = as_vector(rt);
     }
 
-    if (cropped_grid.empty()) {
-      return std::make_unique<NumericVectorRaster>(m_rast_values, cropped_grid);
+    value_vec = value_vec[covered];
+
+    if (src_nlayers == 1) {
+      cols["value"] = value_vec;
     } else {
-      return std::make_unique<NumericVectorRaster>(m_rast_values(Rcpp::_, layer),
-                                                   cropped_grid);
+      cols[std::string(src_names[i])] = value_vec;
     }
   }
 
-private:
-  Grid<bounded_extent> m_grid;
-  Rcpp::S4 m_rast;
-  Rcpp::NumericMatrix m_rast_values;
-  exactextract::Box m_last_box;
-};
+  for (int i = 0; i < weights_nlayers; i++) {
+    auto values = rweights->read_box(cov_grid.extent(), i);
+    const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
 
-// GEOS warning handler
-static void geos_warn(const char* fmt, ...) {
-  char buf[BUFSIZ] = { '\0' };
+    Rcpp::NumericVector weight_vec = r->vec();
 
-  va_list msg;
-  va_start(msg, fmt);
-  vsnprintf(buf, BUFSIZ*sizeof(char), fmt, msg);
-  va_end(msg);
+    if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
+        weight_vec.size() != covered.size()) {
+      // Transform weights to common grid
+      RasterView<double> rt (*r, common_grid);
 
-  Rcpp::Function warning("warning");
-  warning(buf);
-}
-
-// GEOS error handler
-static void geos_error(const char* fmt, ...) {
-  char buf[BUFSIZ] = { '\0' };
-
-  va_list msg;
-  va_start(msg, fmt);
-  vsnprintf(buf, BUFSIZ*sizeof(char), fmt, msg);
-  va_end(msg);
-
-  Rcpp::stop(buf);
-}
-
-// GEOSContextHandle wrapper to ensure finishGEOS is called.
-struct GEOSAutoHandle {
-  GEOSAutoHandle() {
-    handle = initGEOS_r(geos_warn, geos_error);
-  }
-
-  ~GEOSAutoHandle() {
-    finishGEOS_r(handle);
-  }
-
-  GEOSContextHandle_t handle;
-};
-
-// Return a smart pointer to a Geometry, given WKB input
-static geom_ptr read_wkb(const GEOSContextHandle_t & context, const Rcpp::RawVector & wkb) {
-  wkb_reader_ptr wkb_reader{ GEOSWKBReader_create_r(context), [context](GEOSWKBReader* r) { GEOSWKBReader_destroy_r(context, r); } };
-
-  geom_ptr geom{ GEOSWKBReader_read_r(context,
-                                      wkb_reader.get(),
-                                      std::addressof(wkb[0]),
-                                      wkb.size()),
-                 [context](GEOSGeometry* g) { GEOSGeom_destroy_r(context, g); } };
-
-  if (geom.get() == nullptr) {
-    Rcpp::stop("Failed to parse WKB geometry");
-  }
-
-  return geom;
-}
-
-// [[Rcpp::export]]
-Rcpp::List CPP_exact_extract(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
-  GEOSAutoHandle geos;
-
-  auto grid = make_grid(rast);
-  auto coverage_fractions = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
-
-  size_t nrow = coverage_fractions.rows();
-  size_t ncol = coverage_fractions.cols();
-
-  Rcpp::NumericMatrix weights = Rcpp::no_init(nrow, ncol);
-  for (size_t i = 0; i < nrow; i++) {
-    for (size_t j = 0; j < ncol; j++) {
-      weights(i, j) = coverage_fractions(i ,j);
+      weight_vec = as_vector(rt);
     }
-  }
 
-  if (nrow > 0) {
-    size_t row_us = 1 + coverage_fractions.grid().row_offset(grid);
-    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    weight_vec = weight_vec[covered];
 
-    }
-  }
-
-  int row = NA_INTEGER;
-  int col = NA_INTEGER;
-  if (nrow > 0) {
-    size_t row_us = (1 + coverage_fractions.grid().row_offset(grid));
-    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
-      throw std::runtime_error("Cannot represent row offset as an R integer");
-    }
-    row = static_cast<int>(row_us);
-  }
-  if (ncol > 0) {
-    size_t col_us = (1 + coverage_fractions.grid().col_offset(grid));
-    if (col_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
-      throw std::runtime_error("Cannot represent column offset as an R integer");
-    }
-    col = static_cast<int>(col_us);
-  }
-
-  return Rcpp::List::create(
-    Rcpp::Named("row")     = row,
-    Rcpp::Named("col")     = col,
-    Rcpp::Named("weights") = weights
-  );
-}
-
-// [[Rcpp::export]]
-Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, bool crop)
-{
-  GEOSAutoHandle geos;
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function rasterFn = raster["raster"];
-  Rcpp::Function crsFn = raster["crs"];
-
-  auto grid = make_grid(rast);
-  auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
-
-  if (crop) {
-    grid = coverage_fraction.grid();
-  }
-  RasterView<float> coverage_view(coverage_fraction, grid);
-
-  Rcpp::NumericMatrix weights{static_cast<int>(grid.rows()),
-                              static_cast<int>(grid.cols())};
-
-  for (size_t i = 0; i < grid.rows(); i++) {
-    for (size_t j = 0; j < grid.cols(); j++) {
-      weights(i, j) = coverage_view(i, j);
-      if (!crop && std::isnan(weights(i, j))) {
-        weights(i, j) = 0;
+    if (weights_nlayers == 1) {
+      cols["weight"] = weight_vec;
+    } else {
+      std::string colname(weights_names[i]);
+      if (cols.containsElementNamed(colname.c_str())) {
+        // append ".1" to the column name, to match the behavior of
+        // data.frame(). We're safe to just add ".1" (instead of incrementing
+        // .1 to .2, for example) because duplicated names within the values
+        // or weight stack will already have been made unique by raster::stack()
+        colname = colname + ".1"; // append .1
       }
+      cols[colname] = weight_vec;
     }
   }
 
-  return rasterFn(weights,
-                  Rcpp::Named("xmn")=grid.xmin(),
-                  Rcpp::Named("xmx")=grid.xmax(),
-                  Rcpp::Named("ymn")=grid.ymin(),
-                  Rcpp::Named("ymx")=grid.ymax(),
-                  Rcpp::Named("crs")=crsFn(rast));
+  if (include_xy) {
+    // Include xy values from whichever input raster has the higher resolution
+    if (weights_nlayers > 0 && (weights_grid.dx() < grid.dx() || weights_grid.dy() < grid.dy())) {
+      Rcpp::S4 weights_s4 = weights.get();
+      cols["x"] = get_x_values(weights_s4, cov_grid)[covered];
+      cols["y"] = get_y_values(weights_s4, cov_grid)[covered];
+    } else {
+      cols["x"] = get_x_values(rast, cov_grid)[covered];
+      cols["y"] = get_y_values(rast, cov_grid)[covered];
+    }
+  }
+
+  if (include_cell_number) {
+    cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+  }
+
+  cols["coverage_fraction"] = coverage_fraction_vec[covered];
+
+  return cols;
 }
 
-static int get_nlayers(Rcpp::S4 & rast) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function nlayersFn = raster["nlayers"];
-
-  Rcpp::NumericVector nlayersVec = nlayersFn(rast);
-
-  return static_cast<int>(nlayersVec[0]);
+template<typename T>
+static bool requires_stored_values(T s) {
+  return s == "mode" ||
+    s == "majority" ||
+    s == "minority" ||
+    s == "variety" ||
+    s == "median" ||
+    s == "quantile";
 }
 
-static double get_stat_value(const RasterStats<double> & stats, const std::string & stat_name) {
-  if (stat_name == "mean") return stats.mean();
-
-  else if (stat_name == "sum") return stats.sum();
-  else if (stat_name == "count") return stats.count();
-
-  else if (stat_name == "min") return stats.min().value_or(NA_REAL);
-  else if (stat_name == "max") return stats.max().value_or(NA_REAL);
-
-  else if (stat_name == "mode") return stats.mode().value_or(NA_REAL);
-  else if (stat_name == "majority") return stats.mode().value_or(NA_REAL);
-  else if (stat_name == "minority") return stats.minority().value_or(NA_REAL);
-
-  else if (stat_name == "variety") return stats.variety();
-  else if (stat_name == "weighted_mean") return stats.weighted_mean();
-  else if (stat_name == "weighted_sum") return stats.weighted_sum();
-
-  else if (stat_name == "variance") return stats.variance();
-  else if (stat_name == "stdev") return stats.stdev();
-  else if (stat_name == "coefficient_of_variation") return stats.coefficient_of_variation();
-
-  else Rcpp::stop("Unknown stat: " + stat_name);
-}
-
-
+// Return a matrix with one row per stat and one row per raster layer
 // [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               Rcpp::Nullable<Rcpp::S4> weights,
@@ -326,34 +219,34 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
     std::unique_ptr<S4RasterSource> rweights;
     bool weighted = false;
+    int nweights = 0;
     if (weights.isNotNull()) {
       Rcpp::S4 weights_s4 = weights.get();
+      nweights = get_nlayers(weights_s4);
 
-      if (get_nlayers(weights_s4) != 1) {
-        Rcpp::stop("Weighting raster must have only a single layer.");
+      if (nlayers > 1 && nweights > 1 && nlayers != nweights) {
+        Rcpp::stop("Incompatible number of layers in value and weighting rasters");
       }
 
       rweights = std::make_unique<S4RasterSource>(weights_s4);
       weighted = true;
     }
 
+    auto geom = read_wkb(geos.handle, wkb);
+    auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
+
+    auto grid = weighted ? rsrc.grid().common_grid(rweights->grid()) : rsrc.grid();
+
+    bool disaggregated = (grid.dx() < rsrc.grid().dx() || grid.dy() < rsrc.grid().dy());
+
     bool store_values = false;
     int stat_result_size = 0;
     for (const auto & stat : stats) {
-      // explicit construction of std::string seems necessary to avoid ambiguous overload error
-      if (stat == std::string("mode") ||
-          stat == std::string("majority") ||
-          stat == std::string("minority") ||
-          stat == std::string("variety") ||
-          stat == std::string("median") ||
-          stat == std::string("quantile")) {
-        store_values = true;
-      }
+      store_values = store_values || requires_stored_values(stat);
 
-      if (!weighted &&
-          (stat == std::string("weighted_mean") ||
-          stat == std::string("weighted_sum"))) {
-        Rcpp::stop("Weighted stat requested but no weights provided.");
+      if (disaggregated && (stat == std::string("count") ||
+                            stat == std::string("sum"))) {
+        Rcpp::stop("Cannot compute 'count' or 'sum' when value raster is disaggregated to resolution of weights.");
       }
 
       if (stat == std::string("quantile")) {
@@ -374,18 +267,15 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
       }
     }
 
+    int nresults = std::max(nlayers, nweights);
+
     std::vector<RasterStats<double>> raster_stats;
-    raster_stats.reserve(nlayers);
-    for (int i = 0; i < nlayers; i++) {
+    raster_stats.reserve(nresults);
+    for (int i = 0; i < nresults; i++) {
       raster_stats.emplace_back(store_values);
     }
 
-    Rcpp::NumericMatrix stat_results = Rcpp::no_init(nlayers, stat_result_size);
-
-    auto geom = read_wkb(geos.handle, wkb);
-    auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
-
-    auto grid = weighted ? rsrc.grid().common_grid(rweights->grid()) : rsrc.grid();
+    Rcpp::NumericMatrix stat_results = Rcpp::no_init(nresults, stat_result_size);
 
     if (bbox.intersects(grid.extent())) {
       auto cropped_grid = grid.crop(bbox);
@@ -396,11 +286,30 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
         if (!cov_grid.empty()) {
           if (weighted) {
-            auto weights = rweights->read_box(cov_grid.extent(), 0);
+            if (nlayers > nweights) {
+              // recycle weights
+              auto weights = rweights->read_box(cov_grid.extent(), 0);
 
-            for (int i = 0; i < nlayers; i++) {
-              auto values = rsrc.read_box(cov_grid.extent(), i);
-              raster_stats[i].process(coverage_fraction, *values, *weights);
+              for (int i = 0; i < nlayers; i++) {
+                auto values = rsrc.read_box(cov_grid.extent(), i);
+                raster_stats[i].process(coverage_fraction, *values, *weights);
+              }
+            } else if (nweights > nlayers) {
+              // recycle values
+              auto values = rsrc.read_box(cov_grid.extent(), 0);
+
+              for (int i = 0; i < nweights; i++) {
+                auto weights = rweights->read_box(cov_grid.extent(), i);
+                raster_stats[i].process(coverage_fraction, *values, *weights);
+              }
+            } else {
+              // process values and weights in parallel
+              for (int i = 0; i < nlayers; i++) {
+                auto values = rsrc.read_box(cov_grid.extent(), i);
+                auto weights = rweights->read_box(cov_grid.extent(), i);
+
+                raster_stats[i].process(coverage_fraction, *values, *weights);
+              }
             }
           } else {
             for (int i = 0; i < nlayers; i++) {
@@ -412,7 +321,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
       }
     }
 
-    for (int j = 0; j < nlayers; j++) {
+    for (int j = 0; j < nresults; j++) {
       const auto& rs = raster_stats[j];
 
       int i = 0;
@@ -455,57 +364,4 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     // throw predictable exception class
     Rcpp::stop(e.what());
   }
-}
-
-// [[Rcpp::export]]
-Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
-                      Rcpp::S4 & rast_out,
-                      const Rcpp::StringVector & stat) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function rasterFn = raster["raster"];
-  Rcpp::Function valuesFn = raster["values<-"];
-
-  if (stat.size() != 1) {
-    Rcpp::stop("Only a single operation may be used for resampling.");
-  }
-
-  S4RasterSource rsrc(rast_in);
-
-  Rcpp::S4 out = rasterFn(rast_out);
-
-  auto grid_in = make_grid(rast_in);
-  auto grid_out = make_grid(rast_out);
-
-  std::string stat_name = Rcpp::as<std::string>(stat[0]);
-
-  Rcpp::NumericMatrix values_out = Rcpp::no_init(grid_out.rows(), grid_out.cols());
-
-  for (size_t row = 0; row < grid_out.rows(); row++) {
-    // Read enough source raster data to process an entire destination row at
-    // a time, since getValuesBlock calls have a lot of overhead.
-    auto y = grid_out.y_for_row(row);
-    auto ymin = y - grid_out.dy();
-    auto ymax = y + grid_out.dy();
-
-    Box row_box{ grid_out.xmin(), ymin, grid_out.xmax(), ymax };
-    auto values = rsrc.read_box(row_box, 0);
-
-    for (size_t col = 0; col < grid_out.cols(); col++) {
-      RasterStats<double> stats;
-
-      Box cell = grid_cell(grid_out, row, col);
-      auto coverage_fraction = raster_cell_intersection(grid_in, cell);
-
-      auto& cov_grid = coverage_fraction.grid();
-
-      if (!cov_grid.empty()) {
-        stats.process(coverage_fraction, *values);
-      }
-
-      values_out(row, col) = get_stat_value(stats, stat_name);
-    }
-  }
-
-  out = valuesFn(out, values_out);
-  return out;
 }

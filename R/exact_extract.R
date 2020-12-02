@@ -240,11 +240,7 @@ emptyVector <- function(rast) {
       stop("Weights must be a Raster object.")
     }
 
-    if (!is.character(fun)) {
-      stop("Weighting raster can only be used with named summary operations.")
-    }
-
-    if (!any(startsWith(fun, "weighted"))) {
+    if (is.character(fun) && !any(startsWith(fun, "weighted"))) {
       warning("Weights provided but no requested operations use them.")
     }
 
@@ -313,22 +309,25 @@ emptyVector <- function(rast) {
     }
 
     if (is.character(fun)) {
-      # Compute all stats in C++
+      # Compute all stats in C++.
+      # CPP_stats returns a matrix, which gets turned into a column by sapply
+      # Results has one column per feature and one row per stat/raster layer
+      if(is.null(weights) && any(.isWeighted(fun))) {
+        stop("Weighted stat requested but no weights provided.")
+      }
+
       results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
         ret <- CPP_stats(x, weights, wkb, fun, max_cells_in_memory, quantiles)
         update_progress()
         return(ret)
       })
 
-      if (length(fun) == 1 &&
-          raster::nlayers(x) == 1 &&
-          (is.null(quantiles) || length(quantiles) == 1) &&
-          !force_df) {
-        # Just return a vector of stat results
-        return(as.vector(results))
+      if (!is.matrix(results) && !force_df) {
+        # Single stat? Return a vector unless asked otherwise via force_df.
+        return(results)
       } else {
         # Return a data frame with a column for each stat
-        colnames <- .cppStatColNames(x, fun, full_colnames, quantiles)
+        colnames <- .resultColNames(names(x), names(weights), fun, full_colnames, quantiles)
 
         if (is.matrix(results)) {
           results <- t(results)
@@ -339,6 +338,10 @@ emptyVector <- function(rast) {
         dimnames(results) <- list(NULL, colnames)
         ret <- as.data.frame(results)
 
+        # drop duplicated columns (occurs when an unweighted stat is
+        # requested alongside a weighted stat, with a stack of weights)
+        ret <- ret[, unique(names(ret)), drop = FALSE]
+
         if (!is.null(append_cols)) {
           ret <- cbind(sf::st_drop_geometry(y[, append_cols]), ret)
         }
@@ -346,97 +349,106 @@ emptyVector <- function(rast) {
         return(ret)
       }
     } else {
+      num_values <- raster::nlayers(x)
+      num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
+      value_names <- names(x)
+      weight_names <- names(weights)
+
+      if (stack_apply || (num_values == 1 && num_weights <= 1)) {
+        apply_layerwise <- TRUE
+
+        if (num_values > 1 && num_weights > 1 && num_values != num_weights) {
+          stop(sprintf("Can't apply function layerwise with stacks of %d value layers and %d layers", num_values, num_weights))
+        }
+
+        result_names <- .resultColNames(value_names, weight_names, fun, full_colnames)
+        num_results <- max(num_weights, num_values)
+        ind <- .valueWeightIndexes(num_values, num_weights)
+      } else {
+        apply_layerwise <- FALSE
+      }
+
+
       ret <- lapply(seq_along(geoms), function(feature_num) {
         wkb <- sf::st_as_binary(geoms[[feature_num]], EWKB=TRUE)
 
-        ret <- CPP_exact_extract(x, wkb)
-
-        if (length(ret$weights) > 0) {
-          vals <- raster::getValuesBlock(x,
-                                         row=ret$row,
-                                         col=ret$col,
-                                         nrow=nrow(ret$weights),
-                                         ncol=ncol(ret$weights))
-
-          if(is.matrix(vals)) {
-            vals <- as.data.frame(vals)
-          } else {
-            vals <- data.frame(value=vals)
-          }
-        } else {
-          # Polygon does not intersect raster.
-          # Construct a zero-row data frame with correct column names/types.
-          vals <- do.call(data.frame, lapply(seq_len(raster::nlayers(x)),
-                                                     function(i) emptyVector(x[[i]])))
-          if (raster::nlayers(x) == 1) {
-            names(vals) <- 'value'
-          } else {
-            names(vals) <- names(x)
-          }
-        }
-
-        if (include_xy) {
-           vals <- .appendXY(vals, x, ret$row, nrow(ret$weights), ret$col, ncol(ret$weights))
-        }
-
-        if (include_cell) {
-          vals <- .appendCell(vals, x, ret$row, nrow(ret$weights), ret$col, ncol(ret$weights))
-        }
-
         if (!is.null(include_cols)) {
-          # use vals as first argument to cbind, then rearrange names so that
-          # include_cols come first
-          vals <- cbind(vals,
-                        sf::st_drop_geometry(y[feature_num, include_cols]),
-                        row.names = NULL)[, c(include_cols, names(vals))]
+          include_cols <- sf::st_drop_geometry(y[feature_num, include_cols])
         }
 
-        cov_fracs <- as.vector(t(ret$weights))
-        vals <- vals[cov_fracs > 0, , drop=FALSE]
-        cov_fracs <- cov_fracs[cov_fracs > 0]
+        # only raise a disaggregation warning for the first feature
+        warn_on_disaggregate <- feature_num == 1
+
+        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols, value_names, weight_names, warn_on_disaggregate)
+        if (!is.null(include_cols)) {
+          # Replicate the include_cols vectors to be as long as the other columns,
+          # so we can use quickDf
+          nrow <- length(col_list$coverage_fraction)
+          col_list[names(include_cols)] <- lapply(col_list[names(include_cols)], rep, nrow)
+        }
+        df <- .quickDf(col_list)
 
         update_progress()
 
         if (is.null(fun)) {
-          vals$coverage_fraction <- cov_fracs
-          return(vals)
-        } else {
-          if (ncol(vals) == 1) {
-            # Only one layer, nothing appended (cells or XY)
-            return(fun(vals[,1], cov_fracs, ...))
-          } else {
-            if (stack_apply) {
-              # Pass each layer in stack to callback individually
-              nlay <- raster::nlayers(x)
-              appended_cols <- seq_len(ncol(vals))[-seq_len(nlay)]
+          return(df)
+        }
 
-              if (length(appended_cols) == 0) {
-                result <- lapply(seq_len(nlay), function(z)
-                  fun(vals[, z], cov_fracs, ...))
-              } else {
-                result <- lapply(seq_len(nlay), function(z)
-                  fun(cbind(data.frame(value=vals[, z]),
-                            vals[, c(appended_cols)]), cov_fracs, ...))
-              }
+        num_included <- ncol(df) - 1 - num_values - num_weights # x, y, cell
 
-              names(result) <- paste('fun', names(x), sep='.')
-              return(do.call(data.frame, result))
-            } else {
-              # Pass all layers to callback, to be handled together
-              return(fun(vals, cov_fracs, ...))
+        # TODO change return structure of CPP_exact_extract so this stuff
+        # doesn't have to be parsed out?
+        vals_df <- df[, seq_len(num_values), drop=FALSE]
+        weights_df <- df[, num_values + seq_len(num_weights), drop=FALSE]
+        included_cols_df <- df[, num_values + num_weights + seq_len(num_included), drop=FALSE]
+        cov_fracs <- df$coverage_fraction
+
+        if (apply_layerwise) {
+          result <- lapply(seq_len(num_results), function(i) {
+            vx <- vals_df[, ind$values[i]]
+            if (num_included > 0) {
+              vx <- cbind(data.frame(value = vx), included_cols_df)
             }
+            if (num_weights == 0) {
+              fun(vx, cov_fracs, ...)
+            } else {
+              fun(vx, cov_fracs, weights_df[, ind$weights[i]], ...)
+            }
+          })
+
+          if (num_results == 1) {
+            return(result[[1]])
+          }
+
+          names(result) <- result_names
+
+          .quickDf(result)
+        } else {
+          # Pass all layers to callback, to be handled together
+          # Included columns (x/y/cell) are passed with the values.
+          # Pass single-column data frames as vectors.
+          vals_df <- .singleColumnToVector(cbind(vals_df, included_cols_df))
+          weights_df <- .singleColumnToVector(weights_df)
+
+          if (num_weights == 0) {
+            return(fun(vals_df, cov_fracs, ...))
+          } else {
+            return(fun(vals_df, cov_fracs, weights_df, ...))
           }
         }
       })
 
       if (!is.null(fun)) {
         if (all(sapply(ret, is.data.frame))) {
+        # function returned a data frame for each polygon? rbind them
           if (requireNamespace('dplyr', quietly = TRUE)) {
             ret <- dplyr::bind_rows(ret) # handle column name mismatches
           } else {
             ret <- do.call(rbind, ret)
           }
         } else {
+          # function returned something else; combine the somethings into
+          # an array
           ret <- simplify2array(ret)
 
           if (force_df) {
@@ -457,6 +469,23 @@ emptyVector <- function(rast) {
       raster::readStop(weights)
     }
   })
+}
+
+# faster replacement for as.data.frame when input is a named list
+# with equal-length columns
+# from Advanced R, sec. 24.4.2
+.quickDf <- function(lst) {
+  class(lst) <- 'data.frame'
+  attr(lst, 'row.names') <- .set_row_names(length(lst[[1]]))
+  lst
+}
+
+.singleColumnToVector <- function(df) {
+  if (ncol(df) == 1) {
+    df[, 1]
+  } else {
+    df
+  }
 }
 
 .appendXY <- function(vals_df, rast, first_row, nrow, first_col, ncol) {
@@ -485,22 +514,6 @@ emptyVector <- function(rast) {
   }
 
   return(vals_df)
-}
-
-.cppStatColNames <- function(rast, stat_names, full_colnames, quantiles) {
-  quantile_index = which(stat_names == 'quantile')
-  if (length(quantile_index) != 0) {
-    stat_names <- c(stat_names[seq_along(stat_names) < quantile_index],
-                    sprintf('q%02d', as.integer(100 * quantiles)),
-                    stat_names[seq_along(stat_names) > quantile_index])
-  }
-
-  if (raster::nlayers(rast) > 1 || full_colnames) {
-    z <- expand.grid(names(rast), stat_names, stringsAsFactors=TRUE)
-    mapply(paste, z[[2]], z[[1]], MoreArgs=list(sep='.'))
-  } else {
-    stat_names
-  }
 }
 
 #' @useDynLib exactextractr

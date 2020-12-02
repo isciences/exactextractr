@@ -349,7 +349,7 @@ test_that('We can apply the same function to each layer of a RasterStack', {
   # but we can process them independently with stack_apply
   means <- exact_extract(stk, circles, weighted.mean, progress=FALSE, stack_apply=TRUE)
 
-  expect_named(means, c('fun.a', 'fun.b'))
+  expect_named(means, c('weighted.mean.a', 'weighted.mean.b'))
 
   # results are same as we would get by processing layers independently
   for (i in 1:raster::nlayers(stk)) {
@@ -393,22 +393,9 @@ test_that('We can summarize a RasterStack / RasterBrick using weights from a Ras
                           weighted_mean.b = 163.0014),
                tolerance=1e-6)
 
-  # error when trying to use a stack as weights
-  expect_error(exact_extract(stk, circle, 'weighted_mean', weights=stk),
-               "Weighting raster must have only a single layer")
-
   # error when trying to use a non-raster as weights
   expect_error(exact_extract(stk, circle, 'weighted_mean', weights='stk'),
                "Weights must be a Raster")
-})
-
-test_that('We get an error trying to use weights without a named summary operation', {
-  rast <- make_square_raster(1:100)
-  weights <- make_square_raster(runif(100))
-  circle <- make_circle(5, 4, 2, sf::st_crs(rast))
-
-  expect_error(exact_extract(rast, circle, function(value, coverage_fraction) { value }, weights=weights),
-               'Weighting raster can only be used with named summary operations')
 })
 
 test_that('We get acceptable default values when processing a polygon that does not intersect the raster', {
@@ -877,7 +864,218 @@ test_that('Error is thrown if quantiles not specified or not valid', {
               'Quantiles not specified')
 })
 
+test_that('When value and weighting rasters have different grids, cell numbers refer to value raster', {
+  anom <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90, res=10)
+  values(anom) <- rnorm(length(anom))
+
+  pop <- raster(xmn=-180, xmx=180, ymn=-65, ymx=85, res=5)
+  values(pop) <- rlnorm(length(pop))
+
+  circle <- make_circle(17, 21, 18, sf::st_crs(anom))
+
+  suppressWarnings({
+    extracted <- exact_extract(anom, circle, weights=pop, include_cell=TRUE)[[1]]
+  })
+
+  expect_equal(extracted$value, anom[extracted$cell])
+})
+
+test_that('Warning emitted when value raster is disaggregated', {
+  r1 <- make_square_raster(1:100)
+  r2 <- make_square_raster(runif(100))
+  r1d <- raster::disaggregate(r1, 2)
+  r2d <- raster::disaggregate(r2, 2)
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(r1))
+
+  # no warning, values and weights have same resolution
+  expect_silent(exact_extract(r1, circle, weights=r2))
+
+  # no warning, values have higher resolution than weights
+  expect_silent(exact_extract(r1d, circle, weights=r2))
+
+  # warning, weights have higher resolution than values
+  expect_warning(exact_extract(r1, circle, weights=r2d),
+                 'value .* disaggregated')
+})
+
+test_that('Error raised when value raster is disaggregated and unweighted sum/count requested', {
+  r1 <- make_square_raster(1:100)
+  r1d <- raster::disaggregate(r1, 2)
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(r1))
+
+  # no error, requested operations either expect disaggregation
+  # or are not impacted by it
+  expect_silent(exact_extract(r1, circle, c('weighted_sum', 'weighted_mean', 'mean'), weights=r1d))
+
+  # on the other hand, "count" would be messed up by the disaggregation
+  expect_error(exact_extract(r1, circle, c('weighted_sum', 'count'), weights=r1d),
+               'raster is disaggregated')
+
+  # as would "sum"
+  expect_error(exact_extract(r1, circle, c('weighted_sum', 'count'), weights=r1d),
+               'raster is disaggregated')
+
+  # no problem if the weights are disaggregated, though
+  expect_silent(exact_extract(r1d, circle, c('weighted_sum', 'count'), weights=r1))
+})
+
+test_that('Both value and weighting rasters can be a stack', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('a', 'b', 'c')
+
+  weights <- stack(replicate(2, make_square_raster(rbinom(100, 2, 0.5))))
+  names(weights) <- c('w1', 'w2')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  extracted <- exact_extract(vals, circle, weights=weights)[[1]]
+
+  expect_named(extracted, c('a', 'b', 'c', 'w1', 'w2', 'coverage_fraction'))
+
+  # stack of values, stack of weights: both passed as data frames
+  exact_extract(vals, circle, function(v, c, w) {
+    expect_true(is.data.frame(v))
+    expect_true(is.data.frame(w))
+    expect_named(v, names(vals))
+    expect_named(w, names(weights))
+  }, weights = weights)
+
+  # stack of values, single layer of weights: weights passed as vector
+  exact_extract(vals, circle, function(v, c, w) {
+    expect_true(is.data.frame(v))
+    expect_true(is.vector(w))
+  }, weights = weights[[1]])
+
+  # single layer of values, stack of weights: values passed as vector
+  exact_extract(vals[[1]], circle, function(v, c, w) {
+    expect_true(is.vector(v))
+    expect_true(is.data.frame(w))
+  }, weights = weights)
+
+  # single layer of values, single layer of weights: both passed as vector
+  exact_extract(vals[[1]], circle, function(v, c, w) {
+    expect_true(is.vector(v))
+    expect_true(is.vector(w))
+  }, weights = weights[[1]])
+})
+
+test_that('Named summary operations support both stacks of values and weights', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('v1', 'v2', 'v3')
+
+  weights <- stack(replicate(3, make_square_raster(rbinom(100, 2, 0.5))))
+  names(weights) <- c('w1', 'w2', 'w3')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  stats <- c('sum', 'weighted_mean')
+
+  # stack of values, stack of weights: values and weights are applied pairwise
+  result <- exact_extract(vals, circle, stats, weights=weights)
+  expect_named(result, c(
+    'sum.v1', 'sum.v2', 'sum.v3',
+    'weighted_mean.v1.w1', 'weighted_mean.v2.w2', 'weighted_mean.v3.w3'))
+  expect_equal(result$sum.v1, exact_extract(vals[[1]], circle, 'sum'))
+  expect_equal(result$sum.v2, exact_extract(vals[[2]], circle, 'sum'))
+  expect_equal(result$sum.v3, exact_extract(vals[[3]], circle, 'sum'))
+  expect_equal(result$weighted_mean.v1, exact_extract(vals[[1]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.v2, exact_extract(vals[[2]], circle, 'weighted_mean', weights=weights[[2]]))
+  expect_equal(result$weighted_mean.v3, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[3]]))
+
+  # stack of values, layer of weights: weights are recycled
+  result <- exact_extract(vals, circle, stats, weights=weights[[1]])
+  expect_named(result, c(
+    'sum.v1', 'sum.v2', 'sum.v3',
+    'weighted_mean.v1', 'weighted_mean.v2', 'weighted_mean.v3'))
+  expect_equal(result$sum.v1, exact_extract(vals[[1]], circle, 'sum'))
+  expect_equal(result$sum.v2, exact_extract(vals[[2]], circle, 'sum'))
+  expect_equal(result$sum.v3, exact_extract(vals[[3]], circle, 'sum'))
+  expect_equal(result$weighted_mean.v1, exact_extract(vals[[1]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.v2, exact_extract(vals[[2]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.v3, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[1]]))
+
+  # layer of values, stack of weights: values are recycled
+  result <- exact_extract(vals[[3]], circle, stats, weights=weights)
+  expect_named(result, c('sum', 'weighted_mean.w1', 'weighted_mean.w2', 'weighted_mean.w3'))
+  expect_equal(result$sum, exact_extract(vals[[3]], circle, 'sum'))
+  expect_equal(result$weighted_mean.w1, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[1]]))
+  expect_equal(result$weighted_mean.w2, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[2]]))
+  expect_equal(result$weighted_mean.w3, exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[3]]))
+})
+
+test_that('We can use stack_apply with both values and weights', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('v1', 'v2', 'v3')
+
+  weights <- stack(replicate(3, make_square_raster(rbinom(100, 2, 0.5))))
+  names(weights) <- c('w1', 'w2', 'w3')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  weighted_mean <- function(v, c, w) {
+    expect_equal(length(v), length(c))
+    expect_equal(length(v), length(w))
+
+    weighted.mean(v, c*w)
+  }
+
+  # stack of values, stack of weights: values and weights are applied pairwise
+  result <- exact_extract(vals, circle, weighted_mean, weights = weights, stack_apply = TRUE)
+  expect_named(result, c('fun.v1.w1', 'fun.v2.w2', 'fun.v3.w3'))
+  expect_equal(result$fun.v2.w2,
+               exact_extract(vals[[2]], circle, 'weighted_mean', weights=weights[[2]]),
+               tol = 1e-6)
+
+  # stack of values, layer of weights: weights are recycled
+  result <- exact_extract(vals, circle, weighted_mean, weights = weights[[2]], stack_apply = TRUE, full_colnames = TRUE)
+  expect_named(result, c('fun.v1.w2', 'fun.v2.w2', 'fun.v3.w2'))
+  expect_equal(result$fun.v1.w2,
+               exact_extract(vals[[1]], circle, 'weighted_mean', weights=weights[[2]]),
+               tol = 1e-6)
+
+  # layer of values, stack of weights: values are recycled
+  result <- exact_extract(vals[[3]], circle, weighted_mean, weights = weights, stack_apply = TRUE, full_colnames = TRUE)
+  expect_named(result, c('fun.v3.w1', 'fun.v3.w2', 'fun.v3.w3'))
+  expect_equal(result$fun.v3.w1,
+               exact_extract(vals[[3]], circle, 'weighted_mean', weights=weights[[1]]),
+               tol = 1e-6)
+})
+
+test_that('We get an error if using stack_apply with incompatible stacks', {
+  vals <- stack(replicate(3, make_square_raster(runif(100))))
+  names(vals) <- c('a', 'b', 'c')
+
+  weights <- stack(replicate(2, make_square_raster(runif(100))))
+  names(weights) <- c('d', 'e')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  expect_error(
+    exact_extract(vals, circle, function(v, c, w) 1, weights=weights, stack_apply=TRUE),
+    "Can't apply")
+})
+
+test_that('Layers are implicity renamed if value layers have same name as weight layers', {
+  # this happens when a stack is created and no names are provided
+  # raster package assigns layer.1, layer.2
+  # here we assign our own identical names to avoid relying on raster package
+  # implementation detail
+  vals <- stack(replicate(2, make_square_raster(runif(100))))
+  names(vals) <- c('a', 'b')
+
+  weights <- stack(replicate(2, make_square_raster(runif(100))))
+  names(weights) <- c('a', 'b')
+
+  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
+
+  result <- exact_extract(vals, circle, weights=weights)[[1]]
+  expect_named(result, c('a', 'b', 'a.1', 'b.1', 'coverage_fraction'))
+})
+
 test_that('Progress bar updates incrementally', {
+
   rast <- make_square_raster(1:100)
 
   npolys <- 13
@@ -904,4 +1102,95 @@ test_that('Progress bar updates incrementally', {
       expect_false(is.unsorted(pcts))
     }
   }
+})
+
+test_that('generated column names follow expected pattern', {
+  values <- c('v1', 'v2', 'v3')
+  weights <- c('w1', 'w2', 'w3')
+
+  stats <- c('mean', 'weighted_mean')
+
+  test_mean <- function(x, c) { weighted.mean(x, c) }
+
+  # layer of values, no weights
+  # named summary operations
+  expect_equal(.resultColNames(values[[2]], NULL, c('mean', 'sum'), TRUE),
+               c('mean.v2', 'sum.v2'))
+  expect_equal(.resultColNames(values[[2]], NULL, c('mean', 'sum'), FALSE),
+               c('mean', 'sum'))
+
+  # generic method (we can recover its name)
+  expect_equal(.resultColNames(values[[2]], NULL, weighted.mean, TRUE),
+               'weighted.mean.v2')
+  expect_equal(.resultColNames(values[[2]], NULL, weighted.mean, FALSE),
+               'weighted.mean')
+
+  # regular function (we can't recover its name)
+  expect_equal(.resultColNames(values[[2]], NULL, test_mean, TRUE),
+               'fun.v2')
+  expect_equal(.resultColNames(values[[2]], NULL, test_mean, FALSE),
+               'fun')
+
+  # stack of values, no weights
+  for (full_colnames in c(TRUE, FALSE)) {
+    expect_equal(.resultColNames(values, NULL, c('mean', 'sum'), full_colnames),
+                 c('mean.v1', 'mean.v2', 'mean.v3',
+                   'sum.v1', 'sum.v2', 'sum.v3'))
+    expect_equal(.resultColNames(values, NULL, test_mean, full_colnames),
+                 c('fun.v1', 'fun.v2', 'fun.v3'))
+  }
+
+  # values, weights processed in parallel
+  for (full_colnames in c(TRUE, FALSE)) {
+    expect_equal(.resultColNames(values, weights, stats, full_colnames),
+                 c('mean.v1', 'mean.v2', 'mean.v3',
+                   'weighted_mean.v1.w1', 'weighted_mean.v2.w2', 'weighted_mean.v3.w3'))
+    expect_equal(.resultColNames(values, weights, test_mean, full_colnames),
+                 c('fun.v1.w1', 'fun.v2.w2', 'fun.v3.w3'))
+  }
+
+  # values recycled (full names)
+  expect_equal(.resultColNames(values[1], weights, stats, TRUE),
+               c('mean.v1', 'mean.v1', 'mean.v1',
+                 'weighted_mean.v1.w1', 'weighted_mean.v1.w2', 'weighted_mean.v1.w3'))
+  expect_equal(.resultColNames(values[1], weights, test_mean, TRUE),
+               c('fun.v1.w1', 'fun.v1.w2', 'fun.v1.w3'))
+
+  # here the values are always the same so we don't bother adding them to the names
+  expect_equal(.resultColNames(values[1], weights, stats, FALSE),
+               c('mean', 'mean', 'mean',
+                 'weighted_mean.w1', 'weighted_mean.w2', 'weighted_mean.w3'))
+  expect_equal(.resultColNames(values[1], weights, test_mean, FALSE),
+               c('fun.w1', 'fun.w2', 'fun.w3'))
+
+  # weights recycled (full names)
+  expect_equal(.resultColNames(values, weights[1], stats, TRUE),
+               c('mean.v1', 'mean.v2', 'mean.v3',
+                 'weighted_mean.v1.w1', 'weighted_mean.v2.w1', 'weighted_mean.v3.w1'))
+  expect_equal(.resultColNames(values, weights[1], test_mean, TRUE),
+               c('fun.v1.w1', 'fun.v2.w1', 'fun.v3.w1'))
+
+  # here the weights are always the same so we don't bother adding them to the name
+  expect_equal(.resultColNames(values, weights[1], stats, FALSE),
+               c('mean.v1', 'mean.v2', 'mean.v3',
+                 'weighted_mean.v1', 'weighted_mean.v2', 'weighted_mean.v3'))
+  expect_equal(.resultColNames(values, weights[1], test_mean, FALSE),
+               c('fun.v1', 'fun.v2', 'fun.v3'))
+})
+
+test_that('When disaggregating values, xy coordinates refer to disaggregated grid', {
+  rast <- make_square_raster(1:100)
+  rast2 <- raster::disaggregate(rast, 4)
+
+  circle <- make_circle(7.5, 5.5, 0.4, sf::st_crs(rast))
+
+  xy_disaggregated <- exact_extract(rast2, circle, include_xy = TRUE)[[1]][, c('x', 'y')]
+
+  suppressWarnings({
+    xy_weighted <- exact_extract(rast, circle, include_xy = TRUE, weights = rast2)[[1]][, c('x', 'y')]
+    xy_weighted2 <- exact_extract(rast2, circle, include_xy = TRUE, weights = rast)[[1]][, c('x', 'y')]
+  })
+
+  expect_equal(xy_weighted, xy_disaggregated)
+  expect_equal(xy_weighted2, xy_disaggregated)
 })
