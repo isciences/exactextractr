@@ -14,7 +14,7 @@ Imports:
   Rcpp (>= 0.12.12),
   methods,
   raster,
-  sf,
+  sf (>= 0.9.0),
 URL: https://isciences.gitlab.io/exactextractr/, https://github.com/isciences/exactextractr
 BugReports: https://github.com/isciences/exactextractr/issues
 LinkingTo: Rcpp
