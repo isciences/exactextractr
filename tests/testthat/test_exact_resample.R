@@ -74,3 +74,19 @@ test_that("warning raised if one CRS undefined", {
     'No CRS specified for source'
   )
 })
+
+test_that("stats requiring stored values can be used", {
+  # https://github.com/isciences/exactextractr/issues/47
+
+  r <- raster::raster(resolution = 2)
+  target <- raster::shift(r, 2.5, 1)
+
+  set.seed(1111)
+  raster::values(r) = as.integer(round(rnorm(raster::ncell(r), 0, 1)))
+
+  vals <- unique(raster::getValues(r))
+  mode_vals <- sort(unique(raster::getValues(exactextractr::exact_resample(r, target, fun = "mode"))))
+
+  expect_true(length(mode_vals) > 1)
+  expect_true(all(mode_vals %in% vals))
+})

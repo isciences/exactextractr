@@ -54,3 +54,13 @@ Rcpp::NumericVector as_vector(const exactextract::AbstractRaster<T> & r) {
 
   return ret;
 }
+
+template<typename T>
+bool requires_stored_values(T s) {
+  return s == "mode" ||
+    s == "majority" ||
+    s == "minority" ||
+    s == "variety" ||
+    s == "median" ||
+    s == "quantile";
+}
