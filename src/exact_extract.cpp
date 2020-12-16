@@ -188,16 +188,6 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   return cols;
 }
 
-template<typename T>
-static bool requires_stored_values(T s) {
-  return s == "mode" ||
-    s == "majority" ||
-    s == "minority" ||
-    s == "variety" ||
-    s == "median" ||
-    s == "quantile";
-}
-
 // Return a matrix with one row per stat and one row per raster layer
 // [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,

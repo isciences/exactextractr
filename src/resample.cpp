@@ -67,6 +67,7 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
   auto grid_out = make_grid(rast_out);
 
   std::string stat_name = Rcpp::as<std::string>(stat[0]);
+  bool store_values = requires_stored_values(stat_name);
 
   Rcpp::NumericMatrix values_out = Rcpp::no_init(grid_out.rows(), grid_out.cols());
 
@@ -81,7 +82,7 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
     auto values = rsrc.read_box(row_box, 0);
 
     for (size_t col = 0; col < grid_out.cols(); col++) {
-      RasterStats<double> stats;
+      RasterStats<double> stats{store_values};
 
       Box cell = grid_cell(grid_out, row, col);
       auto coverage_fraction = raster_cell_intersection(grid_in, cell);
