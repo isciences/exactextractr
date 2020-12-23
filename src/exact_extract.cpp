@@ -49,7 +49,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              bool include_xy,
                              bool include_cell_number,
                              Rcpp::Nullable<Rcpp::List> & include_cols,
-                             Rcpp::Nullable<Rcpp::CharacterVector> & p_rast_names,
+                             Rcpp::CharacterVector & src_names,
                              Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names,
                              bool warn_on_disaggregate) {
   GEOSAutoHandle geos;
@@ -61,7 +61,6 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
 
   S4RasterSource rsrc(rast);
   int src_nlayers = get_nlayers(rast);
-  Rcpp::CharacterVector src_names = p_rast_names.isNull() ? names(rast) : p_rast_names.get();
 
   std::unique_ptr<S4RasterSource> rweights;
   int weights_nlayers = 0;
@@ -73,7 +72,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     common_grid = grid.common_grid(weights_grid);
 
     rweights = std::make_unique<S4RasterSource>(weights_s4);
-    weights_names = p_weights_names.isNull() ? names(weights_s4) : p_weights_names.get();
+    weights_names = p_weights_names.get();
 
     if (warn_on_disaggregate && (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy())) {
       Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
@@ -128,12 +127,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     }
 
     value_vec = value_vec[covered];
-
-    if (src_nlayers == 1) {
-      cols["value"] = value_vec;
-    } else {
-      cols[std::string(src_names[i])] = value_vec;
-    }
+    cols[std::string(src_names[i])] = value_vec;
   }
 
   for (int i = 0; i < weights_nlayers; i++) {
@@ -152,19 +146,15 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
 
     weight_vec = weight_vec[covered];
 
-    if (weights_nlayers == 1) {
-      cols["weight"] = weight_vec;
-    } else {
-      std::string colname(weights_names[i]);
-      if (cols.containsElementNamed(colname.c_str())) {
-        // append ".1" to the column name, to match the behavior of
-        // data.frame(). We're safe to just add ".1" (instead of incrementing
-        // .1 to .2, for example) because duplicated names within the values
-        // or weight stack will already have been made unique by raster::stack()
-        colname = colname + ".1"; // append .1
-      }
-      cols[colname] = weight_vec;
+    std::string colname(weights_names[i]);
+    if (cols.containsElementNamed(colname.c_str())) {
+      // append ".1" to the column name, to match the behavior of
+      // data.frame(). We're safe to just add ".1" (instead of incrementing
+      // .1 to .2, for example) because duplicated names within the values
+      // or weight stack will already have been made unique by raster::stack()
+      colname = colname + ".1"; // append .1
     }
+    cols[colname] = weight_vec;
   }
 
   if (include_xy) {

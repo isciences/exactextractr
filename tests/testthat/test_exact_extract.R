@@ -1194,3 +1194,34 @@ test_that('When disaggregating values, xy coordinates refer to disaggregated gri
   expect_equal(xy_weighted, xy_disaggregated)
   expect_equal(xy_weighted2, xy_disaggregated)
 })
+
+test_that('include_ arguments supported with weighted summary function', {
+  rast1 <- 5 + make_square_raster(1:100)
+  rast2 <- make_square_raster(runif(100))
+
+  circle <- st_sf(
+    id = 77,
+    make_circle(7.5, 5.5, 4, sf::st_crs(rast1)))
+
+  x <- exact_extract(rast1, circle, function(v, c, w) {
+    expect_is(v, 'data.frame')
+    expect_named(v, c('value', 'id'))
+    expect_true(all(v$id ==  77))
+
+    expect_is(c, 'numeric')
+    expect_is(w, 'numeric')
+  }, weights=rast2, include_cols = 'id')
+
+  x <- exact_extract(rast1, circle, function(v, c, w) {
+    expect_is(v, 'data.frame')
+    expect_named(v, c('value', 'id', 'x', 'y', 'cell'))
+    expect_true(all(v$id ==  77))
+    expect_equal(v$value, rast1[v$cell])
+    expect_equal(w, rast2[v$cell])
+    expect_equal(v$x, raster::xFromCell(rast1, v$cell))
+    expect_equal(v$y, raster::yFromCell(rast1, v$cell))
+
+    expect_is(c, 'numeric')
+    expect_is(w, 'numeric')
+  }, weights=rast2, include_cols = 'id', include_cell = TRUE, include_xy = TRUE)
+})

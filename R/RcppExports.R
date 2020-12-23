@@ -5,8 +5,8 @@ CPP_coverage_fraction <- function(rast, wkb, crop) {
     .Call('_exactextractr_CPP_coverage_fraction', PACKAGE = 'exactextractr', rast, wkb, crop)
 }
 
-CPP_exact_extract <- function(rast, weights, wkb, include_xy, include_cell_number, include_cols, p_rast_names, p_weights_names, warn_on_disaggregate) {
-    .Call('_exactextractr_CPP_exact_extract', PACKAGE = 'exactextractr', rast, weights, wkb, include_xy, include_cell_number, include_cols, p_rast_names, p_weights_names, warn_on_disaggregate)
+CPP_exact_extract <- function(rast, weights, wkb, include_xy, include_cell_number, include_cols, src_names, p_weights_names, warn_on_disaggregate) {
+    .Call('_exactextractr_CPP_exact_extract', PACKAGE = 'exactextractr', rast, weights, wkb, include_xy, include_cell_number, include_cols, src_names, p_weights_names, warn_on_disaggregate)
 }
 
 CPP_stats <- function(rast, weights, wkb, stats, max_cells_in_memory, quantiles) {

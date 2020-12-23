@@ -368,23 +368,33 @@ emptyVector <- function(rast) {
         apply_layerwise <- FALSE
       }
 
+      # For R summary functions and data frame output, we avoid using
+      # input layer names if there is only one value/weight layer
+      if (length(value_names) == 1) {
+        value_names <- 'value'
+      }
+      if (length(weight_names) == 1) {
+        weight_names <- 'weight'
+      }
 
       ret <- lapply(seq_along(geoms), function(feature_num) {
         wkb <- sf::st_as_binary(geoms[[feature_num]], EWKB=TRUE)
 
         if (!is.null(include_cols)) {
-          include_cols <- sf::st_drop_geometry(y[feature_num, include_cols])
+          include_col_values <- sf::st_drop_geometry(y[feature_num, include_cols])
+        } else {
+          include_col_values <- NULL
         }
 
         # only raise a disaggregation warning for the first feature
         warn_on_disaggregate <- feature_num == 1
 
-        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_cols, value_names, weight_names, warn_on_disaggregate)
+        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_col_values, value_names, weight_names, warn_on_disaggregate)
         if (!is.null(include_cols)) {
           # Replicate the include_cols vectors to be as long as the other columns,
           # so we can use quickDf
           nrow <- length(col_list$coverage_fraction)
-          col_list[names(include_cols)] <- lapply(col_list[names(include_cols)], rep, nrow)
+          col_list[include_cols] <- lapply(col_list[include_cols], rep, nrow)
         }
         df <- .quickDf(col_list)
 
@@ -394,19 +404,15 @@ emptyVector <- function(rast) {
           return(df)
         }
 
-        num_included <- ncol(df) - 1 - num_values - num_weights # x, y, cell
-
-        # TODO change return structure of CPP_exact_extract so this stuff
-        # doesn't have to be parsed out?
-        vals_df <- df[, seq_len(num_values), drop=FALSE]
-        weights_df <- df[, num_values + seq_len(num_weights), drop=FALSE]
-        included_cols_df <- df[, num_values + num_weights + seq_len(num_included), drop=FALSE]
+        included_cols_df <- df[, !(names(df) %in% c(value_names, weight_names, 'coverage_fraction')), drop = FALSE]
+        vals_df <- df[, value_names, drop = FALSE]
+        weights_df <- df[, weight_names, drop = FALSE]
         cov_fracs <- df$coverage_fraction
 
         if (apply_layerwise) {
           result <- lapply(seq_len(num_results), function(i) {
             vx <- vals_df[, ind$values[i]]
-            if (num_included > 0) {
+            if (ncol(included_cols_df) > 0) {
               vx <- cbind(data.frame(value = vx), included_cols_df)
             }
             if (num_weights == 0) {
