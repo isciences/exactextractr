@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 ISciences, LLC.
+# Copyright (c) 2018-2021 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -1224,4 +1224,44 @@ test_that('include_ arguments supported with weighted summary function', {
     expect_is(c, 'numeric')
     expect_is(w, 'numeric')
   }, weights=rast2, include_cols = 'id', include_cell = TRUE, include_xy = TRUE)
+})
+
+test_that('We can replace NA values in the value and weighting rasters with constants', {
+  set.seed(05401)
+
+  x <- runif(100)
+  x[sample(length(x), 0.5*length(x))] <- NA
+
+  y <- runif(100)
+  y[sample(length(y), 0.5*length(y))] <- NA
+
+  rx <- make_square_raster(x)
+  ry <- make_square_raster(y)
+
+  poly <- make_circle(4.5, 4.8, 4, crs=st_crs(rx))
+
+  # manually fill the missing values with 0.5 and missing weights with 0.3
+  rx_filled <- make_square_raster(ifelse(is.na(x), 0.5, x))
+  ry_filled <- make_square_raster(ifelse(is.na(y), 0.3, y))
+
+  expected <- exact_extract(rx_filled, poly, 'weighted_mean', weights = ry_filled)
+
+  # fill values on the fly and verify that we get the same result
+  expect_equal(
+    exact_extract(rx, poly, 'weighted_mean', weights = ry, default_value = 0.5, default_weight = 0.3),
+    expected)
+
+  # check same calculation but using R summary function
+  expect_equal(
+    exact_extract(rx, poly, weights = ry, default_value = 0.5, default_weight = 0.3,
+      fun = function(value, cov_frac, weight) {
+        weighted.mean(value, cov_frac*weight)
+      }),
+    expected, 1e-6)
+
+  # check substitution in raw returned values
+  expect_equal(
+    which(is.na(exact_extract(rx, poly)[[1]]$value)),
+    which(44 == exact_extract(rx, poly, default_value = 44)[[1]]$value)
+  )
 })

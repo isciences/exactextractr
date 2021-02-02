@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020 ISciences, LLC.
+// Copyright (c) 2018-2021 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -46,6 +46,8 @@ using exactextract::RasterSource;
 Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              Rcpp::Nullable<Rcpp::S4> & weights,
                              const Rcpp::RawVector & wkb,
+                             double default_value,
+                             double default_weight,
                              bool include_xy,
                              bool include_cell_number,
                              Rcpp::Nullable<Rcpp::List> & include_cols,
@@ -59,7 +61,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   auto weights_grid = exactextract::Grid<bounded_extent>::make_empty();
   auto common_grid = grid;
 
-  S4RasterSource rsrc(rast);
+  S4RasterSource rsrc(rast, default_value);
   int src_nlayers = get_nlayers(rast);
 
   std::unique_ptr<S4RasterSource> rweights;
@@ -71,7 +73,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     weights_grid = make_grid(weights_s4);
     common_grid = grid.common_grid(weights_grid);
 
-    rweights = std::make_unique<S4RasterSource>(weights_s4);
+    rweights = std::make_unique<S4RasterSource>(weights_s4, default_weight);
     weights_names = p_weights_names.get();
 
     if (warn_on_disaggregate && (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy())) {
@@ -183,6 +185,8 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               Rcpp::Nullable<Rcpp::S4> weights,
                               const Rcpp::RawVector & wkb,
+                              double default_value,
+                              double default_weight,
                               const Rcpp::StringVector & stats,
                               int max_cells_in_memory,
                               const Rcpp::Nullable<Rcpp::NumericVector> & quantiles) {
@@ -195,7 +199,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
     int nlayers = get_nlayers(rast);
 
-    S4RasterSource rsrc(rast);
+    S4RasterSource rsrc(rast, default_value);
 
     std::unique_ptr<S4RasterSource> rweights;
     bool weighted = false;
@@ -208,7 +212,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
         Rcpp::stop("Incompatible number of layers in value and weighting rasters");
       }
 
-      rweights = std::make_unique<S4RasterSource>(weights_s4);
+      rweights = std::make_unique<S4RasterSource>(weights_s4, default_weight);
       weighted = true;
     }
 
