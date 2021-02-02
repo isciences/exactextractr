@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 ISciences, LLC.
+# Copyright (c) 2018-2021 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -99,6 +99,9 @@ if (!isGeneric("exact_extract")) {
 #' @param     fun an optional function or character vector, as described below
 #' @param     weights  a weighting raster to be used with the \code{weighted_mean}
 #'                     and \code{weighted_sum} summary operations.
+#' @param     default_value  an optional value to use instead of \code{NA} in \code{x}
+#' @param     default_weight an optional value to use instead of \code{NA} in
+#'                           \code{weights}
 #' @param     quantiles   quantiles to be computed when \code{fun == 'quantile'}
 #' @param     append_cols when \code{fun} is not \code{NULL}, an optional
 #'                        character vector of columns from \code{y} to be
@@ -161,36 +164,6 @@ if (!isGeneric("exact_extract")) {
 #' @name exact_extract
 NULL
 
-#' @import sf
-#' @import raster
-#' @useDynLib exactextractr
-#' @rdname exact_extract
-#' @export
-setMethod('exact_extract', signature(x='Raster', y='sf'),
-          function(x, y, fun=NULL, ...,
-                   include_xy=FALSE,
-                   progress=TRUE,
-                   max_cells_in_memory=30000000,
-                   include_cell=FALSE,
-                   force_df=FALSE,
-                   full_colnames=FALSE,
-                   stack_apply=FALSE,
-                   append_cols=NULL,
-                   include_cols=NULL,
-                   quantiles=NULL) {
-  .exact_extract(x, y, fun=fun, ...,
-                include_xy=include_xy,
-                progress=progress,
-                max_cells_in_memory=max_cells_in_memory,
-                include_cell=include_cell,
-                force_df=force_df,
-                full_colnames=full_colnames,
-                stack_apply=stack_apply,
-                append_cols=append_cols,
-                include_cols=include_cols,
-                quantiles=quantiles)
-})
-
 # Return the number of standard (non-...) arguments in a supplied function that
 # do not have a default value. This is used to fail if the summary function
 # provided by the user cannot accept arguments of values and weights.
@@ -218,7 +191,9 @@ emptyVector <- function(rast) {
                            stack_apply=FALSE,
                            append_cols=NULL,
                            include_cols=NULL,
-                           quantiles=NULL) {
+                           quantiles=NULL,
+                           default_value=NA_real_,
+                           default_weight=NA_real_) {
   if(!is.null(append_cols)) {
     if (!inherits(y, 'sf')) {
       stop(sprintf('append_cols only supported for sf arguments (received %s)',
@@ -317,7 +292,7 @@ emptyVector <- function(rast) {
       }
 
       results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
-        ret <- CPP_stats(x, weights, wkb, fun, max_cells_in_memory, quantiles)
+        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, fun, max_cells_in_memory, quantiles)
         update_progress()
         return(ret)
       })
@@ -389,7 +364,7 @@ emptyVector <- function(rast) {
         # only raise a disaggregation warning for the first feature
         warn_on_disaggregate <- feature_num == 1
 
-        col_list <- CPP_exact_extract(x, weights, wkb, include_xy, include_cell, include_col_values, value_names, weight_names, warn_on_disaggregate)
+        col_list <- CPP_exact_extract(x, weights, wkb, default_value, default_weight, include_xy, include_cell, include_col_values, value_names, weight_names, warn_on_disaggregate)
         if (!is.null(include_cols)) {
           # Replicate the include_cols vectors to be as long as the other columns,
           # so we can use quickDf
@@ -521,6 +496,14 @@ emptyVector <- function(rast) {
 
   return(vals_df)
 }
+
+#' @import sf
+#' @import raster
+#' @useDynLib exactextractr
+#' @rdname exact_extract
+#' @export
+setMethod('exact_extract', signature(x='Raster', y='sf'),
+          .exact_extract)
 
 #' @useDynLib exactextractr
 #' @rdname exact_extract

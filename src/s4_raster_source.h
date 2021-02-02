@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020 ISciences, LLC.
+// Copyright (c) 2018-2021 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -24,13 +24,14 @@
 // Read raster values from an R raster object
 class S4RasterSource {
 public:
-  S4RasterSource(Rcpp::S4 rast) :
+  explicit S4RasterSource(Rcpp::S4 rast, double default_value = std::numeric_limits<double>::quiet_NaN()) :
     m_grid(exactextract::Grid<exactextract::bounded_extent>::make_empty()),
     m_rast(rast),
     m_last_box(std::numeric_limits<double>::quiet_NaN(),
                std::numeric_limits<double>::quiet_NaN(),
                std::numeric_limits<double>::quiet_NaN(),
-               std::numeric_limits<double>::quiet_NaN())
+               std::numeric_limits<double>::quiet_NaN()),
+    m_default_value(default_value)
   {
     m_grid = make_grid(rast);
   }
@@ -65,6 +66,14 @@ public:
                                          1 + cropped_grid.col_offset(m_grid),
                                          cropped_grid.cols(),
                                          Rcpp::Named("format", "m"));
+
+        if (!std::isnan(m_default_value)) {
+          for (double& x : m_rast_values) {
+            if (std::isnan(x)) {
+              x = m_default_value;
+            }
+          }
+        }
       }
     }
 
@@ -81,4 +90,5 @@ private:
   Rcpp::S4 m_rast;
   Rcpp::NumericMatrix m_rast_values;
   exactextract::Box m_last_box;
+  double m_default_value;
 };
