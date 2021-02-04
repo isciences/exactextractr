@@ -13,7 +13,7 @@ covered by a polygon. Typical performance for real-world applications is orders
 of magnitude faster than the
 [`raster`](https://CRAN.R-project.org/package=raster) package.
 
-![Example Graphic](https://exactextractr.s3.us-east-2.amazonaws.com/brazil_precip.png).
+![Example Graphic](https://gitlab.com/isciences/exactextractr/-/raw/assets/readme/brazil_precip.png).
 
 Calculations are performed using the C++
 [`exactextract`](https://github.com/isciences/exactextract) tool. Additional
