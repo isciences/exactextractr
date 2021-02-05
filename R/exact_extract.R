@@ -113,6 +113,15 @@ if (!isGeneric("exact_extract")) {
 #'                          layer. This is useful when the results of multiple
 #'                          calls to \code{exact_extract} are combined with
 #'                          \code{cbind}.
+#' @param     include_area if \code{TRUE}, and \code{fun} is \code{NULL}, augment
+#'                       the returned data frame for each feature with a column
+#'                       for the cell area. If the units of the raster CRS are
+#'                       degrees, the area in square meters will be calculated
+#'                       based on a spherical approximation of Earth. Otherwise,
+#'                       a Cartesian area will be calculated (and will be the
+#'                       same for all pixels.) If \code{TRUE} and \code{fun} is
+#'                       not \code{NULL}, add \code{area} to the data frame passed
+#'                       to \code{fun} for each feature.
 #' @param     include_cell if \code{TRUE}, and \code{fun} is \code{NULL}, augment
 #'                       the returned data frame for each feature with a column
 #'                       for the cell index (\code{cell}). If \code{TRUE} and
@@ -190,6 +199,7 @@ emptyVector <- function(rast) {
                            full_colnames=FALSE,
                            stack_apply=FALSE,
                            append_cols=NULL,
+                           include_area=FALSE,
                            include_cols=NULL,
                            quantiles=NULL,
                            default_value=NA_real_,
@@ -228,8 +238,10 @@ emptyVector <- function(rast) {
     }
   }
 
+  analysis_crs <- sf::st_crs(x)
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
     warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
+    analysis_crs <- sf::st_crs(y)
   } else if(is.na(sf::st_crs(y)) && !is.na(sf::st_crs(x))) {
     warning("No CRS specified for polygons; assuming they have the same CRS as the raster.")
   } else if(sf::st_crs(x) != sf::st_crs(y)) {
@@ -254,6 +266,10 @@ emptyVector <- function(rast) {
 
     if (include_cell) {
       stop("include_cell must be FALSE for named summary operations")
+    }
+
+    if (include_area) {
+      stop("include_area must be FALSE for named summary operations")
     }
 
     if (!is.null(include_cols)) {
@@ -328,6 +344,15 @@ emptyVector <- function(rast) {
       num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
       value_names <- names(x)
       weight_names <- names(weights)
+      area_method <- NULL
+
+      if (include_area) {
+        if (!(is.na(analysis_crs)) && analysis_crs$units_gdal == 'degree') {
+          area_method <- 'spherical'
+        } else {
+          area_method <- 'cartesian'
+        }
+      }
 
       if (stack_apply || (num_values == 1 && num_weights <= 1)) {
         apply_layerwise <- TRUE
@@ -364,7 +389,18 @@ emptyVector <- function(rast) {
         # only raise a disaggregation warning for the first feature
         warn_on_disaggregate <- feature_num == 1
 
-        col_list <- CPP_exact_extract(x, weights, wkb, default_value, default_weight, include_xy, include_cell, include_col_values, value_names, weight_names, warn_on_disaggregate)
+        col_list <- CPP_exact_extract(x,
+                                      weights,
+                                      wkb,
+                                      default_value,
+                                      default_weight,
+                                      include_xy,
+                                      include_cell,
+                                      area_method,
+                                      include_col_values,
+                                      value_names,
+                                      weight_names,
+                                      warn_on_disaggregate)
         if (!is.null(include_cols)) {
           # Replicate the include_cols vectors to be as long as the other columns,
           # so we can use quickDf

@@ -486,6 +486,33 @@ test_that('We can optionally get cell center coordinates included in our output'
   }, progress=FALSE)
 })
 
+test_that('Cell areas can be included in output (projected)', {
+  rast_utm <- make_square_raster(1:100)
+
+  circle <- make_circle(5, 5, 5, crs=st_crs(rast_utm))
+
+  areas <- exact_extract(rast_utm, circle, include_area = TRUE)[[1]]$area
+  expect_true(all(areas == 1))
+})
+
+test_that('Cell areas can be included in output (geographic) and are accurate to 1%', {
+  rast <- raster::raster(matrix(1:54000, ncol=360),
+                         xmn=-180, xmx=180, ymn=-65, ymx=85,
+                         crs='+proj=longlat +datum=WGS84')
+  accuracy_pct_tol <- 0.01
+
+  suppressMessages({
+    circle <- make_circle(0, 45, 15, crs=st_crs(rast))
+  })
+
+  results <- exact_extract(rast, circle, include_cell = TRUE, include_area = TRUE)[[1]]
+
+  expected_areas <- raster::area(rast)[results$cell]
+  actual_areas <- results$area / 1e6
+
+  expect_true(all(abs(actual_areas - expected_areas) / expected_areas < accuracy_pct_tol))
+})
+
 test_that('Warning is raised on CRS mismatch', {
   rast <- raster::raster(matrix(1:100, nrow=10),
                          xmn=-180, xmx=180, ymn=-90, ymx=90,
@@ -814,7 +841,7 @@ test_that('We can append columns from the source data frame in the results', {
   # instead, check that the naming is consistent with what we get from the force_df argument
   expect_identical(result_2,
                    cbind(sf::st_drop_geometry(circles[, c('size', 'fid')]),
-                         exact_extract(rast, circles, weighted.mean, force_df = TRUE)))
+                         exact_extract(rast, circles, weighted.mean, force_df = TRUE, progress = FALSE)))
 })
 
 test_that('We can include columns from the source data frame in returned data frames', {

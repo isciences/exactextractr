@@ -12,9 +12,9 @@
 // limitations under the License.
 
 // [[Rcpp::plugins("cpp14")]]
-#include <memory>
-
 #include <Rcpp.h>
+
+#include <memory>
 
 #include "geos_r.h"
 #include "raster_utils.h"
@@ -24,6 +24,7 @@
 #include "exactextract/src/geos_utils.h"
 #include "exactextract/src/grid.h"
 #include "exactextract/src/matrix.h"
+#include "exactextract/src/raster_area.h"
 #include "exactextract/src/raster_cell_intersection.h"
 #include "exactextract/src/raster_source.h"
 #include "exactextract/src/raster_stats.h"
@@ -50,6 +51,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              double default_weight,
                              bool include_xy,
                              bool include_cell_number,
+                             Rcpp::Nullable<Rcpp::CharacterVector> & p_area_method,
                              Rcpp::Nullable<Rcpp::List> & include_cols,
                              Rcpp::CharacterVector & src_names,
                              Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names,
@@ -173,6 +175,23 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
 
   if (include_cell_number) {
     cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+  }
+
+  if (p_area_method.isNotNull()) {
+    Rcpp::CharacterVector area_method = p_area_method.get();
+    Rcpp::NumericVector area_vec;
+
+    if (area_method[0] == std::string("cartesian")) {
+      exactextract::CartesianAreaRaster<double> areas(common_grid);
+      area_vec = as_vector(areas);
+    } else if (area_method[0] == std::string("spherical")) {
+      exactextract::SphericalAreaRaster<double> areas(common_grid);
+      area_vec = as_vector(areas);
+    } else {
+      Rcpp::stop("Unknown area method.");
+    }
+
+    cols["area"] = area_vec[covered];
   }
 
   cols["coverage_fraction"] = coverage_fraction_vec[covered];
