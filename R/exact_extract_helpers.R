@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 ISciences, LLC.
+# Copyright (c) 2018-2021 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -106,3 +106,10 @@
   list(values = vi, weights = wi)
 }
 
+.areaMethod <- function(crs_obj) {
+  if (!(is.na(crs_obj)) && crs_obj$units_gdal == 'degree') {
+    return('spherical')
+  } else {
+    return('cartesian')
+  }
+}

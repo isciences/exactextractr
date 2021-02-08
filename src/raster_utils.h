@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020 ISciences, LLC.
+// Copyright (c) 2018-2021 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -12,10 +12,14 @@
 // limitations under the License.
 #pragma once
 
+// [[Rcpp::plugins("cpp14")]]
 #include <Rcpp.h>
+
+#include <memory.h>
 
 #include "exactextract/src/grid.h"
 #include "exactextract/src/raster.h"
+#include "exactextract/src/raster_area.h"
 
 // Construct a grid corresponding to 'rast'
 exactextract::Grid<exactextract::bounded_extent> make_grid(const Rcpp::S4 & rast);
@@ -63,4 +67,19 @@ bool requires_stored_values(T s) {
     s == "variety" ||
     s == "median" ||
     s == "quantile";
+}
+
+template<typename T, typename G>
+std::unique_ptr<exactextract::AbstractRaster<double>> get_area_raster(T method, const G& grid) {
+    if (method == "cartesian") {
+      return std::unique_ptr<exactextract::AbstractRaster<double>>(
+        static_cast<exactextract::AbstractRaster<double>*>(
+          new exactextract::CartesianAreaRaster<double>(grid)));
+    } else if (method == "spherical") {
+      return std::unique_ptr<exactextract::AbstractRaster<double>>(
+        static_cast<exactextract::AbstractRaster<double>*>(
+          new exactextract::SphericalAreaRaster<double>(grid)));
+    } else {
+      Rcpp::stop("Unknown area method.");
+    }
 }

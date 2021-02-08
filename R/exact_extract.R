@@ -98,7 +98,9 @@ if (!isGeneric("exact_extract")) {
 #' @param     y a sf object with polygonal geometries
 #' @param     fun an optional function or character vector, as described below
 #' @param     weights  a weighting raster to be used with the \code{weighted_mean}
-#'                     and \code{weighted_sum} summary operations.
+#'                     and \code{weighted_sum} summary operations. When
+#'                     \code{weights} is set to \code{'mean'}, the cell areas
+#'                     of \code{x} will be calculated and used as weights.
 #' @param     default_value  an optional value to use instead of \code{NA} in \code{x}
 #' @param     default_weight an optional value to use instead of \code{NA} in
 #'                           \code{weights}
@@ -204,6 +206,11 @@ emptyVector <- function(rast) {
                            quantiles=NULL,
                            default_value=NA_real_,
                            default_weight=NA_real_) {
+  area_weights <- is.character(weights) && length(weights) == 1 && weights == 'area'
+  if (area_weights) {
+    weights <- NULL
+  }
+
   if(!is.null(append_cols)) {
     if (!inherits(y, 'sf')) {
       stop(sprintf('append_cols only supported for sf arguments (received %s)',
@@ -221,15 +228,15 @@ emptyVector <- function(rast) {
   }
 
   if(!is.null(weights)) {
-    if (!startsWith(class(weights), 'Raster')) {
-      stop("Weights must be a Raster object.")
+    if (!inherits(weights, 'BasicRaster')) {
+      stop("Weights must be a Raster object or \"area\".")
     }
 
     if (is.character(fun) && !any(startsWith(fun, "weighted"))) {
       warning("Weights provided but no requested operations use them.")
     }
 
-    if (!is.na(sf::st_crs(x))) {
+    if (inherits(weights, 'BasicRaster') && !is.na(sf::st_crs(x))) {
       if (is.na(sf::st_crs(weights))) {
         warning("No CRS specified for weighting raster; assuming it has the same CRS as the value raster.")
       } else if (sf::st_crs(x) != sf::st_crs(weights)) {
@@ -247,6 +254,11 @@ emptyVector <- function(rast) {
   } else if(sf::st_crs(x) != sf::st_crs(y)) {
     y <- sf::st_transform(y, sf::st_crs(x))
     warning("Polygons transformed to raster CRS (EPSG:", sf::st_crs(x)$epsg, ")")
+  }
+  if(area_weights || include_area) {
+    area_method <- .areaMethod(analysis_crs)
+  } else {
+    area_method <- NULL
   }
 
   if (!is.null(fun) && !is.character(fun) && .num_expected_args(fun) < 2) {
@@ -295,7 +307,7 @@ emptyVector <- function(rast) {
 
   tryCatch({
     x <- raster::readStart(x)
-    if (!is.null(weights)) {
+    if (inherits(weights, 'BasicRaster')) {
       weights <- raster::readStart(weights)
     }
 
@@ -303,12 +315,12 @@ emptyVector <- function(rast) {
       # Compute all stats in C++.
       # CPP_stats returns a matrix, which gets turned into a column by sapply
       # Results has one column per feature and one row per stat/raster layer
-      if(is.null(weights) && any(.isWeighted(fun))) {
+      if((is.null(weights) && !area_weights) && any(.isWeighted(fun))) {
         stop("Weighted stat requested but no weights provided.")
       }
 
       results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
-        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, fun, max_cells_in_memory, quantiles)
+        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, area_method, fun, max_cells_in_memory, quantiles)
         update_progress()
         return(ret)
       })
@@ -341,17 +353,17 @@ emptyVector <- function(rast) {
       }
     } else {
       num_values <- raster::nlayers(x)
-      num_weights <- ifelse(is.null(weights), 0, raster::nlayers(weights))
       value_names <- names(x)
-      weight_names <- names(weights)
-      area_method <- NULL
-
-      if (include_area) {
-        if (!(is.na(analysis_crs)) && analysis_crs$units_gdal == 'degree') {
-          area_method <- 'spherical'
-        } else {
-          area_method <- 'cartesian'
-        }
+      if (inherits(weights, 'BasicRaster')) {
+        num_weights <- raster::nlayers(weights)
+        weight_names <- names(weights)
+      } else if (area_weights) {
+        num_weights <- 1
+        weight_names <- 'area'
+        weights <- NULL
+      } else {
+        num_weights <- 0
+        weight_names <- NULL
       }
 
       if (stack_apply || (num_values == 1 && num_weights <= 1)) {
@@ -396,6 +408,8 @@ emptyVector <- function(rast) {
                                       default_weight,
                                       include_xy,
                                       include_cell,
+                                      include_area,
+                                      area_weights,
                                       area_method,
                                       include_col_values,
                                       value_names,
@@ -482,7 +496,7 @@ emptyVector <- function(rast) {
     }
   }, finally={
     raster::readStop(x)
-    if (!is.null(weights)) {
+    if (inherits(weights, 'BasicRaster')) {
       raster::readStop(weights)
     }
   })

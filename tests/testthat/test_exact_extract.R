@@ -513,6 +513,60 @@ test_that('Cell areas can be included in output (geographic) and are accurate to
   expect_true(all(abs(actual_areas - expected_areas) / expected_areas < accuracy_pct_tol))
 })
 
+test_that('We can weight with cell areas (projected coordinates)', {
+  rast_utm <- raster(matrix(1:100, ncol=10),
+                     xmn=0, xmx=5,
+                     ymn=0, ymx=5,
+                     crs='+init=epsg:26918')
+  circle1 <- make_circle(5, 5, 5, crs=st_crs(rast_utm))
+
+  # for projected (Cartesian coordinates), means with cell area and
+  # coverage fraction are the same
+  expect_equal(exact_extract(rast_utm, circle1, 'mean'),
+               exact_extract(rast_utm, circle1, 'weighted_mean', weights='area'))
+
+  # same result with R summary function
+  expect_equal(
+    exact_extract(rast_utm, circle1, 'weighted_mean', weights='area'),
+    exact_extract(rast_utm, circle1, function(x,c,w) {
+      weighted.mean(x, c*w)
+    }, weights='area'),
+    1e-5
+  )
+
+  # name doesn't pop out in data frame columns
+  expect_named(
+    exact_extract(rast_utm, circle1, c('sum', 'weighted_mean'), weights='area', force_df = TRUE),
+    c('sum', 'weighted_mean'))
+
+  # sums differ by the cell area
+  expect_equal(prod(res(rast_utm)) * exact_extract(rast_utm, circle1, 'sum'),
+               exact_extract(rast_utm, circle1, 'weighted_sum', weights='area'))
+
+  # when using area weighting, disaggregating does not affect the sum
+  expect_equal(exact_extract(rast_utm, circle1, 'weighted_sum', weights='area'),
+               exact_extract(disaggregate(rast_utm, 8), circle1, 'weighted_sum', weights='area'))
+})
+
+test_that('We can weight with cell areas (geographic coordinates)', {
+  rast <- raster::raster(matrix(1:54000, ncol=360),
+                         xmn=-180, xmx=180, ymn=-65, ymx=85,
+                         crs='+proj=longlat +datum=WGS84')
+
+  accuracy_pct_tol <- 0.01
+
+  suppressMessages({
+    circle <- make_circle(0, 45, 15, crs=st_crs(rast))
+  })
+
+  # result is reasonably close to what we get with raster::area, which uses
+  # a geodesic calculation
+  expected <- exact_extract(rast, circle, 'weighted_sum', weights = area(rast) * 1e6)
+  actual <- exact_extract(rast, circle, 'weighted_sum', weights = 'area')
+
+  expect_true(abs(actual - expected) / expected < accuracy_pct_tol)
+})
+
 test_that('Warning is raised on CRS mismatch', {
   rast <- raster::raster(matrix(1:100, nrow=10),
                          xmn=-180, xmx=180, ymn=-90, ymx=90,
