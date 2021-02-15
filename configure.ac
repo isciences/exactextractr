@@ -15,7 +15,7 @@ RBIN="${R_HOME}/bin/R"
 
 # pick all flags for testing from R
 : ${CXX=`"${RBIN}" CMD config CXX14`}
-: ${CXXFLAGS=`"${RBIN}" CMD config CXX14FLAGS` `"${RBIN}" CMD config CXX14STD`}
+: ${CXXFLAGS=`"${RBIN}" CMD config CXX14FLAGS`}
 : ${LDFLAGS=`"${RBIN}" CMD config LDFLAGS`}
 
 if test [ -z "$CXX" ] ; then

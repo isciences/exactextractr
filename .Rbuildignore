@@ -11,3 +11,6 @@ appveyor.yml$
 CONTRIBUTING.md
 ^_pkgdown\.yml$
 ^pkgdown$
+^vignettes.*cache$
+.gpkg-shm$
+.gpkg-wal
