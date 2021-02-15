@@ -9,3 +9,5 @@ appveyor.yml$
 .dockerignore
 .gz$
 CONTRIBUTING.md
+^_pkgdown\.yml$
+^pkgdown$
