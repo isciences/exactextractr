@@ -80,6 +80,6 @@ std::unique_ptr<exactextract::AbstractRaster<double>> get_area_raster(T method, 
         static_cast<exactextract::AbstractRaster<double>*>(
           new exactextract::SphericalAreaRaster<double>(grid)));
     } else {
-      Rcpp::stop("Unknown area method.");
+      Rcpp::stop("Unknown area method: " + method);
     }
 }

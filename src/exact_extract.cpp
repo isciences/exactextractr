@@ -52,6 +52,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              bool include_cell_number,
                              bool include_area,
                              bool area_weights,
+                             bool coverage_areas,
                              Rcpp::Nullable<Rcpp::CharacterVector> & p_area_method,
                              Rcpp::Nullable<Rcpp::List> & include_cols,
                              Rcpp::CharacterVector & src_names,
@@ -110,8 +111,13 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   // Once Rcpp 1.0.6 is released, this can be reworked to be simpler and faster.
   Rcpp::List cols;
 
-  Rcpp::NumericVector coverage_fraction_vec = as_vector(coverage_fractions);
-  Rcpp::LogicalVector covered = coverage_fraction_vec > 0;
+  Rcpp::NumericVector coverage_vec = as_vector(coverage_fractions);
+  if (coverage_areas) {
+      auto areas = get_area_raster(area_method, common_grid);
+      Rcpp::NumericVector area_vec = as_vector(*areas);
+      coverage_vec = coverage_vec * area_vec;
+  }
+  Rcpp::LogicalVector covered = coverage_vec > 0;
 
   if (include_cols.isNotNull()) {
     Rcpp::List include_cols_list = include_cols.get();
@@ -200,7 +206,11 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     cols["area"] = area_vec[covered];
   }
 
-  cols["coverage_fraction"] = coverage_fraction_vec[covered];
+  if (coverage_areas) {
+    cols["coverage_area"] = coverage_vec[covered];
+  } else {
+    cols["coverage_fraction"] = coverage_vec[covered];
+  }
 
   return cols;
 }
@@ -218,6 +228,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               const Rcpp::RawVector & wkb,
                               double default_value,
                               double default_weight,
+                              bool coverage_areas,
                               Rcpp::Nullable<Rcpp::CharacterVector> & p_area_method,
                               const Rcpp::StringVector & stats,
                               int max_cells_in_memory,
@@ -235,6 +246,9 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
     std::unique_ptr<S4RasterSource> rweights;
     std::string area_method;
+    if (p_area_method.isNotNull()) {
+      area_method = ((Rcpp::CharacterVector) p_area_method.get())[0];
+    }
 
     WeightingMethod weighting = WeightingMethod::NONE;
     int nweights = 0;
@@ -251,7 +265,6 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     } else if (p_area_method.isNotNull()) {
       weighting = WeightingMethod::AREA;
       nweights = 1;
-      area_method = ((Rcpp::CharacterVector) p_area_method.get())[0];
     }
 
     auto geom = read_wkb(geos.handle, wkb);
@@ -305,6 +318,15 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
       for (const auto &subgrid : subdivide(cropped_grid, max_cells_in_memory)) {
         auto coverage_fraction = raster_cell_intersection(subgrid, geos.handle, geom.get());
+        if (coverage_areas) {
+          auto areas = get_area_raster(area_method, subgrid);
+          for (size_t i = 0; i < coverage_fraction.rows(); i++) {
+            for (size_t j = 0; j < coverage_fraction.cols(); j++) {
+              coverage_fraction(i, j) = coverage_fraction(i, j) * (*areas)(i, j);
+            }
+          }
+        }
+
         auto& cov_grid = coverage_fraction.grid();
 
         if (!cov_grid.empty()) {

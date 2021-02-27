@@ -495,6 +495,20 @@ test_that('Cell areas can be included in output (projected)', {
   expect_true(all(areas == 1))
 })
 
+test_that('Coverage area can be output instead of coverage fraction (projected)', {
+  rast_utm <- disaggregate(make_square_raster(1:100), c(2, 3))
+
+  circle <- make_circle(5, 5, 5, crs=st_crs(rast_utm))
+
+  df_frac <- exact_extract(rast_utm, circle, include_area = TRUE)[[1]]
+
+  df_area <- exact_extract(rast_utm, circle, coverage_area = TRUE)[[1]]
+  expect_named(df_area, c('value', 'coverage_area'))
+
+  expect_equal(df_frac$coverage_fraction * df_frac$area,
+               df_area$coverage_area)
+})
+
 test_that('Cell areas can be included in output (geographic) and are accurate to 1%', {
   rast <- raster::raster(matrix(1:54000, ncol=360),
                          xmn=-180, xmx=180, ymn=-65, ymx=85,
@@ -511,6 +525,49 @@ test_that('Cell areas can be included in output (geographic) and are accurate to
   actual_areas <- results$area / 1e6
 
   expect_true(all(abs(actual_areas - expected_areas) / expected_areas < accuracy_pct_tol))
+})
+
+test_that('Coverage area can be output instead of coverage fraction (geographic)', {
+  rast <- raster::raster(matrix(1:54000, ncol=360),
+                         xmn=-180, xmx=180, ymn=-65, ymx=85,
+                         crs='+proj=longlat +datum=WGS84')
+
+  suppressMessages({
+    circle <- make_circle(0, 45, 15, crs=st_crs(rast))
+  })
+
+  df_frac <- exact_extract(rast, circle, include_area = TRUE)[[1]]
+
+  df_area <- exact_extract(rast, circle, coverage_area = TRUE)[[1]]
+
+  expect_equal(df_frac$coverage_fraction * df_frac$area,
+               df_area$coverage_area)
+})
+
+test_that('coverage_area argument can be used with named summary operations', {
+  rast1 <- raster(matrix(1:54000, ncol=360),
+                  xmn=-180, xmx=180, ymn=-65, ymx=85,
+                  crs='+proj=longlat +datum=WGS84')
+  rast2 <- sqrt(rast1)
+
+  suppressMessages({
+    circle <- make_circle(0, 45, 15, crs=st_crs(rast1))
+  })
+
+  # using only area as weighting
+  expect_equal(exact_extract(rast1, circle, 'weighted_mean', weights = 'area'),
+               exact_extract(rast1, circle, 'mean', coverage_area = TRUE))
+
+  # using area x weight as weighting
+  expect_equal(
+    exact_extract(rast1, circle, 'weighted_mean', weights = rast2, coverage_area = TRUE),
+
+    exact_extract(rast1, circle, fun = function(x, cov, w) {
+      weighted.mean(x, cov * w$rast2 * w$area)
+    }, weights = stack(list(rast2 = rast2, area = area(rast2)))),
+
+    tol = 1e-2
+  )
 })
 
 test_that('We can weight with cell areas (projected coordinates)', {

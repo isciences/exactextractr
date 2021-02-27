@@ -101,6 +101,8 @@ if (!isGeneric("exact_extract")) {
 #'                     and \code{weighted_sum} summary operations. When
 #'                     \code{weights} is set to \code{'mean'}, the cell areas
 #'                     of \code{x} will be calculated and used as weights.
+#' @param     coverage_area  if \code{TRUE}, output pixel \code{coverage_area}
+#'                           instead of \code{coverage_fraction}
 #' @param     default_value  an optional value to use instead of \code{NA} in \code{x}
 #' @param     default_weight an optional value to use instead of \code{NA} in
 #'                           \code{weights}
@@ -203,6 +205,7 @@ emptyVector <- function(rast) {
                            append_cols=NULL,
                            include_area=FALSE,
                            include_cols=NULL,
+                           coverage_area=FALSE,
                            quantiles=NULL,
                            default_value=NA_real_,
                            default_weight=NA_real_) {
@@ -255,7 +258,7 @@ emptyVector <- function(rast) {
     y <- sf::st_transform(y, sf::st_crs(x))
     warning("Polygons transformed to raster CRS (EPSG:", sf::st_crs(x)$epsg, ")")
   }
-  if(area_weights || include_area) {
+  if(area_weights || include_area || coverage_area) {
     area_method <- .areaMethod(analysis_crs)
   } else {
     area_method <- NULL
@@ -320,7 +323,7 @@ emptyVector <- function(rast) {
       }
 
       results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
-        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, area_method, fun, max_cells_in_memory, quantiles)
+        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, quantiles)
         update_progress()
         return(ret)
       })
@@ -410,15 +413,22 @@ emptyVector <- function(rast) {
                                       include_cell,
                                       include_area,
                                       area_weights,
+                                      coverage_area,
                                       area_method,
                                       include_col_values,
                                       value_names,
                                       weight_names,
                                       warn_on_disaggregate)
+        if (coverage_area) {
+          coverage_col <- 'coverage_area'
+        } else {
+          coverage_col <- 'coverage_fraction'
+        }
+
         if (!is.null(include_cols)) {
           # Replicate the include_cols vectors to be as long as the other columns,
           # so we can use quickDf
-          nrow <- length(col_list$coverage_fraction)
+          nrow <- length(col_list[[coverage_col]])
           col_list[include_cols] <- lapply(col_list[include_cols], rep, nrow)
         }
         df <- .quickDf(col_list)
@@ -429,7 +439,7 @@ emptyVector <- function(rast) {
           return(df)
         }
 
-        included_cols_df <- df[, !(names(df) %in% c(value_names, weight_names, 'coverage_fraction')), drop = FALSE]
+        included_cols_df <- df[, !(names(df) %in% c(value_names, weight_names, coverage_col)), drop = FALSE]
         vals_df <- df[, value_names, drop = FALSE]
         weights_df <- df[, weight_names, drop = FALSE]
         cov_fracs <- df$coverage_fraction
