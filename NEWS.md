@@ -6,6 +6,7 @@
 - Support exact_resample with mode, minority, variety, median, quantiles
 - Add default_value and default_weight arguments to exact_extract
 - Add coverage_area argument to exact_extract
+- Add summarize_df argument to exact_extract
 - Accept weights='area' in exact_extract
 
 # version 0.5.1

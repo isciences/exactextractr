@@ -1213,7 +1213,6 @@ test_that('Layers are implicity renamed if value layers have same name as weight
 })
 
 test_that('Progress bar updates incrementally', {
-
   rast <- make_square_raster(1:100)
 
   npolys <- 13
@@ -1402,4 +1401,88 @@ test_that('We can replace NA values in the value and weighting rasters with cons
     which(is.na(exact_extract(rx, poly)[[1]]$value)),
     which(44 == exact_extract(rx, poly, default_value = 44)[[1]]$value)
   )
+})
+
+test_that('Error thrown if summarize_df called where not applicable', {
+  rast <- make_square_raster(1:100)
+  circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
+
+  expect_error(
+    exact_extract(rast, circle, 'mean',  summarize_df = TRUE),
+    'can only be used when .* function')
+
+  expect_error(
+    exact_extract(rast, circle, summarize_df = TRUE),
+    'can only be used when .* function')
+})
+
+test_that('All summary function arguments combined when summarize_df = TRUE', {
+  rast <- make_square_raster(1:100)
+
+  values <- stack(list(a = rast - 1,
+                       b = rast,
+                       c = rast + 1))
+
+  weights <- sqrt(values)
+  names(weights) <- c('d', 'e', 'f')
+
+  circle <- st_sf(
+    id = 77,
+    make_circle(7.5, 5.5, 4, sf::st_crs(rast)))
+
+  # in the tests below, we check names inside the R summary function
+  # to verify that our checks were actually hit, we have the summary
+  # function return NULL and check for it with `expect_null`.
+
+  # values only
+  expect_null(
+    exact_extract(values, circle, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('a', 'b', 'c', 'coverage_fraction'))
+      NULL
+    })[[1]])
+
+  expect_null(
+    exact_extract(rast, circle, coverage_area = TRUE, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('value', 'coverage_area'))
+      NULL
+    })[[1]])
+
+  expect_null(
+    exact_extract(values[[1]], circle, coverage_area = TRUE, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('value', 'coverage_area'))
+      NULL
+    })[[1]])
+
+  # values and weights
+  expect_null(
+    exact_extract(values, circle, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('a', 'b', 'c', 'd', 'e', 'f', 'coverage_fraction'))
+      NULL
+    }, weights = weights)[[1]])
+
+  expect_null(
+    exact_extract(values, circle,
+                  include_cell = TRUE,
+                  include_xy = TRUE,
+                  include_area = TRUE,
+                  include_cols = 'id',
+                  summarize_df = TRUE,
+                  fun = function(df, extra_arg) {
+      expect_named(df,
+        c('id', 'a', 'b', 'c', 'd', 'e', 'f', 'x', 'y', 'cell', 'area', 'coverage_fraction'))
+      expect_equal(extra_arg, 600)
+      NULL
+    }, weights = weights, extra_arg = 600)[[1]])
+
+  # values and weights, stack_apply = TRUE
+  expect_equal(
+    exact_extract(values, circle, weights = weights, summarize_df = TRUE, stack_apply = TRUE,
+                  fun = function(df, extra_arg) {
+                    expect_named(df, c('value', 'weight', 'coverage_fraction'))
+                    extra_arg
+                  }, extra_arg = 30809),
+    data.frame(fun.a.d = 30809,
+               fun.b.e = 30809,
+               fun.c.f = 30809))
+
 })

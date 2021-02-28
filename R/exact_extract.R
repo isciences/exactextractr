@@ -112,6 +112,9 @@ if (!isGeneric("exact_extract")) {
 #'                        included in returned data frame.
 #' @param     force_df always return a data frame instead of a vector, even if
 #'                     \code{x} has only one layer and \code{fun} has length 1
+#' @param     summarize_df  pass values, coverage fraction/area, and weights to
+#'                          \code{fun} as a single data frame instead of
+#'                          separate arguments.
 #' @param     full_colnames include the names of \code{x} in the names of the
 #'                          returned data frame, even if \code{x} has only one
 #'                          layer. This is useful when the results of multiple
@@ -200,6 +203,7 @@ emptyVector <- function(rast) {
                            max_cells_in_memory=30000000,
                            include_cell=FALSE,
                            force_df=FALSE,
+                           summarize_df=FALSE,
                            full_colnames=FALSE,
                            stack_apply=FALSE,
                            append_cols=NULL,
@@ -264,9 +268,11 @@ emptyVector <- function(rast) {
     area_method <- NULL
   }
 
-  if (!is.null(fun) && !is.character(fun) && .num_expected_args(fun) < 2) {
+  if (is.function(fun) && (!summarize_df) && .num_expected_args(fun) < 2) {
     stop("exact_extract was called with a function that does not appear to ",
-         "be of the form `function(values, coverage_fractions, ...)`")
+         "be of the form `function(values, coverage_fractions, ...)`. If ",
+         "the summary function should accept a single data frame argument, ",
+         "set `summarize_df = TRUE`.")
   }
 
   if (is.character(fun)) {
@@ -289,6 +295,12 @@ emptyVector <- function(rast) {
 
     if (!is.null(include_cols)) {
       stop("include_cols not supported for named_summary operations (see argument append_cols)")
+    }
+  }
+
+  if (summarize_df) {
+    if (!is.function(fun)) {
+      stop("summarize_df can only be used when `fun` is an R function")
     }
   }
 
@@ -435,25 +447,49 @@ emptyVector <- function(rast) {
 
         update_progress()
 
+        # No summary function? Return the whole data frame.
         if (is.null(fun)) {
           return(df)
         }
 
+        # Summary function accepts a data frame? Pass it along.
+        if (summarize_df && !apply_layerwise) {
+          return(fun(df, ...))
+        }
+
+        # Break the data frame into components that we can pass
+        # separately to the summary functions.
         included_cols_df <- df[, !(names(df) %in% c(value_names, weight_names, coverage_col)), drop = FALSE]
         vals_df <- df[, value_names, drop = FALSE]
         weights_df <- df[, weight_names, drop = FALSE]
-        cov_fracs <- df$coverage_fraction
+        cov_fracs <- df[[coverage_col]]
 
         if (apply_layerwise) {
           result <- lapply(seq_len(num_results), function(i) {
-            vx <- vals_df[, ind$values[i]]
-            if (ncol(included_cols_df) > 0) {
-              vx <- cbind(data.frame(value = vx), included_cols_df)
-            }
-            if (num_weights == 0) {
-              fun(vx, cov_fracs, ...)
+            if (summarize_df) {
+              # Pack everything into a single data frame and pass it to `fun`
+              arg_df <- cbind(value = vals_df[[ind$values[i]]],
+                              included_cols_df)
+              if (num_weights > 0) {
+                arg_df$weight <- weights_df[[ind$weights[i]]]
+              }
+              arg_df[[coverage_col]] <- df[[coverage_col]]
+
+              return(fun(arg_df, ...))
             } else {
-              fun(vx, cov_fracs, weights_df[, ind$weights[i]], ...)
+              # Pull values and weights out into vectors, unless we have
+              # included columns (x/y/cell, etc.) in which case values
+              # remain a data frame. Retained for backwards compat.
+
+              vx <- vals_df[, ind$values[i]]
+              if (ncol(included_cols_df) > 0) {
+                vx <- cbind(data.frame(value = vx), included_cols_df)
+              }
+              if (num_weights == 0) {
+                return(fun(vx, cov_fracs, ...))
+              } else {
+                return(fun(vx, cov_fracs, weights_df[, ind$weights[i]], ...))
+              }
             }
           })
 
@@ -463,7 +499,7 @@ emptyVector <- function(rast) {
 
           names(result) <- result_names
 
-          .quickDf(result)
+          return(.quickDf(result))
         } else {
           # Pass all layers to callback, to be handled together
           # Included columns (x/y/cell) are passed with the values.
