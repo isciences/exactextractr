@@ -315,7 +315,7 @@ municipalities and reaches a maximum of 9%.
 
 Although `exactextractr` is fast, it may still be slower than the
 command-line [`exactextract`](https://github.com/isciences/exactextract) tool.
-However, some efficiencies, such as the simultanteous processing of multiple 
+However, some efficiencies, such as the simultaneous processing of multiple 
 layers in a
 [`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class),
 are only possible in `exactextractr`.
