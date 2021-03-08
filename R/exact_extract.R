@@ -311,13 +311,29 @@ emptyVector <- function(rast) {
       stop("summarize_df can only be used when `fun` is an R function")
     }
   } else if (is.function(fun)) {
-    if ((!summarize_df) && .num_expected_args(fun) < 2) {
-      stop("exact_extract was called with a function that does not appear to ",
-           "be of the form `function(values, coverage_fractions, ...)`. If ",
-           "the summary function should accept a single data frame argument, ",
-           "set `summarize_df = TRUE`.")
+    if (summarize_df) {
+      if (.num_expected_args(fun) < 1) {
+        stop("exact_extract was called with a function that does not appear to ",
+             "be of the form `function(df, ...`).")
+      }
+    } else if (is.null(weights)) {
+      if (.num_expected_args(fun) < 2) {
+        stop("exact_extract was called with a function that does not appear to ",
+             "be of the form `function(values, coverage_fractions, ...)`. If ",
+             "the summary function should accept a single data frame argument, ",
+             "set `summarize_df = TRUE`.")
+      }
+    } else if (.num_expected_args(fun) < 3) {
+        stop("exact_extract was called with a function that does not appear to ",
+             "be of the form `function(values, coverage_fractions, weights, ...)`.",
+             "If the summary function should accept a single data frame argument, ",
+             "set `summarize_df = TRUE`.")
     }
   } else if (is.null(fun)) {
+    if (length(list(...)) > 0) {
+      stop("Unexpected arguments: ", paste(names(list(...)), collapse = ','))
+    }
+
     if (summarize_df) {
       stop("summarize_df can only be used when `fun` is an R function")
     }

@@ -178,12 +178,37 @@ test_that('Error is raised if function has unexpected signature', {
 
   poly <- make_circle(5, 5, 3, sf::st_crs(rast))
 
+  # unweighted, standard form
   for (fun in c(length, sum, median, mean, sd)) {
-    expect_error(exact_extract(rast, poly, fun),
-                 'function .* not .* of the form')
+    expect_error(
+      exact_extract(rast, poly, fun),
+      'function .* not .* of the form')
   }
 
   expect_silent(exact_extract(rast, poly, weighted.mean))
+
+  # unweighted, summarize_df
+  expect_error(
+    exact_extract(rast, poly, function() {}, summarize_df = TRUE),
+    'function .* not .* of the form'
+  )
+
+  # weighted, standard form
+  expect_error(
+    exact_extract(rast, poly, weights = rast, fun = function(x, frac) {}),
+    'function .* not .* of the form')
+  expect_error(
+    exact_extract(rast, poly, weights = rast, fun = function(x) {}),
+    'function .* not .* of the form')
+  expect_error(
+    exact_extract(rast, poly, weights = rast, fun = function() {}),
+    'function .* not .* of the form')
+
+  # weighted, summarize_df
+  expect_error(
+    exact_extract(rast, poly, weights = rast, fun = function() {}, summarize_df = TRUE),
+    'function .* not .* of the form'
+  )
 })
 
 test_that('Error is raised for unknown summary operation', {
@@ -195,13 +220,18 @@ test_that('Error is raised for unknown summary operation', {
                'Unknown stat')
 })
 
-test_that('Error is raised if arguments passed to summary operation', {
+test_that('Error is raised if arguments passed without R summary function', {
   rast <- make_square_raster(1:100)
 
   poly <- make_circle(5, 5, 3, sf::st_crs(rast))
 
   expect_error(exact_extract(rast, poly, 'sum', na.rm=TRUE),
                'does not accept additional arguments')
+
+  expect_error(
+    exact_extract(rast, poly, cookie = FALSE),
+    'Unexpected arguments'
+  )
 })
 
 test_that('Error is raised for invalid max_cells_in_memory', {
