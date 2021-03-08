@@ -363,6 +363,16 @@ test_that('Error thrown if summarize_df called where not applicable', {
     'can only be used when .* function')
 })
 
+test_that('Error thrown if stack_apply called where not applicable', {
+  rast <- make_square_raster(1:100)
+  circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
+
+  expect_error(
+    exact_extract(rast, circle, stack_apply = TRUE),
+    'can only be used when .* is a summary operation or function'
+  )
+})
+
 test_that('Error thrown if scalar args have length != 1', {
   rast <- make_square_raster(1:100)
   circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))

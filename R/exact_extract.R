@@ -115,9 +115,10 @@ if (!isGeneric("exact_extract")) {
 #' @param     summarize_df  pass values, coverage fraction/area, and weights to
 #'                          \code{fun} as a single data frame instead of
 #'                          separate arguments.
-#' @param     full_colnames include the names of \code{x} in the names of the
-#'                          returned data frame, even if \code{x} has only one
-#'                          layer. This is useful when the results of multiple
+#' @param     full_colnames include the names of \code{x} and \code{weights} in
+#'                          the names of the returned data frame, even if
+#'                          \code{x} or \code{weights} has only one layer.
+#'                          This is useful when the results of multiple
 #'                          calls to \code{exact_extract} are combined with
 #'                          \code{cbind}.
 #' @param     include_area if \code{TRUE}, and \code{fun} is \code{NULL}, augment
@@ -144,9 +145,14 @@ if (!isGeneric("exact_extract")) {
 #'                       \code{TRUE} and \code{fun} is not \code{NULL}, add
 #'                       \code{x} and {y} to the data frame passed to \code{fun}
 #'                       for each feature.
-#' @param     stack_apply   if \code{TRUE}, apply \code{fun} to each layer of
-#'                          \code{x} independently. If \code{FALSE}, apply \code{fun}
-#'                          to all layers of \code{x} simultaneously.
+#' @param     stack_apply   if \code{TRUE}, apply \code{fun} independently to
+#'                          each layer or \code{x} (and its corresponding layer
+#'                          of \code{weights}, if provided.) The number of
+#'                          layers in \code{x} and \code{weights} must equal
+#'                          each other or \code{1}, in which case the
+#'                          single layer raster will be recycled.
+#'                          If \code{FALSE}, apply \code{fun} to all layers of
+#'                          \code{x} (and \code{weights}) simultaneously.
 #' @param     max_cells_in_memory the maximum number of raster cells to load at
 #'                                a given time when using a named summary operation
 #'                                for \code{fun} (as opposed to a function defined using
@@ -336,6 +342,9 @@ emptyVector <- function(rast) {
 
     if (summarize_df) {
       stop("summarize_df can only be used when `fun` is an R function")
+    }
+    if (stack_apply) {
+      stop("stack_apply can only be used when `fun` is a summary operation or function")
     }
   } else {
     stop("fun must be a character vector, function, or NULL")
