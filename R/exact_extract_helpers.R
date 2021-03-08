@@ -113,3 +113,21 @@
     return('cartesian')
   }
 }
+
+.validateFlag <- function(value, name) {
+  if(!(is.logical(value) && length(value) == 1 && !is.na(value))) {
+    stop(name, ' must be TRUE or FALSE')
+  }
+}
+
+.validateNumericScalar <- function(value, name) {
+  if (!(is.numeric(value) && length(value) == 1 && !is.na(value))) {
+    stop(name, ' must be a single numeric value')
+  }
+}
+
+.validateNumericScalarOrNA <- function(value, name) {
+  if (!(is.numeric(value) && length(value) == 1)) {
+    stop(name, ' must be a single numeric value')
+  }
+}

@@ -218,6 +218,19 @@ emptyVector <- function(rast) {
     weights <- NULL
   }
 
+  .validateFlag(coverage_area, 'coverage_area')
+  .validateFlag(force_df, 'force_df')
+  .validateFlag(full_colnames, 'full_colnames')
+  .validateFlag(include_area, 'include_area')
+  .validateFlag(include_cell, 'include_cell')
+  .validateFlag(include_xy, 'include_xy')
+  .validateFlag(progress, 'progress')
+  .validateFlag(stack_apply, 'stack_apply')
+  .validateFlag(summarize_df, 'summarize_df')
+  .validateNumericScalar(max_cells_in_memory, 'max_cells_in_memory')
+  .validateNumericScalarOrNA(default_value, 'default_value')
+  .validateNumericScalarOrNA(default_weight, 'default_weight')
+
   if(!is.null(append_cols)) {
     if (!inherits(y, 'sf')) {
       stop(sprintf('append_cols only supported for sf arguments (received %s)',
@@ -268,14 +281,11 @@ emptyVector <- function(rast) {
     area_method <- NULL
   }
 
-  if (is.function(fun) && (!summarize_df) && .num_expected_args(fun) < 2) {
-    stop("exact_extract was called with a function that does not appear to ",
-         "be of the form `function(values, coverage_fractions, ...)`. If ",
-         "the summary function should accept a single data frame argument, ",
-         "set `summarize_df = TRUE`.")
-  }
-
   if (is.character(fun)) {
+    if (length(fun) == 0) {
+      stop("No summary operations provided.")
+    }
+
     if (length(list(...)) > 0) {
       stop("exact_extract was called with a named summary operation that ",
            "does not accept additional arguments ...")
@@ -296,12 +306,23 @@ emptyVector <- function(rast) {
     if (!is.null(include_cols)) {
       stop("include_cols not supported for named_summary operations (see argument append_cols)")
     }
-  }
 
-  if (summarize_df) {
-    if (!is.function(fun)) {
+    if (summarize_df) {
       stop("summarize_df can only be used when `fun` is an R function")
     }
+  } else if (is.function(fun)) {
+    if ((!summarize_df) && .num_expected_args(fun) < 2) {
+      stop("exact_extract was called with a function that does not appear to ",
+           "be of the form `function(values, coverage_fractions, ...)`. If ",
+           "the summary function should accept a single data frame argument, ",
+           "set `summarize_df = TRUE`.")
+    }
+  } else if (is.null(fun)) {
+    if (summarize_df) {
+      stop("summarize_df can only be used when `fun` is an R function")
+    }
+  } else {
+    stop("fun must be a character vector, function, or NULL")
   }
 
   geoms <- sf::st_geometry(y)

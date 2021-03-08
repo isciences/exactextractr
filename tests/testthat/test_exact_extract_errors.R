@@ -140,7 +140,6 @@ test_that('Error thrown if value raster and weighting raster have different crs'
      'Weighting raster does not have .* same CRS as value raster')
 })
 
-
 test_that('Error thrown if value raster and weighting raster have incompatible grids', {
   poly <- make_circle(5, 4, 2, NA_integer_)
 
@@ -211,6 +210,22 @@ test_that('Error is raised for invalid max_cells_in_memory', {
 
   expect_error(exact_extract(rast, poly, 'mean', max_cells_in_memory=-123),
                'Invalid.*max_cells')
+
+  expect_error(
+    exact_extract(rast, poly, 'mean', max_cells_in_memory = NA),
+    'must be a single numeric')
+
+  expect_error(
+    exact_extract(rast, poly, 'mean', max_cells_in_memory = numeric()),
+    'must be a single numeric')
+
+  expect_error(
+    exact_extract(rast, poly, 'mean', max_cells_in_memory = integer()),
+    'must be a single numeric')
+
+  expect_error(
+    exact_extract(rast, poly, 'mean', max_cells_in_memory = NULL),
+    'must be a single numeric')
 })
 
 test_that('Error is thrown when using include_* with named summary operation', {
@@ -317,3 +332,79 @@ test_that('Error thrown if summarize_df called where not applicable', {
     exact_extract(rast, circle, summarize_df = TRUE),
     'can only be used when .* function')
 })
+
+test_that('Error thrown if scalar args have length != 1', {
+  rast <- make_square_raster(1:100)
+  circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
+
+  flags <- c(
+    'coverage_area',
+    'force_df',
+    'full_colnames',
+    'include_area',
+    'include_cell',
+    'include_xy',
+    'progress',
+    'stack_apply',
+    'summarize_df')
+
+  for (flag in flags) {
+    base_args <- list(rast, circle)
+
+    for (bad_value in list(logical(), c(TRUE, TRUE), NA)) {
+      args <- base_args
+      args[[flag]] <- bad_value
+
+      expect_error(
+        do.call(exact_extract, args),
+        'must be TRUE or FALSE'
+      )
+    }
+  }
+})
+
+test_that('Error thrown if fun is empty', {
+  rast <- make_square_raster(1:100)
+  circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
+
+  expect_error(
+    exact_extract(rast, circle, character()),
+    'No summary operations'
+  )
+})
+
+test_that('Error thrown if fun is incorrect type', {
+  rast <- make_square_raster(1:100)
+  circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
+
+  expect_error(
+    exact_extract(rast, circle, 44),
+    'must be a character vector, function')
+  expect_error(
+    exact_extract(rast, circle, list(function() {}, function() {})),
+    'must be a character vector, function')
+})
+
+test_that('Error thrown if default values have incorrect type/length', {
+  rast <- make_square_raster(1:100)
+  circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
+
+  expect_error(
+    exact_extract(rast, circle, 'mean', default_value = numeric()),
+    'must be a single numeric value'
+  )
+  expect_error(
+    exact_extract(rast, circle, 'mean', default_value = c(3, 8)),
+    'must be a single numeric value'
+  )
+  expect_error(
+    exact_extract(rast, circle, 'mean', default_value = NULL),
+    'must be a single numeric value'
+  )
+  expect_error(
+    exact_extract(rast, circle, 'mean', default_value = FALSE),
+    'must be a single numeric value'
+  )
+
+})
+
