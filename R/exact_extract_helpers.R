@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 ISciences, LLC.
+# Copyright (c) 2018-2021 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -20,6 +20,7 @@
 #'                      ambiguity?
 #' @param quantiles quantiles to use when \code{stat_names} contains \code{quantile}
 #' @return character vector of column names
+#' @keywords internal
 .resultColNames <- function(value_names, weight_names, fun, full_colnames, quantiles=numeric()) {
   if (inherits(fun, 'standardGeneric')) {
     stat_names <- fun@generic[1]
@@ -85,6 +86,7 @@
 #' @param num_weights number of layers in weighting raster
 #' @return list with \code{values} and \code{weights} elements
 #'         providing layer indexes
+#' @keywords internal
 .valueWeightIndexes <- function(num_values, num_weights) {
   if (num_weights == 0) {
     vi <- seq_len(num_values)
@@ -106,3 +108,28 @@
   list(values = vi, weights = wi)
 }
 
+.areaMethod <- function(crs_obj) {
+  if (!(is.na(crs_obj)) && crs_obj$units_gdal == 'degree') {
+    return('spherical')
+  } else {
+    return('cartesian')
+  }
+}
+
+.validateFlag <- function(value, name) {
+  if(!(is.logical(value) && length(value) == 1 && !is.na(value))) {
+    stop(name, ' must be TRUE or FALSE')
+  }
+}
+
+.validateNumericScalar <- function(value, name) {
+  if (!(is.numeric(value) && length(value) == 1 && !is.na(value))) {
+    stop(name, ' must be a single numeric value')
+  }
+}
+
+.validateNumericScalarOrNA <- function(value, name) {
+  if (!(is.numeric(value) && length(value) == 1)) {
+    stop(name, ' must be a single numeric value')
+  }
+}

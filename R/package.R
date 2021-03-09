@@ -19,5 +19,6 @@
 #' @author Daniel Baston
 #' @importFrom Rcpp evalCpp
 #' @importFrom methods setMethod
+#' @keywords internal
 #' @useDynLib exactextractr
 NULL

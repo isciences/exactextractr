@@ -91,26 +91,6 @@ test_that('Weighted stat functions work', {
                (0.25*7 + 0.5*8 + 0.25*9))
 })
 
-test_that('Error thrown if weighted stat requested but weights not provided', {
-  rast <- make_square_raster(1:9)
-  square <- make_circle(2, 2, 0.5, sf::st_crs(rast))
-
-  for (stat in c('weighted_mean', 'weighted_sum')) {
-    expect_error(exact_extract(rast, square, stat),
-                 'no weights provided')
-  }
-})
-
-test_that('Warning raised if weights provided but weighted stat not requested', {
-  rast <- make_square_raster(1:9)
-  square <- make_circle(2, 2, 0.5, sf::st_crs(rast))
-
-  for (stat in c('count', 'sum', 'mean', 'min', 'max', 'minority', 'majority', 'mode', 'variety')) {
-    expect_warning(exact_extract(rast, square, stat, weights=rast),
-                   'Weights provided but no.*operations use them')
-  }
-})
-
 test_that('Raster NA values are correctly handled', {
   data <- matrix(1:100, nrow=10, byrow=TRUE)
   data[7:10, 1:4] <- NA # cut out lower-left corner
@@ -191,15 +171,6 @@ test_that('Generic sfc_GEOMETRY works if the features are polygonal', {
                c(4, 4+16))
 })
 
-test_that('Generic sfc_GEOMETRY fails if a feature is not polygonal', {
-  rast <- make_square_raster(1:100)
-  features <- st_as_sfc(c('POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))',
-                          'POINT (2 7)'), crs=sf::st_crs(rast))
-
-  expect_error(exact_extract(rast, features, 'sum', progress = FALSE),
-               'must be polygonal')
-})
-
 test_that('We ignore portions of the polygon that extend outside the raster', {
   rast <- raster::raster(matrix(1:(360*720), nrow=360),
                          xmn=-180, xmx=180, ymn=-90, ymx=90,
@@ -232,41 +203,6 @@ test_that('Additional arguments can be passed to fun', {
   exact_extract(rast, square, function(x, w, custom) {
     expect_equal(custom, 6)
   }, progress=FALSE, 6)
-})
-
-test_that('Incorrect argument types are handled gracefully', {
-  data <- matrix(1:9, nrow=3, byrow=TRUE)
-  rast <- raster::raster(data,
-                         xmn=0, xmx=3, ymn=0, ymx=3,
-                         crs='+proj=longlat +datum=WGS84')
-
-  point <- sf::st_sfc(sf::st_point(1:2),
-                      crs=sf::st_crs(rast))
-
-  linestring <- sf::st_sfc(sf::st_linestring(matrix(1:4, nrow=2)),
-                           crs=sf::st_crs(rast))
-
-  multipoint <- sf::st_sfc(sf::st_multipoint(matrix(1:4, nrow=2)),
-                           crs=sf::st_crs(rast))
-
-  multilinestring <- sf::st_sfc(
-    sf::st_multilinestring(list(
-      matrix(1:4, nrow=2),
-      matrix(5:8, nrow=2)
-    )),
-    crs=sf::st_crs(rast))
-
-  geometrycollection <- sf::st_sfc(
-    sf::st_geometrycollection(list(
-      sf::st_geometry(point)[[1]],
-      sf::st_geometry(linestring)[[1]])),
-    crs=sf::st_crs(rast))
-
-  expect_error(exact_extract(rast, point), 'unable to find.* method')
-  expect_error(exact_extract(rast, linestring, 'unable to find.* method'))
-  expect_error(exact_extract(rast, multipoint, 'unable to find.* method'))
-  expect_error(exact_extract(rast, multilinesetring, 'unable to find.* method'))
-  expect_error(exact_extract(rast, geometrycollection, 'unable to find.* method'))
 })
 
 test_that('We can extract values from a RasterStack', {
@@ -357,25 +293,6 @@ test_that('We can apply the same function to each layer of a RasterStack', {
   }
 })
 
-test_that('We can use the stack_apply argument with include_xy and include_cols', {
-  set.seed(123)
-
-  stk <- raster::stack(list(a = make_square_raster(runif(100)),
-                            b = make_square_raster(runif(100))))
-
-  circles <- c(
-    make_circle(5, 4, 2, sf::st_crs(stk)),
-    make_circle(3, 1, 1, sf::st_crs(stk)))
-
-  result <- exact_extract(stk, circles, include_xy = TRUE, stack_apply = TRUE, progress = FALSE,
-                          function(df, frac) {
-                            weighted.mean(df$value[df$y > 1],
-                                          frac[df$y > 1])
-                          })
-
-  expect_named(result, c('fun.a', 'fun.b'))
-})
-
 test_that('We can summarize a RasterStack / RasterBrick using weights from a RasterLayer', {
   set.seed(123)
 
@@ -398,7 +315,8 @@ test_that('We can summarize a RasterStack / RasterBrick using weights from a Ras
                "Weights must be a Raster")
 })
 
-test_that('We get acceptable default values when processing a polygon that does not intersect the raster', {
+test_that('We get acceptable default values when processing a polygon that does
+           not intersect the raster', {
   rast <- raster::raster(matrix(runif(100), nrow=5),
                          xmn=-180, xmx=180, ymn=-65, ymx=85,
                          crs='+proj=longlat +datum=WGS84') # extent of GPW
@@ -451,173 +369,115 @@ test_that('We get acceptable default values when processing a polygon that does 
   })
 })
 
-test_that('We can optionally get cell center coordinates included in our output', {
-  rast <- raster::raster(matrix(1:100, nrow=10),
-                         xmn=0, xmx=10, ymn=0, ymx=10,
+test_that('Coverage area can be output instead of coverage fraction (projected)', {
+  rast_utm <- disaggregate(make_square_raster(1:100), c(2, 3))
+
+  circle <- make_circle(5, 5, 5, crs=st_crs(rast_utm))
+
+  df_frac <- exact_extract(rast_utm, circle, include_area = TRUE)[[1]]
+
+  df_area <- exact_extract(rast_utm, circle, coverage_area = TRUE)[[1]]
+  expect_named(df_area, c('value', 'coverage_area'))
+
+  expect_equal(df_frac$coverage_fraction * df_frac$area,
+               df_area$coverage_area)
+})
+
+test_that('Coverage area can be output instead of coverage fraction (geographic)', {
+  rast <- raster::raster(matrix(1:54000, ncol=360),
+                         xmn=-180, xmx=180, ymn=-65, ymx=85,
                          crs='+proj=longlat +datum=WGS84')
 
-  poly <- sf::st_sfc(sf::st_polygon(
-    list(
-      matrix(
-        c(3.5, 4.4, 7.5, 4.5, 7.5, 6.5, 3.5, 6.5, 3.5, 4.4),
-        ncol=2,
-        byrow=TRUE
-      )
-    )
-  ), crs=sf::st_crs(rast))
+  suppressMessages({
+    circle <- make_circle(0, 45, 15, crs=st_crs(rast))
+  })
 
-  results <- exact_extract(rast, poly, include_xy=TRUE, include_cell=TRUE)[[1]]
+  df_frac <- exact_extract(rast, circle, include_area = TRUE)[[1]]
 
-  # check that correct ranges of X,Y values are output
-  expect_equal( c(3.5, 4.5, 5.5, 6.5, 7.5), sort(unique(results[, 'x'])))
-  expect_equal( c(4.5, 5.5, 6.5),           sort(unique(results[, 'y'])))
+  df_area <- exact_extract(rast, circle, coverage_area = TRUE)[[1]]
 
-  expect_equal(results[, 'cell'], raster::cellFromXY(rast, results[, c('x', 'y')]))
-
-  # check the XY values of an individual cell with a known coverage fraction
-  expect_equal( results[results[, 'x']==3.5 & results[,'y']==4.5, 'coverage_fraction'],
-                0.2968749999999998,
-                tolerance=1e-8,
-                check.attributes=FALSE)
-
-  # we can also send the weights to a callback
-  exact_extract(rast, sf::st_sf(data.frame(id=1), geom=poly), include_xy=TRUE, fun=function(values, weights) {
-    expect_equal(3, ncol(values))
-  }, progress=FALSE)
+  expect_equal(df_frac$coverage_fraction * df_frac$area,
+               df_area$coverage_area)
 })
 
-test_that('Warning is raised on CRS mismatch', {
-  rast <- raster::raster(matrix(1:100, nrow=10),
-                         xmn=-180, xmx=180, ymn=-90, ymx=90,
+test_that('coverage_area argument can be used with named summary operations', {
+  rast1 <- raster(matrix(1:54000, ncol=360),
+                  xmn=-180, xmx=180, ymn=-65, ymx=85,
+                  crs='+proj=longlat +datum=WGS84')
+  rast2 <- sqrt(rast1)
+
+  suppressMessages({
+    circle <- make_circle(0, 45, 15, crs=st_crs(rast1))
+  })
+
+  # using only area as weighting
+  expect_equal(exact_extract(rast1, circle, 'weighted_mean', weights = 'area'),
+               exact_extract(rast1, circle, 'mean', coverage_area = TRUE))
+
+  # using area x weight as weighting
+  expect_equal(
+    exact_extract(rast1, circle, 'weighted_mean', weights = rast2, coverage_area = TRUE),
+
+    exact_extract(rast1, circle, fun = function(x, cov, w) {
+      weighted.mean(x, cov * w$rast2 * w$area)
+    }, weights = stack(list(rast2 = rast2, area = area(rast2)))),
+
+    tol = 1e-2
+  )
+})
+
+test_that('We can weight with cell areas (projected coordinates)', {
+  rast_utm <- raster(matrix(1:100, ncol=10),
+                     xmn=0, xmx=5,
+                     ymn=0, ymx=5,
+                     crs='+init=epsg:26918')
+  circle1 <- make_circle(5, 5, 5, crs=st_crs(rast_utm))
+
+  # for projected (Cartesian coordinates), means with cell area and
+  # coverage fraction are the same
+  expect_equal(exact_extract(rast_utm, circle1, 'mean'),
+               exact_extract(rast_utm, circle1, 'weighted_mean', weights='area'))
+
+  # same result with R summary function
+  expect_equal(
+    exact_extract(rast_utm, circle1, 'weighted_mean', weights='area'),
+    exact_extract(rast_utm, circle1, function(x,c,w) {
+      weighted.mean(x, c*w)
+    }, weights='area'),
+    1e-5
+  )
+
+  # name doesn't pop out in data frame columns
+  expect_named(
+    exact_extract(rast_utm, circle1, c('sum', 'weighted_mean'), weights='area', force_df = TRUE),
+    c('sum', 'weighted_mean'))
+
+  # sums differ by the cell area
+  expect_equal(prod(res(rast_utm)) * exact_extract(rast_utm, circle1, 'sum'),
+               exact_extract(rast_utm, circle1, 'weighted_sum', weights='area'))
+
+  # when using area weighting, disaggregating does not affect the sum
+  expect_equal(exact_extract(rast_utm, circle1, 'weighted_sum', weights='area'),
+               exact_extract(disaggregate(rast_utm, 8), circle1, 'weighted_sum', weights='area'))
+})
+
+test_that('We can weight with cell areas (geographic coordinates)', {
+  rast <- raster::raster(matrix(1:54000, ncol=360),
+                         xmn=-180, xmx=180, ymn=-65, ymx=85,
                          crs='+proj=longlat +datum=WGS84')
 
-  poly <- sf::st_buffer(
-    sf::st_as_sfc('POINT(442944.5 217528.7)', crs=32145),
-    150000)
+  accuracy_pct_tol <- 0.01
 
-  expect_warning(exact_extract(rast, poly, weighted.mean, na.rm=TRUE),
-                 'transformed to raster')
-})
+  suppressMessages({
+    circle <- make_circle(0, 45, 15, crs=st_crs(rast))
+  })
 
-test_that('Warning is raised on undefined CRS', {
-  rast <- raster::raster(matrix(1:100, nrow=10),
-                         xmn=0, xmx=10, ymn=0, ymx=10)
+  # result is reasonably close to what we get with raster::area, which uses
+  # a geodesic calculation
+  expected <- exact_extract(rast, circle, 'weighted_sum', weights = area(rast) * 1e6)
+  actual <- exact_extract(rast, circle, 'weighted_sum', weights = 'area')
 
-  weights <- raster::raster(matrix(runif(100), nrow=10),
-                            xmn=0, xmx=10, ymn=0, ymx=10)
-
-  poly <- make_circle(8, 4, 0.4, crs=NA_integer_)
-
-  # neither has a defined CRS
-  expect_silent(exact_extract(rast, poly, 'sum'))
-
-  # only raster has defined CRS
-  raster::crs(rast) <- '+proj=longlat +datum=WGS84'
-  expect_warning(exact_extract(rast, poly, 'sum'),
-                 'assuming .* same CRS .* raster')
-
-  # weights have no defined CRS
-  expect_warning(exact_extract(rast, poly, 'weighted_mean', weights=weights),
-                 'No CRS .* weighting raster.* assuming .* same CRS')
-
-  # both have defined crs
-  sf::st_crs(poly) <- sf::st_crs(rast)
-  expect_silent(exact_extract(rast, poly, 'sum'))
-
-  # only polygons have defined crs
-  raster::crs(rast) <- NULL
-  expect_warning(exact_extract(rast, poly, 'sum'),
-                 'assuming .* same CRS .* polygon')
-})
-
-test_that('Error thrown if value raster and weighting raster have different crs', {
-   values <- make_square_raster(runif(100), crs=NA)
-   weights <- make_square_raster(runif(100), crs=NA)
-
-   poly <- make_circle(8, 4, 1.5, crs=NA_real_)
-
-   # no CRS for values or weights
-   exact_extract(values, poly, 'weighted_mean', weights=weights)
-
-   # values have defined CRS, weights do not
-   raster::crs(values) <- '+proj=longlat +datum=WGS84'
-   raster::crs(weights) <- '+proj=longlat +datum=NAD83'
-   expect_error(
-     exact_extract(values, poly, 'weighted_mean', weights=weights),
-     'Weighting raster does not have .* same CRS as value raster')
-})
-
-
-test_that('Error thrown if value raster and weighting raster have incompatible grids', {
-  poly <- make_circle(5, 4, 2, NA_integer_)
-
-  values <- raster::raster(matrix(runif(10*10), nrow=10),
-                           xmn=0, xmx=10, ymn=0, ymx=10)
-
-
-  # weights have same extent as values, higher resolution
-  weights <- raster::raster(matrix(runif(100*100), nrow=100),
-                            xmn=0, xmx=10, ymn=0, ymx=10)
-
-  exact_extract(values, poly, 'weighted_mean', weights=weights)
-
-  # weights have same extent as values, lower resolution
-  weights <- raster::raster(matrix(1:4, nrow=2),
-                            xmn=0, xmx=10, ymn=0, ymx=10)
-
-  exact_extract(values, poly, 'weighted_mean', weights=weights)
-
-  # weights have offset extent from values, same resolution, compatible origin
-  weights <- raster::raster(matrix(runif(10*10), nrow=2),
-                           xmn=1, xmx=11, ymn=2, ymx=12)
-
-  exact_extract(values, poly, 'weighted_mean', weights=weights)
-
-  # weights have offset extent from values, same resolution, incompatible origin
-  weights <- raster::raster(matrix(runif(10*10), nrow=2),
-                           xmn=0.5, xmx=10.5, ymn=2, ymx=12)
-
-  expect_error(exact_extract(values, poly, 'weighted_mean', weights=weights),
-               'Incompatible extents')
-})
-
-test_that('Error is raised if function has unexpected signature', {
-  rast <- make_square_raster(1:100)
-
-  poly <- make_circle(5, 5, 3, sf::st_crs(rast))
-
-  for (fun in c(length, sum, median, mean, sd)) {
-    expect_error(exact_extract(rast, poly, fun),
-                 'function .* not .* of the form')
-  }
-
-  expect_silent(exact_extract(rast, poly, weighted.mean))
-})
-
-test_that('Error is raised for unknown summary operation', {
-  rast <- make_square_raster(1:100)
-
-  poly <- make_circle(5, 5, 3, sf::st_crs(rast))
-
-  expect_error(exact_extract(rast, poly, 'whatimean'),
-               'Unknown stat')
-})
-
-test_that('Error is raised if arguments passed to summary operation', {
-  rast <- make_square_raster(1:100)
-
-  poly <- make_circle(5, 5, 3, sf::st_crs(rast))
-
-  expect_error(exact_extract(rast, poly, 'sum', na.rm=TRUE),
-               'does not accept additional arguments')
-})
-
-test_that('Error is raised for invalid max_cells_in_memory', {
-  rast <- make_square_raster(1:100)
-  poly <- make_circle(5, 5, 3, sf::st_crs(rast))
-
-  expect_error(exact_extract(rast, poly, 'mean', max_cells_in_memory=-123),
-               'Invalid.*max_cells')
+  expect_true(abs(actual - expected) / expected < accuracy_pct_tol)
 })
 
 test_that('Correct results obtained when max_cells_in_memory is limited', {
@@ -628,7 +488,8 @@ test_that('Correct results obtained when max_cells_in_memory is limited', {
                exact_extract(rast, poly, 'mean', max_cells_in_memory=1))
 })
 
-test_that('Weighted stats work when polygon is contained in weight raster but only partially contained in value raster', {
+test_that('Weighted stats work when polygon is contained in weight raster but
+          only partially contained in value raster', {
   values <- raster(matrix(1:15, nrow=3, ncol=5, byrow=TRUE),
                    xmn=0, xmx=5, ymn=2, ymx=5)
   weights <- raster(sqrt(matrix(1:25, nrow=5, ncol=5, byrow=TRUE)),
@@ -700,7 +561,7 @@ test_that('No error thrown when weighting with different resolution grid (regres
    succeed()
 })
 
-test_that('We can get data frame output if we request it', {
+test_that('when force_df = TRUE, exact_extract always returns a data frame', {
   rast <- make_square_raster(1:100)
   names(rast) <- 'z'
   poly <- c(make_circle(5, 5, 3, sf::st_crs(rast)),
@@ -776,26 +637,6 @@ test_that('We can summarize a categorical raster by returning a data frame from 
   }
 })
 
-test_that('Error is thrown when using include_* with named summary operation', {
-  rast <- make_square_raster(1:100)
-
-  circles <- st_sf(
-    fid = c(2, 9),
-    size = c('large', 'small'),
-    geometry =  c(
-    make_circle(5, 4, 2, sf::st_crs(rast)),
-    make_circle(3, 1, 1, sf::st_crs(rast))))
-
-  expect_error(exact_extract(rast, circles, 'sum', include_xy = TRUE),
-               'include_xy must be FALSE')
-
-  expect_error(exact_extract(rast, circles, 'sum', include_cell = TRUE),
-               'include_cell must be FALSE')
-
-  expect_error(exact_extract(rast, circles, 'sum', include_cols = 'fid'),
-               'include_cols not supported')
-})
-
 test_that('We can append columns from the source data frame in the results', {
   rast <- make_square_raster(1:100)
 
@@ -814,21 +655,7 @@ test_that('We can append columns from the source data frame in the results', {
   # instead, check that the naming is consistent with what we get from the force_df argument
   expect_identical(result_2,
                    cbind(sf::st_drop_geometry(circles[, c('size', 'fid')]),
-                         exact_extract(rast, circles, weighted.mean, force_df = TRUE)))
-})
-
-test_that('We can include columns from the source data frame in returned data frames', {
-  rast <- make_square_raster(1:100)
-
-  circles <- st_sf(
-    fid = c(2, 9),
-    size = c('large', 'small'),
-    geometry =  c(
-    make_circle(5, 4, 2, sf::st_crs(rast)),
-    make_circle(3, 1, 1, sf::st_crs(rast))))
-
-  combined_result <- do.call(rbind, exact_extract(rast, circles, include_cols = 'fid', progress = FALSE))
-  expect_named(combined_result, c('fid', 'value', 'coverage_fraction'))
+                         exact_extract(rast, circles, weighted.mean, force_df = TRUE, progress = FALSE)))
 })
 
 test_that('We can get multiple quantiles with the "quantiles" argument', {
@@ -845,80 +672,6 @@ test_that('We can get multiple quantiles with the "quantiles" argument', {
   expect_true(inherits(result, 'data.frame'))
 
   expect_named(result, c('q25', 'q50', 'q75'))
-})
-
-test_that('Error is thrown if quantiles not specified or not valid', {
- rast <- make_square_raster(1:100)
- square <- make_rect(2, 2, 4, 4, crs=sf::st_crs(rast))
-
- expect_error(exact_extract(rast, square, 'quantile'),
-              'Quantiles not specified')
-
- expect_error(exact_extract(rast, square, 'quantile', quantiles=NA),
-              'must be between 0 and 1')
-
- expect_error(exact_extract(rast, square, 'quantile', quantiles=c(0.5, 1.1)),
-              'must be between 0 and 1')
-
- expect_error(exact_extract(rast, square, 'quantile', quantiles=numeric()),
-              'Quantiles not specified')
-})
-
-test_that('When value and weighting rasters have different grids, cell numbers refer to value raster', {
-  anom <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90, res=10)
-  values(anom) <- rnorm(length(anom))
-
-  pop <- raster(xmn=-180, xmx=180, ymn=-65, ymx=85, res=5)
-  values(pop) <- rlnorm(length(pop))
-
-  circle <- make_circle(17, 21, 18, sf::st_crs(anom))
-
-  suppressWarnings({
-    extracted <- exact_extract(anom, circle, weights=pop, include_cell=TRUE)[[1]]
-  })
-
-  expect_equal(extracted$value, anom[extracted$cell])
-})
-
-test_that('Warning emitted when value raster is disaggregated', {
-  r1 <- make_square_raster(1:100)
-  r2 <- make_square_raster(runif(100))
-  r1d <- raster::disaggregate(r1, 2)
-  r2d <- raster::disaggregate(r2, 2)
-
-  circle <- make_circle(2, 7, 3, sf::st_crs(r1))
-
-  # no warning, values and weights have same resolution
-  expect_silent(exact_extract(r1, circle, weights=r2))
-
-  # no warning, values have higher resolution than weights
-  expect_silent(exact_extract(r1d, circle, weights=r2))
-
-  # warning, weights have higher resolution than values
-  expect_warning(exact_extract(r1, circle, weights=r2d),
-                 'value .* disaggregated')
-})
-
-test_that('Error raised when value raster is disaggregated and unweighted sum/count requested', {
-  r1 <- make_square_raster(1:100)
-  r1d <- raster::disaggregate(r1, 2)
-
-  circle <- make_circle(2, 7, 3, sf::st_crs(r1))
-
-  # no error, requested operations either expect disaggregation
-  # or are not impacted by it
-  expect_silent(exact_extract(r1, circle, c('weighted_sum', 'weighted_mean', 'mean'), weights=r1d))
-
-  # on the other hand, "count" would be messed up by the disaggregation
-  expect_error(exact_extract(r1, circle, c('weighted_sum', 'count'), weights=r1d),
-               'raster is disaggregated')
-
-  # as would "sum"
-  expect_error(exact_extract(r1, circle, c('weighted_sum', 'count'), weights=r1d),
-               'raster is disaggregated')
-
-  # no problem if the weights are disaggregated, though
-  expect_silent(exact_extract(r1d, circle, c('weighted_sum', 'count'), weights=r1))
 })
 
 test_that('Both value and weighting rasters can be a stack', {
@@ -1043,20 +796,6 @@ test_that('We can use stack_apply with both values and weights', {
                tol = 1e-6)
 })
 
-test_that('We get an error if using stack_apply with incompatible stacks', {
-  vals <- stack(replicate(3, make_square_raster(runif(100))))
-  names(vals) <- c('a', 'b', 'c')
-
-  weights <- stack(replicate(2, make_square_raster(runif(100))))
-  names(weights) <- c('d', 'e')
-
-  circle <- make_circle(2, 7, 3, sf::st_crs(vals))
-
-  expect_error(
-    exact_extract(vals, circle, function(v, c, w) 1, weights=weights, stack_apply=TRUE),
-    "Can't apply")
-})
-
 test_that('Layers are implicity renamed if value layers have same name as weight layers', {
   # this happens when a stack is created and no names are provided
   # raster package assigns layer.1, layer.2
@@ -1075,7 +814,6 @@ test_that('Layers are implicity renamed if value layers have same name as weight
 })
 
 test_that('Progress bar updates incrementally', {
-
   rast <- make_square_raster(1:100)
 
   npolys <- 13
@@ -1178,54 +916,6 @@ test_that('generated column names follow expected pattern', {
                c('fun.v1', 'fun.v2', 'fun.v3'))
 })
 
-test_that('When disaggregating values, xy coordinates refer to disaggregated grid', {
-  rast <- make_square_raster(1:100)
-  rast2 <- raster::disaggregate(rast, 4)
-
-  circle <- make_circle(7.5, 5.5, 0.4, sf::st_crs(rast))
-
-  xy_disaggregated <- exact_extract(rast2, circle, include_xy = TRUE)[[1]][, c('x', 'y')]
-
-  suppressWarnings({
-    xy_weighted <- exact_extract(rast, circle, include_xy = TRUE, weights = rast2)[[1]][, c('x', 'y')]
-    xy_weighted2 <- exact_extract(rast2, circle, include_xy = TRUE, weights = rast)[[1]][, c('x', 'y')]
-  })
-
-  expect_equal(xy_weighted, xy_disaggregated)
-  expect_equal(xy_weighted2, xy_disaggregated)
-})
-
-test_that('include_ arguments supported with weighted summary function', {
-  rast1 <- 5 + make_square_raster(1:100)
-  rast2 <- make_square_raster(runif(100))
-
-  circle <- st_sf(
-    id = 77,
-    make_circle(7.5, 5.5, 4, sf::st_crs(rast1)))
-
-  x <- exact_extract(rast1, circle, function(v, c, w) {
-    expect_is(v, 'data.frame')
-    expect_named(v, c('value', 'id'))
-    expect_true(all(v$id ==  77))
-
-    expect_is(c, 'numeric')
-    expect_is(w, 'numeric')
-  }, weights=rast2, include_cols = 'id')
-
-  x <- exact_extract(rast1, circle, function(v, c, w) {
-    expect_is(v, 'data.frame')
-    expect_named(v, c('value', 'id', 'x', 'y', 'cell'))
-    expect_true(all(v$id ==  77))
-    expect_equal(v$value, rast1[v$cell])
-    expect_equal(w, rast2[v$cell])
-    expect_equal(v$x, raster::xFromCell(rast1, v$cell))
-    expect_equal(v$y, raster::yFromCell(rast1, v$cell))
-
-    expect_is(c, 'numeric')
-    expect_is(w, 'numeric')
-  }, weights=rast2, include_cols = 'id', include_cell = TRUE, include_xy = TRUE)
-})
-
 test_that('We can replace NA values in the value and weighting rasters with constants', {
   set.seed(05401)
 
@@ -1264,4 +954,74 @@ test_that('We can replace NA values in the value and weighting rasters with cons
     which(is.na(exact_extract(rx, poly)[[1]]$value)),
     which(44 == exact_extract(rx, poly, default_value = 44)[[1]]$value)
   )
+})
+
+test_that('All summary function arguments combined when summarize_df = TRUE', {
+  rast <- make_square_raster(1:100)
+
+  values <- stack(list(a = rast - 1,
+                       b = rast,
+                       c = rast + 1))
+
+  weights <- sqrt(values)
+  names(weights) <- c('d', 'e', 'f')
+
+  circle <- st_sf(
+    id = 77,
+    make_circle(7.5, 5.5, 4, sf::st_crs(rast)))
+
+  # in the tests below, we check names inside the R summary function
+  # to verify that our checks were actually hit, we have the summary
+  # function return NULL and check for it with `expect_null`.
+
+  # values only
+  expect_null(
+    exact_extract(values, circle, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('a', 'b', 'c', 'coverage_fraction'))
+      NULL
+    })[[1]])
+
+  expect_null(
+    exact_extract(rast, circle, coverage_area = TRUE, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('value', 'coverage_area'))
+      NULL
+    })[[1]])
+
+  expect_null(
+    exact_extract(values[[1]], circle, coverage_area = TRUE, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('value', 'coverage_area'))
+      NULL
+    })[[1]])
+
+  # values and weights
+  expect_null(
+    exact_extract(values, circle, summarize_df = TRUE, fun = function(df) {
+      expect_named(df, c('a', 'b', 'c', 'd', 'e', 'f', 'coverage_fraction'))
+      NULL
+    }, weights = weights)[[1]])
+
+  expect_null(
+    exact_extract(values, circle,
+                  include_cell = TRUE,
+                  include_xy = TRUE,
+                  include_area = TRUE,
+                  include_cols = 'id',
+                  summarize_df = TRUE,
+                  fun = function(df, extra_arg) {
+      expect_named(df,
+        c('id', 'a', 'b', 'c', 'd', 'e', 'f', 'x', 'y', 'cell', 'area', 'coverage_fraction'))
+      expect_equal(extra_arg, 600)
+      NULL
+    }, weights = weights, extra_arg = 600)[[1]])
+
+  # values and weights, stack_apply = TRUE
+  expect_equal(
+    exact_extract(values, circle, weights = weights, summarize_df = TRUE, stack_apply = TRUE,
+                  fun = function(df, extra_arg) {
+                    expect_named(df, c('value', 'weight', 'coverage_fraction'))
+                    extra_arg
+                  }, extra_arg = 30809),
+    data.frame(fun.a.d = 30809,
+               fun.b.e = 30809,
+               fun.c.f = 30809))
 })

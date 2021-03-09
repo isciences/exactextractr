@@ -12,9 +12,9 @@
 // limitations under the License.
 
 // [[Rcpp::plugins("cpp14")]]
-#include <memory>
-
 #include <Rcpp.h>
+
+#include <memory>
 
 #include "geos_r.h"
 #include "raster_utils.h"
@@ -50,6 +50,10 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              double default_weight,
                              bool include_xy,
                              bool include_cell_number,
+                             bool include_area,
+                             bool area_weights,
+                             bool coverage_areas,
+                             Rcpp::Nullable<Rcpp::CharacterVector> & p_area_method,
                              Rcpp::Nullable<Rcpp::List> & include_cols,
                              Rcpp::CharacterVector & src_names,
                              Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names,
@@ -67,7 +71,14 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   std::unique_ptr<S4RasterSource> rweights;
   int weights_nlayers = 0;
   Rcpp::CharacterVector weights_names;
-  if (!weights.isNull()) {
+
+  std::string area_method;
+  if (p_area_method.isNotNull()) {
+    Rcpp::CharacterVector amethod = p_area_method.get();
+    area_method = amethod[0];
+  }
+
+  if (weights.isNotNull()) {
     Rcpp::S4 weights_s4 = weights.get();
     weights_nlayers = get_nlayers(weights_s4);
     weights_grid = make_grid(weights_s4);
@@ -79,6 +90,9 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     if (warn_on_disaggregate && (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy())) {
       Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
     }
+  } else if (area_weights) {
+    weights_nlayers = 1;
+    weights_names = p_weights_names.get();
   }
 
   auto geom = read_wkb(geos.handle, wkb);
@@ -97,8 +111,13 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   // Once Rcpp 1.0.6 is released, this can be reworked to be simpler and faster.
   Rcpp::List cols;
 
-  Rcpp::NumericVector coverage_fraction_vec = as_vector(coverage_fractions);
-  Rcpp::LogicalVector covered = coverage_fraction_vec > 0;
+  Rcpp::NumericVector coverage_vec = as_vector(coverage_fractions);
+  if (coverage_areas) {
+      auto areas = get_area_raster(area_method, common_grid);
+      Rcpp::NumericVector area_vec = as_vector(*areas);
+      coverage_vec = coverage_vec * area_vec;
+  }
+  Rcpp::LogicalVector covered = coverage_vec > 0;
 
   if (include_cols.isNotNull()) {
     Rcpp::List include_cols_list = include_cols.get();
@@ -133,17 +152,22 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
   }
 
   for (int i = 0; i < weights_nlayers; i++) {
-    auto values = rweights->read_box(cov_grid.extent(), i);
-    const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
+    Rcpp::NumericVector weight_vec;
+    if (area_weights) {
+      auto weights = get_area_raster(area_method, common_grid);
+      weight_vec = as_vector(*weights);
+    } else {
+      auto values = rweights->read_box(cov_grid.extent(), i);
+      const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
+      weight_vec = r->vec();
 
-    Rcpp::NumericVector weight_vec = r->vec();
+      if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
+          weight_vec.size() != covered.size()) {
+        // Transform weights to common grid
+        RasterView<double> rt (*r, common_grid);
 
-    if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
-        weight_vec.size() != covered.size()) {
-      // Transform weights to common grid
-      RasterView<double> rt (*r, common_grid);
-
-      weight_vec = as_vector(rt);
+        weight_vec = as_vector(rt);
+      }
     }
 
     weight_vec = weight_vec[covered];
@@ -175,10 +199,27 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
   }
 
-  cols["coverage_fraction"] = coverage_fraction_vec[covered];
+  if (include_area) {
+    auto area_rast = get_area_raster(area_method, common_grid);
+    Rcpp::NumericVector area_vec = as_vector(*area_rast);
+
+    cols["area"] = area_vec[covered];
+  }
+
+  if (coverage_areas) {
+    cols["coverage_area"] = coverage_vec[covered];
+  } else {
+    cols["coverage_fraction"] = coverage_vec[covered];
+  }
 
   return cols;
 }
+
+enum class WeightingMethod {
+  NONE,
+  RASTER,
+  AREA
+};
 
 // Return a matrix with one row per stat and one row per raster layer
 // [[Rcpp::export]]
@@ -187,6 +228,8 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               const Rcpp::RawVector & wkb,
                               double default_value,
                               double default_weight,
+                              bool coverage_areas,
+                              Rcpp::Nullable<Rcpp::CharacterVector> & p_area_method,
                               const Rcpp::StringVector & stats,
                               int max_cells_in_memory,
                               const Rcpp::Nullable<Rcpp::NumericVector> & quantiles) {
@@ -202,9 +245,15 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     S4RasterSource rsrc(rast, default_value);
 
     std::unique_ptr<S4RasterSource> rweights;
-    bool weighted = false;
+    std::string area_method;
+    if (p_area_method.isNotNull()) {
+      area_method = ((Rcpp::CharacterVector) p_area_method.get())[0];
+    }
+
+    WeightingMethod weighting = WeightingMethod::NONE;
     int nweights = 0;
     if (weights.isNotNull()) {
+      weighting = WeightingMethod::RASTER;
       Rcpp::S4 weights_s4 = weights.get();
       nweights = get_nlayers(weights_s4);
 
@@ -213,13 +262,16 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
       }
 
       rweights = std::make_unique<S4RasterSource>(weights_s4, default_weight);
-      weighted = true;
+    } else if (p_area_method.isNotNull()) {
+      weighting = WeightingMethod::AREA;
+      nweights = 1;
     }
 
     auto geom = read_wkb(geos.handle, wkb);
     auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
 
-    auto grid = weighted ? rsrc.grid().common_grid(rweights->grid()) : rsrc.grid();
+    auto grid = weighting == WeightingMethod::RASTER ?
+      rsrc.grid().common_grid(rweights->grid()) : rsrc.grid();
 
     bool disaggregated = (grid.dx() < rsrc.grid().dx() || grid.dy() < rsrc.grid().dy());
 
@@ -266,10 +318,31 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
       for (const auto &subgrid : subdivide(cropped_grid, max_cells_in_memory)) {
         auto coverage_fraction = raster_cell_intersection(subgrid, geos.handle, geom.get());
+        if (coverage_areas) {
+          auto areas = get_area_raster(area_method, subgrid);
+          for (size_t i = 0; i < coverage_fraction.rows(); i++) {
+            for (size_t j = 0; j < coverage_fraction.cols(); j++) {
+              coverage_fraction(i, j) = coverage_fraction(i, j) * (*areas)(i, j);
+            }
+          }
+        }
+
         auto& cov_grid = coverage_fraction.grid();
 
         if (!cov_grid.empty()) {
-          if (weighted) {
+          if (weighting == WeightingMethod::NONE) {
+            for (int i = 0; i < nlayers; i++) {
+              auto values = rsrc.read_box(cov_grid.extent(), i);
+              raster_stats[i].process(coverage_fraction, *values);
+            }
+          } else if (weighting == WeightingMethod::AREA) {
+            auto weights = get_area_raster(area_method, cov_grid);
+
+            for (int i = 0; i < nlayers; i++) {
+              auto values = rsrc.read_box(cov_grid.extent(), i);
+              raster_stats[i].process(coverage_fraction, *values, *weights);
+            }
+          } else {
             if (nlayers > nweights) {
               // recycle weights
               auto weights = rweights->read_box(cov_grid.extent(), 0);
@@ -294,11 +367,6 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
                 raster_stats[i].process(coverage_fraction, *values, *weights);
               }
-            }
-          } else {
-            for (int i = 0; i < nlayers; i++) {
-              auto values = rsrc.read_box(cov_grid.extent(), i);
-              raster_stats[i].process(coverage_fraction, *values);
             }
           }
         }
