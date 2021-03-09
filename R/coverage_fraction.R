@@ -65,4 +65,3 @@ setMethod('coverage_fraction', signature(x='RasterLayer', y='sfc_MULTIPOLYGON'),
 #' @rdname coverage_fraction
 #' @export
 setMethod('coverage_fraction', signature(x='RasterLayer', y='sfc_POLYGON'), .coverage_fraction)
-

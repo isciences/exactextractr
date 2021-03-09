@@ -18,150 +18,204 @@ if (!isGeneric("exact_extract")) {
 
 #' Extract or summarize values from Raster* objects
 #'
-#' Extracts the values of cells in a Raster* that are covered by a
-#' simple feature collection containing polygonal geometries, as well as the
-#' fraction of each cell that is covered by the polygon. Returns either
-#' the result of a summary operation or function applied to the values
-#' and coverage fractions (if \code{fun} is specified), or a data frame
-#' containing the values and coverage fractions themselves (if \code{fun}
-#' is \code{NULL}.)
+#' Extracts the values of cells in `Raster*` that are covered by polygons in a
+#' simple feature collection (`sf` or `sfc`) or `SpatialPolygonsDataFrame`.
+#' Returns either a summary of the extracted values or the extracted values
+#' themselves.
 #'
-#' The value of \code{fun} may be set to a string (or vector of strings)
-#' representing summary operations supported by the exactextract library.
-#' If the input raster has a single layer and a single summary operation
-#' is specified, \code{exact_extract} will return a vector with the result
-#' of the summary operation for each feature in the input. If the input
-#' raster has multiple layers, or if multiple summary operations are specified,
-#' \code{exact_extract} will return a data frame with a row for each feature
-#' and a column for each summary operation / layer combination. (The
-#' \code{force_df} can be used to always return a data frame instead of a vector.)
-#' In all of the summary operations, \code{NA} values in the raster are ignored
-#' (i.e., \code{na.rm = TRUE}.)
+#' @details
+#' `exact_extract` extracts the values of cells in a `Raster*` that are covered
+#' by polygons in a simple feature collection (`sf` or `sfc`) or
+#' `SpatialPolygonDataFrame`, as well as the fraction or area of each cell that
+#' is covered by the polygon. The function can either return these values
+#' directly to the caller, or can return the result of a predefined summary
+#' operation or user-defined R function applied to the values. These three
+#' approaches are described in the subsections below.
+#'
+#' ## Returning extracting values directly
+#'
+#' If `fun` is not specified, `exact_extract` will return a list with
+#' one data frame for each feature in the input feature collection. The data
+#' frame will contain a column with cell values from each layer in the input
+#' `Raster*` (and optional weighting `Raster*`) and a column indicating
+#' the fraction or area of the cell that is covered by the polygon.
+#'
+#' If the input rasters have only one layer, the corresponding columns in the
+#' data frame will be named `values` or `weights`. When the input rasters have
+#' more than one layer, the columns will be named according to `names(x)` and
+#' `names(weights)`. The column containing pixel coverage will be called
+#' `coverage_fraction` when `coverage_area = FALSE`, or `coverage_area` when
+#' `coverage_area = TRUE`.
+#'
+#' If the output data frames are to be combined (e.g., with `rbind`, it may be
+#' useful to include identifying column(s) from the input features in the
+#' returned data frames using `include_cols`. Additional columns can be added
+#' to the returned data frames with the `include_area`, `include_cell`, and
+#' `include_xy` arguments.
+#'
+#' ## Predefined summary operations
+#'
+#' Often the individual pixel values are not needed; only one or more summary
+#' statistics (e.g., mean, sum) is required for each polygon. Common summary
+#' statistics can be calculated by `exact_extract` directly using a predefined
+#' summary operation. Where possible, this approach is advantageous because it
+#' allows the package to calculate the statistics incrementally, avoiding the
+#' need to store all pixel values in memory at the same time. This allows the
+#' package to process arbitrarily large data with a small amount of memory. (The
+#' `max_pixels_in_memory` argument can be used to fine-tune the amount of memory
+#' made available to `exact_extract`.)
+#'
+#' To summarize pixel values using a predefined summary option, `fun` should be
+#' set to a character vector of one or more operation names. If the input raster
+#' has a single layer and a single summary operation is specified,
+#' `exact_extract` will return a vector with the result of the summary operation
+#' for each feature in the input. If the input raster has multiple layers, or if
+#' multiple summary operations are specified, `exact_extract` will return a data
+#' frame with a row for each feature and a column for each summary operation /
+#' layer combination. (The `force_df` option can be used to always return a data
+#' frame instead of a vector.)
 #'
 #' The following summary operations are supported:
 #'
-#' \itemize{
-#'  \item{\code{min} - the minimum defined value in any raster cell wholly or
-#'                     partially covered by the polygon}
-#'  \item{\code{max} - the maximum defined value in any raster cell wholly or
-#'                     partially covered by the polygon}
-#'  \item{\code{count} - the sum of fractions of raster cells with defined values
-#'                       covered by the polygon}
-#'  \item{\code{sum}   - the sum of defined raster cell values, multiplied by
-#'                       the fraction of the cell that is covered by the polygon}
-#'  \item{\code{mean} - the mean cell value, weighted by the fraction of each cell
-#'                      that is covered by the polygon}
-#'  \item{\code{median} - the median cell value, weighted by the fraction of each
-#'                        cell that is covered by the polygon}
-#'  \item{\code{quantile} - arbitrary quantile(s) of cell values, specified in
-#'                          \code{quantiles}, weighted by the fraction of each
-#'                          cell that is covered by the polygon}
-#'  \item{\code{mode} - the most common cell value, weighted by the fraction of
-#'                      each cell that is covered by the polygon. Where multiple
-#'                      values occupy the same maximum number of weighted cells,
-#'                      the largest value will be returned.}
-#'  \item{\code{majority} - synonym for \code{mode}}
-#'  \item{\code{minority} - the least common cell value, weighted by the fraction
-#'                          of each cell that is covered by the polygon. Where
-#'                          multiple values occupy the same minimum number of
-#'                          weighted cells, the smallest value will be returned.}
-#'  \item{\code{variety} - the number of distinct values in cells that are wholly
-#'                         or partially covered by the polygon.}
-#'  \item{\code{variance} - the population variance of cell values, weighted by the
-#'                          fraction of each cell that is covered by the polygon.}
-#'  \item{\code{stdev} - the population standard deviation of cell values, weighted
-#'                       by the fraction of each cell that is covered by the polygon.}
-#'  \item{\code{coefficient_of_variation} - the population coefficient of variation of
-#'                       cell values, weighted by the fraction of each cell that is
-#'                       covered by the polygon.}
-#'  \item{\code{weighted_mean} - the mean cell value, weighted by the product of
-#'                               the fraction of each cell covered by the polygon
-#'                               and the value of a second weighting raster provided
-#'                               as \code{weights}}
-#'  \item{\code{weighted_sum} - the sum of defined raster cell values, multiplied by
-#'                              the fraction of each cell that is covered by the polygon
-#'                               and the value of a second weighting raster provided
-#'                               as \code{weights}}
-#' }
+#'  * `min` - the minimum defined (non-`NA`) value in any raster cell wholly or
+#'            partially covered by the polygon
+#'  * `max` - the maximum defined (non-`NA`) value in any raster cell wholly or
+#'            partially covered by the polygon
+#'  * `count` - the sum of fractions of raster cells with defined non-`NA`
+#'              values covered by the polygon
+#'  * `sum`   - the sum of defined (non-`NA`) raster cell values, multiplied by
+#'              the fraction of the cell that is covered by the polygon
+#'  * `mean` - the mean cell value, weighted by the fraction of each cell
+#'             that is covered by the polygon
+#'  * `median` - the median cell value, weighted by the fraction of each cell
+#'               that is covered by the polygon
+#'  * `quantile` - arbitrary quantile(s) of cell values, specified in
+#'                 `quantiles`, weighted by the fraction of each cell that is
+#'                  covered by the polygon
+#'  * `mode` - the most common cell value, weighted by the fraction of
+#'             each cell that is covered by the polygon. Where multiple
+#'             values occupy the same maximum number of weighted cells,
+#'             the largest value will be returned.
+#'  * `majority` - synonym for `mode`
+#'  * `minority` - the least common cell value, weighted by the fraction
+#'                 of each cell that is covered by the polygon. Where
+#'                 multiple values occupy the same minimum number of
+#'                 weighted cells, the smallest value will be returned.
+#'  * `variety` - the number of distinct values in cells that are wholly or
+#'                partially covered by the polygon.
+#'  * `variance` - the population variance of cell values, weighted by the
+#'                 fraction of each cell that is covered by the polygon.
+#'  * `stdev` - the population standard deviation of cell values, weighted by
+#'              the fraction of each cell that is covered by the polygon.
+#'  * `coefficient_of_variation` - the population coefficient of variation of
+#'                                 cell values, weighted by the fraction of each
+#'                                 cell that is covered by the polygon.
+#'  * `weighted_mean` - the mean cell value, weighted by the product of
+#'                      the fraction of each cell covered by the polygon
+#'                      and the value of a second weighting raster provided
+#'                      as `weights`
+#'  * `weighted_sum` - the sum of defined raster cell values, multiplied by
+#'                     the fraction of each cell that is covered by the polygon
+#'                     and the value of a second weighting raster provided
+#'                     as `weights`
 #'
-#' Alternatively, an R function may be provided as \code{fun}. The function will be
-#' called for each feature with with vectors of cell values and weights as arguments.
-#' \code{exact_extract} will then return a vector of the return values of \code{fun}.
+#' In all of the summary operations, `NA` values in the the primary raster (`x`)
+#' raster are ignored (i.e., `na.rm = TRUE`.) If `NA` values occur in the
+#' weighting raster, the result of the weighted operation will be `NA`. `NA`
+#' values in both `x` and `weights` can be replaced on-the-fly using the
+#' `default_value` and `default_weight` arguments.
 #'
-#' If \code{fun} is not specified, \code{exact_extract} will return a list with
-#' one data frame for each feature in the input feature collection. The data
-#' frame will contain a column with values from each layer in the input `Raster*`,
-#' and a final column indicating the fraction of the cell that is covered by the
-#' polygon.
+#' ## User-defined summary functions
 #'
-#' @param     x a \code{RasterLayer}, \code{RasterStack}, or \code{RasterBrick}
-#' @param     y a sf object with polygonal geometries
+#' If no predefined summary operation is suitable, a user-defined R function may
+#' be provided as `fun`. The function will be called once for each feature and
+#' must return either a single value or a data frame. The results of the
+#' function for each feature will be combined and returned by `exact_extract`.
+#'
+#' The simplest way to write a summary function is to set
+#' argument `summarize_df = TRUE`. (For backwards compatibility, this is not the
+#' default.) In this mode, the summary function takes the signature
+#' `function(df, ...)` where `df` is the same data frame that would be returned
+#' by `exact_extract` with `fun = NULL`.
+#'
+#' With `summarize_df = FALSE`, the function must have the signature
+#' `function(values, coverage_fractions, ...)` when weights are not used, and
+#' `function(values, coverage_fractions, weights, ...)` when weights are used.
+#' If the value and weight rasters are `RasterLayers`, the function arguments
+#' will be vectors; if either is a `RasterStack`, the function arguments will
+#' be data frames, with column names taken from the names of the value/weight
+#' rasters. Values brought in through the `include_xy`, `include_area`,
+#' `include_cell`, and `include_cols` arguments will be added to the `values`
+#' data frame. For most applications, it is simpler to set `summarize_df = TRUE`
+#' and work with all inputs in a single data frame.
+#'
+#' @param     x a `RasterLayer`, `RasterStack`, or `RasterBrick`
+#' @param     y a `sf`, `sfc`, `SpatialPolygonsDataFrame`, or `SpatialPolygons`
+#'            object with polygonal geometries
 #' @param     fun an optional function or character vector, as described below
-#' @param     weights  a weighting raster to be used with the \code{weighted_mean}
-#'                     and \code{weighted_sum} summary operations. When
-#'                     \code{weights} is set to \code{'mean'}, the cell areas
-#'                     of \code{x} will be calculated and used as weights.
-#' @param     coverage_area  if \code{TRUE}, output pixel \code{coverage_area}
-#'                           instead of \code{coverage_fraction}
-#' @param     default_value  an optional value to use instead of \code{NA} in \code{x}
-#' @param     default_weight an optional value to use instead of \code{NA} in
-#'                           \code{weights}
-#' @param     quantiles   quantiles to be computed when \code{fun == 'quantile'}
-#' @param     append_cols when \code{fun} is not \code{NULL}, an optional
-#'                        character vector of columns from \code{y} to be
-#'                        included in returned data frame.
+#' @param     weights  a weighting raster to be used with the `weighted_mean`
+#'                     and `weighted_sum` summary operations, or a user-defined
+#'                     summary function. When `weights` is set to `'area'`, the
+#'                     cell areas of `x` will be calculated and used as weights.
+#' @param     coverage_area  if `TRUE`, output pixel `coverage_area`
+#'                           instead of `coverage_fraction`
+#' @param     default_value  an optional value to use instead of `NA` in `x`
+#' @param     default_weight an optional value to use instead of `NA` in `weights`
+#' @param     quantiles   quantiles to be computed when `fun = 'quantile'`
+#' @param     append_cols when `fun` is not `NULL`, an optional character vector
+#'                        of columns from `y` to be included in returned data frame.
 #' @param     force_df always return a data frame instead of a vector, even if
-#'                     \code{x} has only one layer and \code{fun} has length 1
+#'                     `x` has only one layer and `fun` has length 1
 #' @param     summarize_df  pass values, coverage fraction/area, and weights to
-#'                          \code{fun} as a single data frame instead of
+#'                          `fun` as a single data frame instead of
 #'                          separate arguments.
-#' @param     full_colnames include the names of \code{x} and \code{weights} in
-#'                          the names of the returned data frame, even if
-#'                          \code{x} or \code{weights} has only one layer.
+#' @param     full_colnames include the names of `x` and `weights` in
+#'                          the names of the data frame for each feature, even if
+#'                          `x` or `weights` has only one layer.
 #'                          This is useful when the results of multiple
-#'                          calls to \code{exact_extract} are combined with
-#'                          \code{cbind}.
-#' @param     include_area if \code{TRUE}, and \code{fun} is \code{NULL}, augment
-#'                       the returned data frame for each feature with a column
+#'                          calls to `exact_extract` are combined with
+#'                          `cbind`.
+#' @param     include_area if `TRUE`, and `fun` is `NULL`, augment
+#'                       the data frame for each feature with a column
 #'                       for the cell area. If the units of the raster CRS are
 #'                       degrees, the area in square meters will be calculated
 #'                       based on a spherical approximation of Earth. Otherwise,
 #'                       a Cartesian area will be calculated (and will be the
-#'                       same for all pixels.) If \code{TRUE} and \code{fun} is
-#'                       not \code{NULL}, add \code{area} to the data frame passed
-#'                       to \code{fun} for each feature.
-#' @param     include_cell if \code{TRUE}, and \code{fun} is \code{NULL}, augment
-#'                       the returned data frame for each feature with a column
-#'                       for the cell index (\code{cell}). If \code{TRUE} and
-#'                       \code{fun} is not \code{NULL}, add \code{cell} to the
-#'                       data frame passed to \code{fun} for each feature.
+#'                       same for all pixels.) If `TRUE` and `fun` is
+#'                       not `NULL`, add `area` to the data frame passed
+#'                       to `fun` for each feature.
+#' @param     include_cell if `TRUE`, and `fun` is `NULL`, augment
+#'                       the data frame for each feature with a column
+#'                       for the cell index (`cell`). If `TRUE` and
+#'                       `fun` is not `NULL`, add `cell` to the
+#'                       data frame passed to `fun` for each feature.
 #' @param     include_cols an optional character vector of column names in
-#'                         \code{y} to be added to the data frame for each
-#'                         feature that is either returned (when \code{fun} is
-#'                         \code{NULL}) or passed to \code{fun}.
-#' @param     include_xy if \code{TRUE}, and \code{fun} is \code{NULL}, augment
+#'                         `y` to be added to the data frame for each
+#'                         feature that is either returned (when `fun` is
+#'                         `NULL`) or passed to `fun`.
+#' @param     include_xy if `TRUE`, and `fun` is `NULL`, augment
 #'                       the returned data frame for each feature with columns
-#'                       for cell center coordinates (\code{x} and \code{y}). If
-#'                       \code{TRUE} and \code{fun} is not \code{NULL}, add
-#'                       \code{x} and {y} to the data frame passed to \code{fun}
+#'                       for cell center coordinates (`x` and `y`). If
+#'                       `TRUE` and `fun` is not `NULL`, add
+#'                       `x` and `y` to the data frame passed to `fun`
 #'                       for each feature.
-#' @param     stack_apply   if \code{TRUE}, apply \code{fun} independently to
-#'                          each layer or \code{x} (and its corresponding layer
-#'                          of \code{weights}, if provided.) The number of
-#'                          layers in \code{x} and \code{weights} must equal
-#'                          each other or \code{1}, in which case the
+#' @param     stack_apply   if `TRUE`, apply `fun` independently to
+#'                          each layer or `x` (and its corresponding layer
+#'                          of `weights`, if provided.) The number of
+#'                          layers in `x` and `weights` must equal
+#'                          each other or `1`, in which case the
 #'                          single layer raster will be recycled.
-#'                          If \code{FALSE}, apply \code{fun} to all layers of
-#'                          \code{x} (and \code{weights}) simultaneously.
+#'                          If `FALSE`, apply `fun` to all layers of
+#'                          `x` (and `weights`) simultaneously.
 #' @param     max_cells_in_memory the maximum number of raster cells to load at
 #'                                a given time when using a named summary operation
-#'                                for \code{fun} (as opposed to a function defined using
-#'                                R code). If a polygon covers more than \code{max_cells_in_memory}
+#'                                for `fun` (as opposed to a function defined using
+#'                                R code). If a polygon covers more than `max_cells_in_memory`
 #'                                raster cells, it will be processed in multiple chunks.
-#' @param     progress if \code{TRUE}, display a progress bar during processing
-#' @param     ... additional arguments to pass to \code{fun}
-#' @return a vector or list of data frames, depending on the type of \code{x} and the
-#'         value of \code{fun} (see Details)
+#' @param     progress if `TRUE`, display a progress bar during processing
+#' @param     ... additional arguments to pass to `fun`
+#' @return a vector, data frame, or list of data frames, depending on the type
+#'         of `x` and the value of `fun` (see Details)
 #' @examples
 #' rast <- raster::raster(matrix(1:100, ncol=10), xmn=0, ymn=0, xmx=10, ymx=10)
 #' poly <- sf::st_as_sfc('POLYGON ((2 2, 7 6, 4 9, 2 2))')
@@ -184,6 +238,7 @@ if (!isGeneric("exact_extract")) {
 #' exact_extract(rast, poly, function(value, cov_frac) length(value[cov_frac > 0.9]))
 #'
 #' @name exact_extract
+#' @md
 NULL
 
 # Return the number of standard (non-...) arguments in a supplied function that
@@ -204,21 +259,22 @@ emptyVector <- function(rast) {
 
 .exact_extract <- function(x, y, fun=NULL, ...,
                            weights=NULL,
-                           include_xy=FALSE,
-                           progress=TRUE,
-                           max_cells_in_memory=30000000,
+                           append_cols=NULL,
+                           coverage_area=FALSE,
+                           default_value=NA_real_,
+                           default_weight=NA_real_,
+                           include_area=FALSE,
                            include_cell=FALSE,
+                           include_cols=NULL,
+                           include_xy=FALSE,
                            force_df=FALSE,
-                           summarize_df=FALSE,
                            full_colnames=FALSE,
                            stack_apply=FALSE,
-                           append_cols=NULL,
-                           include_area=FALSE,
-                           include_cols=NULL,
-                           coverage_area=FALSE,
+                           summarize_df=FALSE,
                            quantiles=NULL,
-                           default_value=NA_real_,
-                           default_weight=NA_real_) {
+                           progress=TRUE,
+                           max_cells_in_memory=30000000
+                           ) {
   area_weights <- is.character(weights) && length(weights) == 1 && weights == 'area'
   if (area_weights) {
     weights <- NULL

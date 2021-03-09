@@ -20,6 +20,7 @@
 #'                      ambiguity?
 #' @param quantiles quantiles to use when \code{stat_names} contains \code{quantile}
 #' @return character vector of column names
+#' @keywords internal
 .resultColNames <- function(value_names, weight_names, fun, full_colnames, quantiles=numeric()) {
   if (inherits(fun, 'standardGeneric')) {
     stat_names <- fun@generic[1]
@@ -85,6 +86,7 @@
 #' @param num_weights number of layers in weighting raster
 #' @return list with \code{values} and \code{weights} elements
 #'         providing layer indexes
+#' @keywords internal
 .valueWeightIndexes <- function(num_values, num_weights) {
   if (num_weights == 0) {
     vi <- seq_len(num_values)
