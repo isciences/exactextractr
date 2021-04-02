@@ -160,3 +160,98 @@
   sum(sapply(a, nchar) == 0)
 }
 
+.startReading <- function(r) {
+  if(inherits(r, 'BasicRaster')) {
+    return(raster::readStart(r))
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::readStart(r)
+  }
+
+  return(r)
+}
+
+.stopReading <- function(r) {
+  if(inherits(r, 'BasicRaster')) {
+    return(raster::readStop(r))
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::readStop(r)
+  }
+
+  return(r)
+}
+
+.numLayers <- function(r) {
+  if(inherits(r, 'BasicRaster')) {
+    return(raster::nlayers(r))
+  } else if (inherits(r, 'SpatRaster')) {
+    return(terra::nlyr(r))
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.isRaster <- function(r) {
+  inherits(r, 'BasicRaster') | inherits(r, 'SpatRaster')
+}
+
+.xFromCol <- function(r, col) {
+  if (inherits(r, 'BasicRaster')) {
+    raster::xFromCol(r, col)
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::xFromCol(r, col)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.yFromRow <- function(r, row) {
+  if (inherits(r, 'BasicRaster')) {
+    raster::yFromRow(r, row)
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::yFromRow(r, row)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.cellFromRowCol <- function(r, row, col) {
+  if (inherits(r, 'BasicRaster')) {
+    raster::cellFromRowCol(r, row, col)
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::cellFromRowCol(r, row, col)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.extent <- function(r) {
+  if (inherits(r, 'BasicRaster')) {
+    ex <- r@extent
+    c(ex@xmin, ex@ymin, ex@xmax, ex@ymax)
+  } else if (inherits(r, 'SpatRaster')) {
+    ex <- terra::ext(r)
+    c(ex$xmin, ex$ymin, ex$xmax, ex$ymax)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.res <- function(r) {
+  if (inherits(r, 'BasicRaster')) {
+    raster::res(r)
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::res(r)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.getValuesBlock <- function(r, row, nrows, col, ncols) {
+  if (inherits(r, 'BasicRaster')) {
+    raster::getValuesBlock(r, row, nrows, col, ncols, format = 'm')
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::readValues(r, row, nrows, col, ncols, mat = TRUE)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}

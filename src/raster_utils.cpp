@@ -16,17 +16,18 @@
 using Grid = exactextract::Grid<exactextract::bounded_extent>;
 
 Grid make_grid(const Rcpp::S4 & rast) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function resFn = raster["res"];
+  Rcpp::Environment xx = Rcpp::Environment::namespace_env("exactextractr");
+  Rcpp::Function resFn = xx[".res"];
+  Rcpp::Function extentFn = xx[".extent"];
 
-  Rcpp::S4 extent = rast.slot("extent");
+  Rcpp::NumericVector extent = extentFn(rast);
   Rcpp::NumericVector res = resFn(rast);
 
   return {{
-    extent.slot("xmin"),
-    extent.slot("ymin"),
-    extent.slot("xmax"),
-    extent.slot("ymax"),
+    extent[0],
+    extent[1],
+    extent[2],
+    extent[3]
     },
     res[0],
     res[1]
@@ -34,8 +35,8 @@ Grid make_grid(const Rcpp::S4 & rast) {
 }
 
 int get_nlayers(Rcpp::S4 & rast) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function nlayersFn = raster["nlayers"];
+  Rcpp::Environment xx = Rcpp::Environment::namespace_env("exactextractr");
+  Rcpp::Function nlayersFn = xx[".numLayers"];
 
   Rcpp::NumericVector nlayersVec = nlayersFn(rast);
 

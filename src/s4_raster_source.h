@@ -24,7 +24,7 @@
 // Read raster values from an R raster object
 class S4RasterSource {
 public:
-  explicit S4RasterSource(Rcpp::S4 rast, double default_value = std::numeric_limits<double>::quiet_NaN()) :
+  explicit S4RasterSource(SEXP rast, double default_value = std::numeric_limits<double>::quiet_NaN()) :
     m_grid(exactextract::Grid<exactextract::bounded_extent>::make_empty()),
     m_rast(rast),
     m_last_box(std::numeric_limits<double>::quiet_NaN(),
@@ -46,8 +46,8 @@ public:
     if (!(box == m_last_box)) {
       m_last_box = box;
 
-      Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-      Rcpp::Function getValuesBlockFn = raster["getValuesBlock"];
+      Rcpp::Environment xx = Rcpp::Environment::namespace_env("exactextractr");
+      Rcpp::Function getValuesBlockFn = xx[".getValuesBlock"];
 
       if (cropped_grid.empty()) {
         m_rast_values = Rcpp::no_init(0, 0);
@@ -64,8 +64,7 @@ public:
                                          1 + cropped_grid.row_offset(m_grid),
                                          cropped_grid.rows(),
                                          1 + cropped_grid.col_offset(m_grid),
-                                         cropped_grid.cols(),
-                                         Rcpp::Named("format", "m"));
+                                         cropped_grid.cols());
 
         if (!std::isnan(m_default_value)) {
           for (double& x : m_rast_values) {
@@ -87,7 +86,7 @@ public:
 
 private:
   exactextract::Grid<exactextract::bounded_extent> m_grid;
-  Rcpp::S4 m_rast;
+  SEXP m_rast;
   Rcpp::NumericMatrix m_rast_values;
   exactextract::Box m_last_box;
   double m_default_value;

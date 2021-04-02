@@ -7,6 +7,7 @@ test-latest:
   image: rocker/geospatial:latest
   script:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
+    - R -e "install.packages('terra')"
     - R -e "devtools::document()"
     - R -e "devtools::check()"
     - R -e "install.packages(c('DT', 'covr')); covr::gitlab(quiet=FALSE)"
@@ -19,6 +20,7 @@ test-devel:
   image: rocker/geospatial:devel
   script:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
+    - R -e "install.packages('terra')"
     - R -e "remotes::install_github('r-spatial/sf')"
     - R -e "devtools::document()"
     - R -e "devtools::check()"
