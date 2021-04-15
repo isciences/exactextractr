@@ -250,13 +250,6 @@ NULL
   sum(sapply(a, nchar) == 0)
 }
 
-emptyVector <- function(rast) {
-  switch(substr(raster::dataType(rast), 1, 3),
-         LOG=logical(),
-         INT=integer(),
-         numeric())
-}
-
 .exact_extract <- function(x, y, fun=NULL, ...,
                            weights=NULL,
                            append_cols=NULL,
@@ -675,34 +668,6 @@ emptyVector <- function(rast) {
   } else {
     df
   }
-}
-
-.appendXY <- function(vals_df, rast, first_row, nrow, first_col, ncol) {
-  if (nrow(vals_df) == 0) {
-    vals_df$x <- numeric()
-    vals_df$y <- numeric()
-  } else {
-    x_coords <- raster::xFromCol(rast, col=seq(first_col, first_col + ncol - 1))
-    y_coords <- raster::yFromRow(rast, row=seq(first_row, first_row + nrow - 1))
-
-    vals_df$x <- rep(x_coords, times=nrow)
-    vals_df$y <- rep(y_coords, each=ncol)
-  }
-
-  return(vals_df)
-}
-
-.appendCell <- function(vals_df, rast, first_row, nrow, first_col, ncol) {
-  if (nrow(vals_df) == 0) {
-    vals_df$cell <- numeric()
-  } else {
-    rows <- rep(seq(first_row, first_row + nrow - 1), each = ncol)
-    cols <- rep(seq(first_col, first_col + ncol - 1), times = nrow)
-
-    vals_df$cell <- raster::cellFromRowCol(rast, row=rows, col=cols)
-  }
-
-  return(vals_df)
 }
 
 #' @import sf
