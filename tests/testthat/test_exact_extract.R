@@ -293,6 +293,25 @@ test_that('We can apply the same function to each layer of a RasterStack', {
   }
 })
 
+test_that('Layers of a RasterBrick can be processed independently with stack_apply', {
+  # https://github.com/isciences/exactextractr/issues/54
+
+  data <- matrix(1:100, nrow=10, byrow=TRUE)
+  data[7:10, 1:4] <- NA # cut out lower-left corner
+  rast <- raster::raster(
+    data,
+    xmn=0, xmx=10, ymn=0, ymx=10,
+    crs='+proj=longlat +datum=WGS84'
+  )
+  rast_brick <- brick(rast, rast)
+  square <- make_rect(3.5, 3.5, 4.5, 4.5, sf::st_crs(rast))
+
+  expect_equal(
+    exact_extract(rast_brick, square, weighted.mean, stack_apply = T),
+    data.frame(weighted.mean.layer.1 = NA_real_,
+               weighted.mean.layer.2 = NA_real_))
+})
+
 test_that('We can summarize a RasterStack / RasterBrick using weights from a RasterLayer', {
   set.seed(123)
 
