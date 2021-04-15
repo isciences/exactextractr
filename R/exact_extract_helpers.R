@@ -133,3 +133,30 @@
     stop(name, ' must be a single numeric value')
   }
 }
+
+# faster replacement for as.data.frame when input is a named list
+# with equal-length columns
+# from Advanced R, sec. 24.4.2
+.quickDf <- function(lst) {
+  class(lst) <- 'data.frame'
+  attr(lst, 'row.names') <- .set_row_names(length(lst[[1]]))
+  lst
+}
+
+.singleColumnToVector <- function(df) {
+  if (ncol(df) == 1) {
+    df[, 1]
+  } else {
+    df
+  }
+}
+
+# Return the number of standard (non-...) arguments in a supplied function that
+# do not have a default value. This is used to fail if the summary function
+# provided by the user cannot accept arguments of values and weights.
+.num_expected_args <- function(fun) {
+  a <- formals(args(fun))
+  a <- a[names(a) != '...']
+  sum(sapply(a, nchar) == 0)
+}
+
