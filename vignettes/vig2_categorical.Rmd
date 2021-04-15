@@ -25,7 +25,7 @@ par(mar = c(1, 1, 1, 1))
 ## Introduction
 
 This vignette builds upon the sample data for São Miguel (introduced in 
-[the previous vignette](population.html)) to demonstrate the use of `exactextractr` 
+[the previous vignette](vig1_population.html)) to demonstrate the use of `exactextractr`
 with categorical land cover data. A sample of the
 [CORINE 2018](https://land.copernicus.eu/pan-european/corine-land-cover/clc2018)
 raster dataset is included in `exactextractr`.
