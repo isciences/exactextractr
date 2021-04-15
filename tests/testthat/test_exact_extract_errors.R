@@ -271,11 +271,57 @@ test_that('Error is thrown when using include_* with named summary operation', {
   expect_error(exact_extract(rast, circles, 'sum', include_xy = TRUE),
                'include_xy must be FALSE')
 
+  expect_error(exact_extract(rast, circles, 'sum', include_area = TRUE),
+               'include_area must be FALSE')
+
   expect_error(exact_extract(rast, circles, 'sum', include_cell = TRUE),
                'include_cell must be FALSE')
 
   expect_error(exact_extract(rast, circles, 'sum', include_cols = 'fid'),
                'include_cols not supported')
+})
+
+test_that('Error is thrown when using include_cols or append_cols with nonexisting columns', {
+  rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    fid = c(2, 9),
+    size = c('large', 'small'),
+    geometry =  c(
+    make_circle(5, 4, 2, sf::st_crs(rast)),
+    make_circle(3, 1, 1, sf::st_crs(rast))))
+
+  # append_cols specified but sfc has no attribute columns
+  expect_error(
+    exact_extract(rast, st_geometry(circles), 'mean', append_cols = 'fid', progress = FALSE),
+    'only supported for sf')
+
+  expect_error(
+    exact_extract(rast, st_geometry(circles), weighted.mean, append_cols = 'fid', progress = FALSE),
+    'only supported for sf')
+
+  # append_cols specified for misspelled column
+  expect_error(
+    exact_extract(rast, circles, 'mean', append_cols = 'fidd', progress = FALSE),
+    'undefined columns'
+  )
+
+  expect_error(
+    exact_extract(rast, circles, weighted.mean, append_cols = 'fidd', progress = FALSE),
+    'undefined columns'
+  )
+
+  # include_cols specified for sfc
+  expect_error(
+    exact_extract(rast, st_geometry(circles), include_cols = 'fidd', progress = FALSE),
+    'only supported for sf'
+  )
+
+  # include_cols specified for misspelled column
+  expect_error(
+    exact_extract(rast, circles, include_cols = 'fidd', progress = FALSE),
+    'undefined columns'
+  )
 })
 
 test_that('Error is thrown if quantiles not specified or not valid', {
@@ -350,7 +396,7 @@ test_that('We get an error if using stack_apply with incompatible stacks', {
     "Can't apply")
 })
 
-test_that('Error thrown if summarize_df called where not applicable', {
+test_that('Error thrown if summarize_df set where not applicable', {
   rast <- make_square_raster(1:100)
   circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
 
@@ -363,12 +409,22 @@ test_that('Error thrown if summarize_df called where not applicable', {
     'can only be used when .* function')
 })
 
-test_that('Error thrown if stack_apply called where not applicable', {
+test_that('Error thrown if stack_apply set where not applicable', {
   rast <- make_square_raster(1:100)
   circle <- make_circle(7.5, 5.5, 4, sf::st_crs(rast))
 
   expect_error(
     exact_extract(rast, circle, stack_apply = TRUE),
+    'can only be used when .* is a summary operation or function'
+  )
+})
+
+test_that('Error thrown if append_cols set where not applicable', {
+  rast <- make_square_raster(1:100)
+  circle <- st_sf(make_circle(7.5, 5.5, 4, sf::st_crs(rast)))
+
+  expect_error(
+    exact_extract(rast, circle, append_cols = TRUE),
     'can only be used when .* is a summary operation or function'
   )
 })

@@ -302,6 +302,13 @@ emptyVector <- function(rast) {
     force_df <- TRUE
   }
 
+  if(!is.null(include_cols)) {
+    if (!inherits(y, 'sf')) {
+      stop(sprintf('include_cols only supported for sf arguments (received %s)',
+                   paste(class(y), collapse = ' ')))
+    }
+  }
+
   if(sf::st_geometry_type(y, by_geometry = FALSE) == 'GEOMETRY') {
     if (!all(sf::st_dimension(y) == 2)) {
       stop("Features in sfc_GEOMETRY must be polygonal")
@@ -401,6 +408,9 @@ emptyVector <- function(rast) {
     }
     if (stack_apply) {
       stop("stack_apply can only be used when `fun` is a summary operation or function")
+    }
+    if (!is.null(append_cols)) {
+      stop("append_cols can only be used when `fun` is a summary operation or function. See `include_cols`.")
     }
   } else {
     stop("fun must be a character vector, function, or NULL")
