@@ -142,8 +142,8 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     Rcpp::NumericVector value_vec = r->vec();
     if (grid.dx() != common_grid.dx() || grid.dy() != common_grid.dy() ||
         value_vec.size() != covered.size()) {
-      // Transform values to common grid
-      RasterView<double> rt(*r, common_grid);
+      // Transform values to same grid as coverage fractions
+      RasterView<double> rt(*r, cov_grid);
       value_vec = as_vector(rt);
     }
 
@@ -163,8 +163,8 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
 
       if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
           weight_vec.size() != covered.size()) {
-        // Transform weights to common grid
-        RasterView<double> rt (*r, common_grid);
+        // Transform weights to same grid as coverage fractions
+        RasterView<double> rt (*r, cov_grid);
 
         weight_vec = as_vector(rt);
       }

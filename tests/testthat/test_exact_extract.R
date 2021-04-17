@@ -1044,3 +1044,14 @@ test_that('All summary function arguments combined when summarize_df = TRUE', {
                fun.b.e = 30809,
                fun.c.f = 30809))
 })
+
+test_that('floating point errors do not cause an error that
+          "logical subsetting requires vectors of identical size"', {
+  rast <- raster(matrix(1:100, nrow=10), xm=0, xmx=1, ymn=0, ymx=1)
+  poly <- make_rect(0.4, 0.7, 0.5, 0.8, crs = st_crs(rast))
+
+  val <- exact_extract(rast, poly, weights = rast, fun = NULL, include_cell = TRUE)[[1]]
+
+  expect_equal(val$value, rast[val$cell])
+  expect_equal(val$weight, rast[val$cell])
+})
