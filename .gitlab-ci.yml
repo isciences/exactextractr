@@ -9,7 +9,7 @@ test-latest:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
     - R -e "devtools::document()"
     - R -e "devtools::check()"
-    - R -e "install.packages('DT'); covr::gitlab(quiet=FALSE)"
+    - R -e "install.packages(c('DT', 'covr')); covr::gitlab(quiet=FALSE)"
   artifacts:
     paths:
       - public
