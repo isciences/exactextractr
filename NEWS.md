@@ -1,3 +1,7 @@
+# verison 0.6.1
+
+- Fix Solaris build
+
 # version 0.6.0
 
 - Support use of RasterStack weights in exact_extract named summary operations

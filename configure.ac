@@ -88,7 +88,7 @@ AC_MSG_CHECKING(compiling and building against geos_c)
 #include <iostream>
 
 int main() {
-  auto handle = initGEOS_r(nullptr, nullptr);
+  GEOSContextHandle_t handle = initGEOS_r(NULL, NULL);
   finishGEOS_r(handle);
   return 0;
 }

@@ -1834,7 +1834,7 @@ cat > geos_test.cpp << _EOCONF
 #include <iostream>
 
 int main() {
-  auto handle = initGEOS_r(nullptr, nullptr);
+  GEOSContextHandle_t handle = initGEOS_r(NULL, NULL);
   finishGEOS_r(handle);
   return 0;
 }
