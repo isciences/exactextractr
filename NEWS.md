@@ -1,6 +1,7 @@
 # verison 0.6.1
 
 - Fix Solaris build
+- Avoid undefined behavior when extracting values for polygon entirely outside raster extent
 
 # version 0.6.0
 
