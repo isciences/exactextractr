@@ -51,52 +51,64 @@ static double get_stat_value(const RasterStats<double> & stats, const std::strin
 Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
                       Rcpp::S4 & rast_out,
                       const Rcpp::StringVector & stat) {
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function rasterFn = raster["raster"];
-  Rcpp::Function valuesFn = raster["values<-"];
+  try {
+    Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+    Rcpp::Function rasterFn = raster["raster"];
+    Rcpp::Function valuesFn = raster["values<-"];
 
-  if (stat.size() != 1) {
-    Rcpp::stop("Only a single operation may be used for resampling.");
-  }
-
-  S4RasterSource rsrc(rast_in);
-
-  Rcpp::S4 out = rasterFn(rast_out);
-
-  auto grid_in = make_grid(rast_in);
-  auto grid_out = make_grid(rast_out);
-
-  std::string stat_name = Rcpp::as<std::string>(stat[0]);
-  bool store_values = requires_stored_values(stat_name);
-
-  Rcpp::NumericMatrix values_out = Rcpp::no_init(grid_out.rows(), grid_out.cols());
-
-  for (size_t row = 0; row < grid_out.rows(); row++) {
-    // Read enough source raster data to process an entire destination row at
-    // a time, since getValuesBlock calls have a lot of overhead.
-    auto y = grid_out.y_for_row(row);
-    auto ymin = y - grid_out.dy();
-    auto ymax = y + grid_out.dy();
-
-    Box row_box{ grid_out.xmin(), ymin, grid_out.xmax(), ymax };
-    auto values = rsrc.read_box(row_box, 0);
-
-    for (size_t col = 0; col < grid_out.cols(); col++) {
-      RasterStats<double> stats{store_values};
-
-      Box cell = grid_cell(grid_out, row, col);
-      auto coverage_fraction = raster_cell_intersection(grid_in, cell);
-
-      auto& cov_grid = coverage_fraction.grid();
-
-      if (!cov_grid.empty()) {
-        stats.process(coverage_fraction, *values);
-      }
-
-      values_out(row, col) = get_stat_value(stats, stat_name);
+    if (stat.size() != 1) {
+      Rcpp::stop("Only a single operation may be used for resampling.");
     }
-  }
 
-  out = valuesFn(out, values_out);
-  return out;
+    S4RasterSource rsrc(rast_in);
+
+    Rcpp::S4 out = rasterFn(rast_out);
+
+    auto grid_in = make_grid(rast_in);
+    auto grid_out = make_grid(rast_out);
+
+    std::string stat_name = Rcpp::as<std::string>(stat[0]);
+    bool store_values = requires_stored_values(stat_name);
+
+    Rcpp::NumericMatrix values_out = Rcpp::no_init(grid_out.rows(), grid_out.cols());
+
+    for (size_t row = 0; row < grid_out.rows(); row++) {
+      // Read enough source raster data to process an entire destination row at
+      // a time, since getValuesBlock calls have a lot of overhead.
+      auto y = grid_out.y_for_row(row);
+      auto ymin = y - grid_out.dy();
+      auto ymax = y + grid_out.dy();
+
+      Box row_box{ grid_out.xmin(), ymin, grid_out.xmax(), ymax };
+      auto values = rsrc.read_box(row_box, 0);
+
+      for (size_t col = 0; col < grid_out.cols(); col++) {
+        RasterStats<double> stats{store_values};
+
+        Box cell = grid_cell(grid_out, row, col);
+        auto coverage_fraction = raster_cell_intersection(grid_in, cell);
+
+        auto& cov_grid = coverage_fraction.grid();
+
+        if (!cov_grid.empty()) {
+          stats.process(coverage_fraction, *values);
+        }
+
+        values_out(row, col) = get_stat_value(stats, stat_name);
+      }
+    }
+
+    out = valuesFn(out, values_out);
+    return out;
+  } catch (std::exception & e) {
+    // throw predictable exception class
+#ifdef __SUNPRO_CC
+    // Rcpp::stop crashes CRAN Solaris build
+    // https://github.com/RcppCore/Rcpp/issues/1159
+    Rf_error(e.what());
+    return R_NilValue;
+#else
+    Rcpp::stop(e.what());
+#endif
+  }
 }

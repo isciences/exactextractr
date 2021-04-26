@@ -58,161 +58,178 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              Rcpp::CharacterVector & src_names,
                              Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names,
                              bool warn_on_disaggregate) {
-  GEOSAutoHandle geos;
-  Rcpp::Function names("names");
+  try {
+    GEOSAutoHandle geos;
+    Rcpp::Function names("names");
 
-  auto grid = make_grid(rast);
-  auto weights_grid = exactextract::Grid<bounded_extent>::make_empty();
-  auto common_grid = grid;
+    auto grid = make_grid(rast);
+    auto weights_grid = exactextract::Grid<bounded_extent>::make_empty();
+    auto common_grid = grid;
 
-  S4RasterSource rsrc(rast, default_value);
-  int src_nlayers = get_nlayers(rast);
+    S4RasterSource rsrc(rast, default_value);
+    int src_nlayers = get_nlayers(rast);
 
-  std::unique_ptr<S4RasterSource> rweights;
-  int weights_nlayers = 0;
-  Rcpp::CharacterVector weights_names;
+    std::unique_ptr<S4RasterSource> rweights;
+    int weights_nlayers = 0;
+    Rcpp::CharacterVector weights_names;
 
-  std::string area_method;
-  if (p_area_method.isNotNull()) {
-    Rcpp::CharacterVector amethod = p_area_method.get();
-    area_method = amethod[0];
-  }
-
-  if (weights.isNotNull()) {
-    Rcpp::S4 weights_s4 = weights.get();
-    weights_nlayers = get_nlayers(weights_s4);
-    weights_grid = make_grid(weights_s4);
-    common_grid = grid.common_grid(weights_grid);
-
-    rweights = std::make_unique<S4RasterSource>(weights_s4, default_weight);
-    weights_names = p_weights_names.get();
-
-    if (warn_on_disaggregate && (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy())) {
-      Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
-    }
-  } else if (area_weights) {
-    weights_nlayers = 1;
-    weights_names = p_weights_names.get();
-  }
-
-  auto geom = read_wkb(geos.handle, wkb);
-
-  auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
-
-  common_grid = common_grid.crop(bbox);
-
-  auto coverage_fractions = raster_cell_intersection(common_grid, geos.handle, geom.get());
-  auto& cov_grid = coverage_fractions.grid();
-
-  // We can't construct an Rcpp::DataFrame with a variable number of columns
-  // because of a bug in Rcpp (see https://github.com/RcppCore/Rcpp/pull/1099)
-  // Instead, we build up a list, and then create a data frame from the list.
-  // Profiling shows that this ends up in as.data.frame, which is slow.
-  // Once Rcpp 1.0.6 is released, this can be reworked to be simpler and faster.
-  Rcpp::List cols;
-
-  Rcpp::NumericVector coverage_vec = as_vector(coverage_fractions);
-  if (coverage_areas) {
-      auto areas = get_area_raster(area_method, common_grid);
-      Rcpp::NumericVector area_vec = as_vector(*areas);
-      coverage_vec = coverage_vec * area_vec;
-  }
-  Rcpp::LogicalVector covered = coverage_vec > 0;
-
-  if (include_cols.isNotNull()) {
-    Rcpp::List include_cols_list = include_cols.get();
-    Rcpp::CharacterVector include_names = include_cols_list.attr("names");
-
-    for (int i = 0; i < include_names.size(); i++) {
-      std::string name(include_names[i]);
-      cols[name] = include_cols_list[name];
-    }
-  }
-
-  for (int i = 0; i < src_nlayers; i++) {
-    auto values = rsrc.read_box(cov_grid.extent(), i);
-    const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
-
-    // TODO Perhaps extend this to preserve types (integer, logical.)
-    // A bit challenging, since we don't know the type of the raster
-    // until we call getValuesBlock, and even then we can't be sure
-    // that the returned type is correct (as in a RasterStack with mixed types.)
-    // Since R integers are only 32-bit, we are not going to lose data by
-    // converting everything to numeric, although we pay a storage penalty.
-    Rcpp::NumericVector value_vec = r->vec();
-    if (grid.dx() != common_grid.dx() || grid.dy() != common_grid.dy() ||
-        value_vec.size() != covered.size()) {
-      // Transform values to same grid as coverage fractions
-      RasterView<double> rt(*r, cov_grid);
-      value_vec = as_vector(rt);
+    std::string area_method;
+    if (p_area_method.isNotNull()) {
+      Rcpp::CharacterVector amethod = p_area_method.get();
+      area_method = amethod[0];
     }
 
-    value_vec = value_vec[covered];
-    cols[std::string(src_names[i])] = value_vec;
-  }
+    if (weights.isNotNull()) {
+      Rcpp::S4 weights_s4 = weights.get();
+      weights_nlayers = get_nlayers(weights_s4);
+      weights_grid = make_grid(weights_s4);
 
-  for (int i = 0; i < weights_nlayers; i++) {
-    Rcpp::NumericVector weight_vec;
-    if (area_weights) {
-      auto weights = get_area_raster(area_method, common_grid);
-      weight_vec = as_vector(*weights);
-    } else {
-      auto values = rweights->read_box(cov_grid.extent(), i);
-      const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
-      weight_vec = r->vec();
+      if (!weights_grid.compatible_with(grid)) {
+        Rcpp::stop("Incompatible extents.");
+      }
 
-      if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
-          weight_vec.size() != covered.size()) {
-        // Transform weights to same grid as coverage fractions
-        RasterView<double> rt (*r, cov_grid);
+      common_grid = grid.common_grid(weights_grid);
 
-        weight_vec = as_vector(rt);
+      rweights = std::make_unique<S4RasterSource>(weights_s4, default_weight);
+      weights_names = p_weights_names.get();
+
+      if (warn_on_disaggregate && (common_grid.dx() < grid.dx() || common_grid.dy() < grid.dy())) {
+        Rcpp::warning("value raster implicitly disaggregated to match higher resolution of weights");
+      }
+    } else if (area_weights) {
+      weights_nlayers = 1;
+      weights_names = p_weights_names.get();
+    }
+
+    auto geom = read_wkb(geos.handle, wkb);
+
+    auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
+
+    common_grid = common_grid.crop(bbox);
+
+    auto coverage_fractions = raster_cell_intersection(common_grid, geos.handle, geom.get());
+    auto& cov_grid = coverage_fractions.grid();
+
+    // We can't construct an Rcpp::DataFrame with a variable number of columns
+    // because of a bug in Rcpp (see https://github.com/RcppCore/Rcpp/pull/1099)
+    // Instead, we build up a list, and then create a data frame from the list.
+    // Profiling shows that this ends up in as.data.frame, which is slow.
+    // Once Rcpp 1.0.6 is released, this can be reworked to be simpler and faster.
+    Rcpp::List cols;
+
+    Rcpp::NumericVector coverage_vec = as_vector(coverage_fractions);
+    if (coverage_areas) {
+        auto areas = get_area_raster(area_method, common_grid);
+        Rcpp::NumericVector area_vec = as_vector(*areas);
+        coverage_vec = coverage_vec * area_vec;
+    }
+    Rcpp::LogicalVector covered = coverage_vec > 0;
+
+    if (include_cols.isNotNull()) {
+      Rcpp::List include_cols_list = include_cols.get();
+      Rcpp::CharacterVector include_names = include_cols_list.attr("names");
+
+      for (int i = 0; i < include_names.size(); i++) {
+        std::string name(include_names[i]);
+        cols[name] = include_cols_list[name];
       }
     }
 
-    weight_vec = weight_vec[covered];
+    for (int i = 0; i < src_nlayers; i++) {
+      auto values = rsrc.read_box(cov_grid.extent(), i);
+      const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
 
-    std::string colname(weights_names[i]);
-    if (cols.containsElementNamed(colname.c_str())) {
-      // append ".1" to the column name, to match the behavior of
-      // data.frame(). We're safe to just add ".1" (instead of incrementing
-      // .1 to .2, for example) because duplicated names within the values
-      // or weight stack will already have been made unique by raster::stack()
-      colname = colname + ".1"; // append .1
+      // TODO Perhaps extend this to preserve types (integer, logical.)
+      // A bit challenging, since we don't know the type of the raster
+      // until we call getValuesBlock, and even then we can't be sure
+      // that the returned type is correct (as in a RasterStack with mixed types.)
+      // Since R integers are only 32-bit, we are not going to lose data by
+      // converting everything to numeric, although we pay a storage penalty.
+      Rcpp::NumericVector value_vec = r->vec();
+      if (grid.dx() != common_grid.dx() || grid.dy() != common_grid.dy() ||
+          value_vec.size() != covered.size()) {
+        // Transform values to same grid as coverage fractions
+        RasterView<double> rt(*r, cov_grid);
+        value_vec = as_vector(rt);
+      }
+
+      value_vec = value_vec[covered];
+      cols[std::string(src_names[i])] = value_vec;
     }
-    cols[colname] = weight_vec;
-  }
 
-  if (include_xy) {
-    // Include xy values from whichever input raster has the higher resolution
-    if (weights_nlayers > 0 && (weights_grid.dx() < grid.dx() || weights_grid.dy() < grid.dy())) {
-      Rcpp::S4 weights_s4 = weights.get();
-      cols["x"] = get_x_values(weights_s4, cov_grid)[covered];
-      cols["y"] = get_y_values(weights_s4, cov_grid)[covered];
+    for (int i = 0; i < weights_nlayers; i++) {
+      Rcpp::NumericVector weight_vec;
+      if (area_weights) {
+        auto weights = get_area_raster(area_method, common_grid);
+        weight_vec = as_vector(*weights);
+      } else {
+        auto values = rweights->read_box(cov_grid.extent(), i);
+        const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
+        weight_vec = r->vec();
+
+        if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
+            weight_vec.size() != covered.size()) {
+          // Transform weights to same grid as coverage fractions
+          RasterView<double> rt (*r, cov_grid);
+
+          weight_vec = as_vector(rt);
+        }
+      }
+
+      weight_vec = weight_vec[covered];
+
+      std::string colname(weights_names[i]);
+      if (cols.containsElementNamed(colname.c_str())) {
+        // append ".1" to the column name, to match the behavior of
+        // data.frame(). We're safe to just add ".1" (instead of incrementing
+        // .1 to .2, for example) because duplicated names within the values
+        // or weight stack will already have been made unique by raster::stack()
+        colname = colname + ".1"; // append .1
+      }
+      cols[colname] = weight_vec;
+    }
+
+    if (include_xy) {
+      // Include xy values from whichever input raster has the higher resolution
+      if (weights_nlayers > 0 && (weights_grid.dx() < grid.dx() || weights_grid.dy() < grid.dy())) {
+        Rcpp::S4 weights_s4 = weights.get();
+        cols["x"] = get_x_values(weights_s4, cov_grid)[covered];
+        cols["y"] = get_y_values(weights_s4, cov_grid)[covered];
+      } else {
+        cols["x"] = get_x_values(rast, cov_grid)[covered];
+        cols["y"] = get_y_values(rast, cov_grid)[covered];
+      }
+    }
+
+    if (include_cell_number) {
+      cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+    }
+
+    if (include_area) {
+      auto area_rast = get_area_raster(area_method, common_grid);
+      Rcpp::NumericVector area_vec = as_vector(*area_rast);
+
+      cols["area"] = area_vec[covered];
+    }
+
+    if (coverage_areas) {
+      cols["coverage_area"] = coverage_vec[covered];
     } else {
-      cols["x"] = get_x_values(rast, cov_grid)[covered];
-      cols["y"] = get_y_values(rast, cov_grid)[covered];
+      cols["coverage_fraction"] = coverage_vec[covered];
     }
+
+    return cols;
+  } catch (std::exception & e) {
+    // throw predictable exception class
+#ifdef __SUNPRO_CC
+    // Rcpp::stop crashes CRAN Solaris build
+    // https://github.com/RcppCore/Rcpp/issues/1159
+    Rf_error(e.what());
+    return R_NilValue;
+#else
+    Rcpp::stop(e.what());
+#endif
   }
-
-  if (include_cell_number) {
-    cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
-  }
-
-  if (include_area) {
-    auto area_rast = get_area_raster(area_method, common_grid);
-    Rcpp::NumericVector area_vec = as_vector(*area_rast);
-
-    cols["area"] = area_vec[covered];
-  }
-
-  if (coverage_areas) {
-    cols["coverage_area"] = coverage_vec[covered];
-  } else {
-    cols["coverage_fraction"] = coverage_vec[covered];
-  }
-
-  return cols;
 }
 
 enum class WeightingMethod {
@@ -414,6 +431,13 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     return stat_results;
   } catch (std::exception & e) {
     // throw predictable exception class
+#ifdef __SUNPRO_CC
+    // Rcpp::stop crashes CRAN Solaris build
+    // https://github.com/RcppCore/Rcpp/issues/1159
+    Rf_error(e.what());
+    return R_NilValue;
+#else
     Rcpp::stop(e.what());
+#endif
   }
 }

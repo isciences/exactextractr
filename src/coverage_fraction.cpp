@@ -26,35 +26,47 @@ using exactextract::raster_cell_intersection;
 // [[Rcpp::export]]
 Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, bool crop)
 {
-  GEOSAutoHandle geos;
-  Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-  Rcpp::Function rasterFn = raster["raster"];
-  Rcpp::Function crsFn = raster["crs"];
+  try {
+    GEOSAutoHandle geos;
+    Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+    Rcpp::Function rasterFn = raster["raster"];
+    Rcpp::Function crsFn = raster["crs"];
 
-  auto grid = make_grid(rast);
-  auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
+    auto grid = make_grid(rast);
+    auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
 
-  if (crop) {
-    grid = coverage_fraction.grid();
-  }
-  RasterView<float> coverage_view(coverage_fraction, grid);
+    if (crop) {
+      grid = coverage_fraction.grid();
+    }
+    RasterView<float> coverage_view(coverage_fraction, grid);
 
-  Rcpp::NumericMatrix weights{static_cast<int>(grid.rows()),
-                              static_cast<int>(grid.cols())};
+    Rcpp::NumericMatrix weights{static_cast<int>(grid.rows()),
+                                static_cast<int>(grid.cols())};
 
-  for (size_t i = 0; i < grid.rows(); i++) {
-    for (size_t j = 0; j < grid.cols(); j++) {
-      weights(i, j) = coverage_view(i, j);
-      if (!crop && std::isnan(weights(i, j))) {
-        weights(i, j) = 0;
+    for (size_t i = 0; i < grid.rows(); i++) {
+      for (size_t j = 0; j < grid.cols(); j++) {
+        weights(i, j) = coverage_view(i, j);
+        if (!crop && std::isnan(weights(i, j))) {
+          weights(i, j) = 0;
+        }
       }
     }
-  }
 
-  return rasterFn(weights,
-                  Rcpp::Named("xmn")=grid.xmin(),
-                  Rcpp::Named("xmx")=grid.xmax(),
-                  Rcpp::Named("ymn")=grid.ymin(),
-                  Rcpp::Named("ymx")=grid.ymax(),
-                  Rcpp::Named("crs")=crsFn(rast));
+    return rasterFn(weights,
+                    Rcpp::Named("xmn")=grid.xmin(),
+                    Rcpp::Named("xmx")=grid.xmax(),
+                    Rcpp::Named("ymn")=grid.ymin(),
+                    Rcpp::Named("ymx")=grid.ymax(),
+                    Rcpp::Named("crs")=crsFn(rast));
+  } catch (std::exception & e) {
+    // throw predictable exception class
+#ifdef __SUNPRO_CC
+    // Rcpp::stop crashes CRAN Solaris build
+    // https://github.com/RcppCore/Rcpp/issues/1159
+    Rf_error(e.what());
+    return R_NilValue;
+#else
+    Rcpp::stop(e.what());
+#endif
+  }
 }
