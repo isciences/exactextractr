@@ -171,6 +171,20 @@ test_that('Generic sfc_GEOMETRY works if the features are polygonal', {
                c(4, 4+16))
 })
 
+test_that('GeometryCollections are supported if they are polygonal', {
+  rast <- make_square_raster(1:100)
+  gc <- st_as_sfc('GEOMETRYCOLLECTION( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((2 2, 4 2, 4 4, 2 4, 2 2)))',
+                  crs = st_crs(rast))
+
+  mp <- st_as_sfc('MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((2 2, 4 2, 4 4, 2 4, 2 2)))',
+                  crs = st_crs(rast))
+
+  expect_equal(
+    exact_extract(rast, gc),
+    exact_extract(rast, mp)
+  )
+})
+
 test_that('We ignore portions of the polygon that extend outside the raster', {
   rast <- raster::raster(matrix(1:(360*720), nrow=360),
                          xmn=-180, xmx=180, ymn=-90, ymx=90,

@@ -306,7 +306,6 @@ NULL
     if (!all(sf::st_dimension(y) == 2)) {
       stop("Features in sfc_GEOMETRY must be polygonal")
     }
-    y <- sf::st_cast(y, 'MULTIPOLYGON')
   }
 
   if(!is.null(weights)) {
@@ -704,3 +703,8 @@ setMethod('exact_extract', signature(x='Raster', y='sfc_POLYGON'), .exact_extrac
 #' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_GEOMETRY'), .exact_extract)
+
+#' @useDynLib exactextractr
+#' @rdname exact_extract
+#' @export
+setMethod('exact_extract', signature(x='Raster', y='sfc_GEOMETRYCOLLECTION'), .exact_extract)
