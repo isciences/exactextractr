@@ -704,7 +704,13 @@ setMethod('exact_extract', signature(x='Raster', y='sfc_POLYGON'), .exact_extrac
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_GEOMETRY'), .exact_extract)
 
+# CRAN version of sf does not explicitly declare this class. If we do not do it
+# ourselves, documentation is not generated for the `sfc_GEOMETRYCOLLECTION`
+# overload.
+setOldClass('sfc_GEOMETRYCOLLECTION')
+
 #' @useDynLib exactextractr
 #' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='Raster', y='sfc_GEOMETRYCOLLECTION'), .exact_extract)
+
