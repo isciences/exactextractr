@@ -651,7 +651,7 @@ test_that('We can summarize a categorical raster by returning a data frame from 
 
   # check a single value
   expect_equal(result[2, 'sum_3'],
-               exact_extract(rast, circles[2, ], function(x, c) {
+               exact_extract(rast, circles[2], function(x, c) {
                 sum(c[x == 3])
                }))
 
