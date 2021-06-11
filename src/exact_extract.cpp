@@ -43,6 +43,54 @@ using exactextract::RasterSource;
 #include <string>
 
 // [[Rcpp::export]]
+Rcpp::List CPP_exact_extract2(Rcpp::S4 & rast, const Rcpp::RawVector & wkb) {
+  GEOSAutoHandle geos;
+  
+  auto grid = make_grid(rast);
+  auto coverage_fractions = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
+
+  size_t nrow = coverage_fractions.rows();
+  size_t ncol = coverage_fractions.cols();
+
+  Rcpp::NumericMatrix weights = Rcpp::no_init(nrow, ncol);
+  for (size_t i = 0; i < nrow; i++) {
+    for (size_t j = 0; j < ncol; j++) {
+      weights(i, j) = coverage_fractions(i ,j);
+    }
+  }
+
+  if (nrow > 0) {
+    size_t row_us = 1 + coverage_fractions.grid().row_offset(grid);
+    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
+
+    }
+  }
+
+  int row = NA_INTEGER;
+  int col = NA_INTEGER;
+  if (nrow > 0) {
+    size_t row_us = (1 + coverage_fractions.grid().row_offset(grid));
+    if (row_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
+      throw std::runtime_error("Cannot represent row offset as an R integer");
+    }
+    row = static_cast<int>(row_us);
+  }
+  if (ncol > 0) {
+    size_t col_us = (1 + coverage_fractions.grid().col_offset(grid));
+    if (col_us > static_cast<size_t>(std::numeric_limits<int>::max())) {
+      throw std::runtime_error("Cannot represent column offset as an R integer");
+    }
+    col = static_cast<int>(col_us);
+  }
+
+  return Rcpp::List::create(
+    Rcpp::Named("row")     = row,
+    Rcpp::Named("col")     = col,
+    Rcpp::Named("weights") = weights
+  );
+}
+
+// [[Rcpp::export]]
 Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              Rcpp::Nullable<Rcpp::S4> & weights,
                              const Rcpp::RawVector & wkb,
