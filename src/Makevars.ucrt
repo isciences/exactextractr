@@ -1,23 +1,16 @@
-VERSION = 2.2.3
-COMPILED_BY ?= gcc-4.9.3
-RWINLIB = ../windows/gdal2-$(VERSION)
 
 CXX_STD = CXX14
-PKG_LIBS = -lgeos_c -lgeos -L$(RWINLIB)/lib/$(R_ARCH)
-PKG_CXXFLAGS = -std=c++14 -I$(RWINLIB)/include/geos
+PKG_LIBS = -lgeos_c -lgeos
+PKG_CXXFLAGS = -std=c++14
 
 EE = exactextract/src
 
 SOURCES = $(EE)/area.cpp $(EE)/box.cpp $(EE)/cell.cpp $(EE)/coordinate.cpp $(EE)/floodfill.cpp $(EE)/geos_utils.cpp $(EE)/grid.cpp $(EE)/perimeter_distance.cpp $(EE)/raster_cell_intersection.cpp $(EE)/side.cpp $(EE)/traversal.cpp $(EE)/traversal_areas.cpp $(EE)/weighted_quantiles.cpp
 OBJECTS = RcppExports.o exact_extract.o raster_utils.o coverage_fraction.o resample.o $(SOURCES:.cpp=.o)
 
-all: clean winlibs
-
-winlibs:
-	mkdir -p ../inst
-	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" --vanilla "../tools/winlibs.R" $(VERSION)
+all: clean
 
 clean:
 	rm -f $(SHLIB) $(OBJECTS)
 
-.PHONY: all winlibs clean
+.PHONY: all clean

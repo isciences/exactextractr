@@ -1,3 +1,7 @@
+# version 0.6.2
+
+- Fix build using Windows/UTF-8 toolchain (Tomas Kalibera)
+
 # version 0.6.1
 
 - Fix Solaris build
