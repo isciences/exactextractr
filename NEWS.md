@@ -1,5 +1,6 @@
-# version 0.6.2
+# version 0.7.0
 
+- Support terra SpatRaster inputs
 - Fix build using Windows/UTF-8 toolchain (Tomas Kalibera)
 
 # version 0.6.1
