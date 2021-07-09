@@ -2,6 +2,7 @@
 
 - Support terra SpatRaster inputs
 - Fix build using Windows/UTF-8 toolchain (Tomas Kalibera)
+- Improve performance of predefined summary operations on RasterStacks with many layers
 
 # version 0.6.1
 
