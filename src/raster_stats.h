@@ -46,7 +46,13 @@ namespace exactextract {
                 m_store_values{store_values} {}
 
         void process(const Raster<float> & intersection_percentages, const AbstractRaster<T> & rast) {
-            RasterView<T> rv{rast, intersection_percentages.grid()};
+            std::unique_ptr<AbstractRaster<T>> rvp;
+
+            if (rast.grid() != intersection_percentages.grid()) {
+                rvp = std::make_unique<RasterView<T>>(rast, intersection_percentages.grid());
+            }
+
+            const AbstractRaster<T>& rv = rvp ? *rvp : rast;
 
             for (size_t i = 0; i < rv.rows(); i++) {
                 for (size_t j = 0; j < rv.cols(); j++) {
@@ -69,13 +75,26 @@ namespace exactextract {
             if (common.empty())
                 return;
 
-            RasterView<float> iv{intersection_percentages, common};
-            RasterView<T> rv{rast,    common};
-            RasterView<T> wv{weights, common};
+            // If the value or weights grids do not correspond to the intersection_percentages grid,
+            // construct a RasterView to perform the transformation. Even a no-op RasterView can be
+            // expensive, so we avoid doing this unless necessary.
+            std::unique_ptr<AbstractRaster<T>> rvp;
+            std::unique_ptr<AbstractRaster<T>> wvp;
+
+            if (rast.grid() != common) {
+                rvp = std::make_unique<RasterView<T>>(rast, common);
+            }
+
+            if (weights.grid() != common) {
+                wvp = std::make_unique<RasterView<T>>(weights, common);
+            }
+
+            const AbstractRaster<T>& rv = rvp ? *rvp : rast;
+            const AbstractRaster<T>& wv = wvp ? *wvp : weights;
 
             for (size_t i = 0; i < rv.rows(); i++) {
                 for (size_t j = 0; j < rv.cols(); j++) {
-                    float pct_cov = iv(i, j);
+                    float pct_cov = intersection_percentages(i, j);
                     T weight;
                     T val;
 
