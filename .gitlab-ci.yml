@@ -7,7 +7,7 @@ test-latest:
   image: rocker/geospatial:latest
   script:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
-    - R -e "install.packages('terra', repos=c(CRAN='https://cran.rstudio.com')"
+    - R -e "install.packages('terra', repos=c(CRAN='https://cran.rstudio.com'))"
     - R -e "devtools::document()"
     - R -e "devtools::check()"
     - R -e "install.packages(c('DT', 'covr')); covr::gitlab(quiet=FALSE)"
