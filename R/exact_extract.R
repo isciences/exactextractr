@@ -608,9 +608,26 @@ NULL
         }
       })
 
+      # if we have columns to append, iterate over the results and
+      # append the columns to each, coercing into a data frame if
+      # necessary. We need to iterate over the results before binding
+      # them together because we don't know the legnth of each result
+      # or even if their lengths are constant.
+      if (!is.null(append_cols)) {
+        for (i in seq_along(ret)) {
+          if (!is.data.frame(ret[[i]])) {
+            ret[[i]] = data.frame(result = ret[[i]])
+          }
+
+          ret[[i]] <- cbind(sf::st_drop_geometry(y[i, append_cols]),
+                            ret[[i]],
+                            row.names = NULL)
+        }
+      }
+
       if (!is.null(fun)) {
         if (all(sapply(ret, is.data.frame))) {
-        # function returned a data frame for each polygon? rbind them
+          # function returned a data frame for each polygon? rbind them
           if (requireNamespace('dplyr', quietly = TRUE)) {
             ret <- dplyr::bind_rows(ret) # handle column name mismatches
           } else {
@@ -625,12 +642,6 @@ NULL
             ret <- data.frame(result = ret)
           }
         }
-      }
-
-      if (!is.null(append_cols)) {
-        ret <- cbind(sf::st_drop_geometry(y[, append_cols]),
-                     ret,
-                     row.names = NULL)
       }
 
       return(ret)
