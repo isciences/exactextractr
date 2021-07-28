@@ -628,7 +628,9 @@ NULL
       }
 
       if (!is.null(append_cols)) {
-        ret <- cbind(sf::st_drop_geometry(y[, append_cols]), ret)
+        ret <- cbind(sf::st_drop_geometry(y[, append_cols]),
+                     ret,
+                     row.names = NULL)
       }
 
       return(ret)

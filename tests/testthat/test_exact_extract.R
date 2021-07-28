@@ -144,7 +144,7 @@ test_that('sp inputs supported', {
 
   circles <- c(
     make_circle(3, 2, 4, sf::st_crs(rast)),
-    make_circle(7, 7, 2, sf::st_crs(raster))
+    make_circle(7, 7, 2, sf::st_crs(rast))
   )
   circles_sf <- sf::st_sf(id = 1:2, geometry = circles)
 
@@ -1068,4 +1068,25 @@ test_that('floating point errors do not cause an error that
 
   expect_equal(val$value, rast[val$cell])
   expect_equal(val$weight, rast[val$cell])
+})
+
+test_that("we don't get a row name warning when appending columns", {
+  rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    id = c('a', 'b'),
+    geom = c(
+      make_circle(3, 2, 4, sf::st_crs(rast)),
+      make_circle(7, 7, 2, sf::st_crs(rast))
+  ))
+
+  expect_silent({
+    exact_extract(rast,
+                  circles,
+                  function(x, cov)
+                    data.frame(x = 1:3,
+                               x2 = 4:6),
+                  append_cols = 'id',
+                  progress = FALSE)
+  })
 })
