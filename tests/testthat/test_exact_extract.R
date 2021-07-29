@@ -144,7 +144,7 @@ test_that('sp inputs supported', {
 
   circles <- c(
     make_circle(3, 2, 4, sf::st_crs(rast)),
-    make_circle(7, 7, 2, sf::st_crs(raster))
+    make_circle(7, 7, 2, sf::st_crs(rast))
   )
   circles_sf <- sf::st_sf(id = 1:2, geometry = circles)
 
@@ -1069,3 +1069,56 @@ test_that('floating point errors do not cause an error that
   expect_equal(val$value, rast[val$cell])
   expect_equal(val$weight, rast[val$cell])
 })
+
+test_that("append_cols works correctly when summary function returns multi-row data frame", {
+  rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    id = c('a', 'b'),
+    geom = c(
+      make_circle(3, 2, 4, sf::st_crs(rast)),
+      make_circle(7, 7, 2, sf::st_crs(rast))
+  ))
+
+  expect_silent({
+    result <- exact_extract(rast,
+                            circles,
+                            function(x, cov)
+                              data.frame(x = 1:3,
+                                         x2 = 4:6),
+                            append_cols = 'id',
+                            progress = FALSE)
+  })
+
+  expect_named(result, c('id', 'x', 'x2'))
+
+  expect_equal(result$id, c('a', 'a', 'a', 'b', 'b', 'b'))
+  expect_equal(result$x,  c(1:3, 1:3))
+  expect_equal(result$x2,  c(4:6, 4:6))
+})
+
+test_that("append_cols works correctly when summary function returns vector with length > 1", {
+  rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    id = c('a', 'b'),
+    geom = c(
+      make_circle(3, 2, 4, sf::st_crs(rast)),
+      make_circle(7, 7, 2, sf::st_crs(rast))
+  ))
+
+  expect_silent({
+    result <- exact_extract(rast,
+                            circles,
+                            function(x, cov)
+                              1:3,
+                            append_cols = 'id',
+                            progress = FALSE)
+  })
+
+  expect_named(result, c('id', 'result'))
+
+  expect_equal(result$id, c('a', 'a', 'a', 'b', 'b', 'b'))
+  expect_equal(result$result,  c(1:3, 1:3))
+})
+

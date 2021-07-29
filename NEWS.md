@@ -3,6 +3,8 @@
 - Support terra SpatRaster inputs
 - Fix build using Windows/UTF-8 toolchain (Tomas Kalibera)
 - Improve performance of predefined summary operations on RasterStacks with many layers
+- Fix behavior of append_cols when summary function returns a multi-row data frame or
+  vector of length > 1 for each feature
 
 # version 0.6.1
 
