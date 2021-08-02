@@ -1122,3 +1122,30 @@ test_that("append_cols works correctly when summary function returns vector with
   expect_equal(result$result,  c(1:3, 1:3))
 })
 
+test_that("append_cols works correctly when summary function returns data frame with length 0", {
+  rast <- make_square_raster(1:100)
+
+  circles <- st_sf(
+    id = c('a', 'b'),
+    geom = c(
+      make_circle(3, 2, 4, sf::st_crs(rast)),
+      make_circle(7, 7, 2, sf::st_crs(rast))
+  ))
+
+  expect_silent({
+    result <- exact_extract(rast,
+                            circles,
+                            function(x, cov)
+                              data.frame(x = character(0),
+                                         x2 = numeric(0)),
+                            append_cols = 'id',
+                            progress = FALSE)
+  })
+
+  expect_named(result, c('id', 'x', 'x2'))
+  expect_equal(nrow(result), 0)
+  expect_equal(class(result$id), class(circles$id))
+  expect_equal(class(result$x), 'character')
+  expect_equal(class(result$x2), 'numeric')
+})
+

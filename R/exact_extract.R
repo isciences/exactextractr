@@ -619,7 +619,15 @@ NULL
             ret[[i]] = data.frame(result = ret[[i]])
           }
 
-          ret[[i]] <- cbind(sf::st_drop_geometry(y[i, append_cols]),
+          if (nrow(ret[[i]]) >= 1) {
+            append_row <- i
+          } else {
+            # cbinding row 0 cleanly brings in zero-length columns
+            # of the correct names and types, in the correct positions
+            append_row <- 0
+          }
+
+          ret[[i]] <- cbind(sf::st_drop_geometry(y[append_row, append_cols]),
                             ret[[i]],
                             row.names = NULL)
         }
