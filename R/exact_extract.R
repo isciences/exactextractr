@@ -11,10 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if (!isGeneric("exact_extract")) {
-	setGeneric("exact_extract", function(x, y, ...)
-		standardGeneric("exact_extract"))
-}
+setGeneric("exact_extract", function(x, y, ...)
+	standardGeneric("exact_extract"))
 
 #' Extract or summarize values from Raster* objects
 #'
