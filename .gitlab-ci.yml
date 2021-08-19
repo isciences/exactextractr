@@ -21,7 +21,7 @@ test-devel:
   script:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
     - R -e "install.packages('terra')"
-    - R -e "remotes::install_github('r-spatial/sf')"
+    - R -e "remotes::install_git('https://github.com/r-spatial/sf')"
     - R -e "devtools::document()"
     - R -e "devtools::check()"
 
