@@ -56,10 +56,6 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
     Rcpp::Function rasterFn = raster["raster"];
     Rcpp::Function valuesFn = raster["values<-"];
 
-    if (stat.size() != 1) {
-      Rcpp::stop("Only a single operation may be used for resampling.");
-    }
-
     S4RasterSource rsrc(rast_in);
 
     Rcpp::S4 out = rasterFn(rast_out);

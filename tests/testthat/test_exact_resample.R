@@ -51,6 +51,16 @@ test_that("error thrown if multiple stats provided", {
     'Only a single')
 })
 
+test_that("error thrown if weighted stat provided", {
+  r <- raster::raster(resolution = 2)
+  target <- raster::shift(r, 2.5, 1)
+
+  expect_error(
+    exact_resample(r, target, fun = "weighted_mean"),
+    'cannot be used for resampling'
+  )
+})
+
 test_that("error thrown if rasters have different CRS", {
   src <- make_square_raster(1:100, crs='+init=epsg:4326')
   dst <- make_square_raster(1:100, crs='+init=epsg:4269')

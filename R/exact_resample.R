@@ -45,6 +45,14 @@ setMethod('exact_resample',
               }
             }
 
+            if (length(fun) != 1) {
+              stop("Only a single operation may be used for resampling.")
+            }
+
+            if (startsWith(fun, 'weighted')) {
+              stop("Weighted operations cannot be used for resampling.")
+            }
+
             x <- raster::readStart(x)
             tryCatch({
               CPP_resample(x, y, fun)
