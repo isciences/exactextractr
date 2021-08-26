@@ -16,11 +16,12 @@ setGeneric("exact_resample", function(x, y, ...)
 
 #' Resample a raster to a new grid
 #'
-#' @param x a \code{RasterLayer} to be resampled
-#' @param y a \code{RasterLayer} with a grid definition to which \code{x}
-#'          should be resampled
+#' @param x a \code{RasterLayer} or \code{SpatRaster} to be resampled
+#' @param y a raster of the same class as \code{x} with a grid definition to
+#'          which \code{x} should be resampled
 #' @param fun a named summary operation to be used for the resampling
-#' @return a resampled version of \code{x}
+#' @return a resampled version of \code{x}, returned as a \code{RasterLayer} or
+#'         \code{SpatRaster}, depending on the values of \code{x} and \code{y}
 #'
 #' @name exact_resample
 NULL

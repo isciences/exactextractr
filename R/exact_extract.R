@@ -16,13 +16,13 @@ setGeneric("exact_extract", function(x, y, ...)
 
 #' Extract or summarize values from Raster* objects
 #'
-#' Extracts the values of cells in `Raster*` that are covered by polygons in a
+#' Extracts the values of cells in a raster that are covered by polygons in a
 #' simple feature collection (`sf` or `sfc`) or `SpatialPolygonsDataFrame`.
 #' Returns either a summary of the extracted values or the extracted values
 #' themselves.
 #'
 #' @details
-#' `exact_extract` extracts the values of cells in a `Raster*` that are covered
+#' `exact_extract` extracts the values of cells in a raster that are covered
 #' by polygons in a simple feature collection (`sf` or `sfc`) or
 #' `SpatialPolygonDataFrame`, as well as the fraction or area of each cell that
 #' is covered by the polygon. The function can either return these values
@@ -147,7 +147,7 @@ setGeneric("exact_extract", function(x, y, ...)
 #' data frame. For most applications, it is simpler to set `summarize_df = TRUE`
 #' and work with all inputs in a single data frame.
 #'
-#' @param     x a `RasterLayer`, `RasterStack`, or `RasterBrick`
+#' @param     x a `RasterLayer`, `RasterStack`, `RasterBrick`, or `SpatRaster`
 #' @param     y a `sf`, `sfc`, `SpatialPolygonsDataFrame`, or `SpatialPolygons`
 #'            object with polygonal geometries
 #' @param     fun an optional function or character vector, as described below
