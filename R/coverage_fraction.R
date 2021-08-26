@@ -11,10 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if (!isGeneric('coverage_fraction')) {
-	setGeneric('coverage_fraction', function(x, y, crop=FALSE, ...)
-		standardGeneric('coverage_fraction'))
-}
+setGeneric('coverage_fraction', function(x, y, crop=FALSE, ...)
+	standardGeneric('coverage_fraction'))
 
 .coverage_fraction <- function(x, y, crop) {
   if(is.na(sf::st_crs(x)) && !is.na(sf::st_crs(y))) {
