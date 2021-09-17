@@ -204,11 +204,31 @@
   }
 }
 
+.colFromX <- function(r, x) {
+  if (inherits(r, 'BasicRaster')) {
+    raster::colFromX(r, x)
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::colFromX(r, x)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
 .yFromRow <- function(r, row) {
   if (inherits(r, 'BasicRaster')) {
     raster::yFromRow(r, row)
   } else if (inherits(r, 'SpatRaster')) {
     terra::yFromRow(r, row)
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.rowFromY <- function(r, y) {
+  if (inherits(r, 'BasicRaster')) {
+    raster::rowFromY(r, y)
+  } else if (inherits(r, 'SpatRaster')) {
+    terra::rowFromY(r, y)
   } else {
     stop('Unknown type: ', class(r))
   }

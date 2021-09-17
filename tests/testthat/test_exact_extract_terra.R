@@ -95,4 +95,15 @@ test_that('terra inputs supported (multi-layer)', {
   )
 })
 
+test_that('include_* arguments supported for terra inputs', {
+  ras <- make_square_raster(1:100)
 
+  terra_ras <- terra::rast(ras)
+
+  circ <- make_circle(3, 2, 4, sf::st_crs(ras))
+
+  expect_equal(
+    exact_extract(terra_ras, circ, include_cell = TRUE, include_xy = TRUE),
+    exact_extract(ras, circ, include_cell = TRUE, include_xy = TRUE)
+  )
+})
