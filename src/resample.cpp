@@ -53,8 +53,9 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
                       const Rcpp::StringVector & stat) {
   try {
     Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+    Rcpp::Environment xx = Rcpp::Environment::namespace_env("exactextractr");
     Rcpp::Function rasterFn = raster["raster"];
-    Rcpp::Function valuesFn = raster["values<-"];
+    Rcpp::Function valuesFn = xx[".setValues"];
 
     S4RasterSource rsrc(rast_in);
 

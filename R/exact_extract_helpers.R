@@ -180,6 +180,36 @@
   return(r)
 }
 
+.crs <- function(r) {
+  if(inherits(r, 'BasicRaster')) {
+    if (packageVersion('raster') < numeric_version('3.5')) {
+      return(raster::crs(r))
+    } else {
+      return(terra::crs(r))
+    }
+  } else if (inherits(r, 'SpatRaster')) {
+    return(terra::crs(r))
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+}
+
+.setValues <- function(r, x) {
+  if(inherits(r, 'BasicRaster')) {
+    if (packageVersion('raster') < numeric_version('3.5')) {
+      raster::values(r) <- x
+    } else {
+      terra::values(r) <- x
+    }
+  } else if (inherits(r, 'SpatRaster')) {
+    raster::values(r) <- x
+  } else {
+    stop('Unknown type: ', class(r))
+  }
+
+  return(r)
+}
+
 .numLayers <- function(r) {
   if(inherits(r, 'BasicRaster')) {
     return(raster::nlayers(r))
