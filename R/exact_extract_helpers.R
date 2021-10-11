@@ -182,7 +182,7 @@
 
 .crs <- function(r) {
   if(inherits(r, 'BasicRaster')) {
-    if (packageVersion('raster') < numeric_version('3.5')) {
+    if (utils::packageVersion('raster') < numeric_version('3.5')) {
       return(raster::crs(r))
     } else {
       return(terra::crs(r))
@@ -196,7 +196,7 @@
 
 .setValues <- function(r, x) {
   if(inherits(r, 'BasicRaster')) {
-    if (packageVersion('raster') < numeric_version('3.5')) {
+    if (utils::packageVersion('raster') < numeric_version('3.5')) {
       raster::values(r) <- x
     } else {
       terra::values(r) <- x
