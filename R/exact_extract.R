@@ -14,47 +14,51 @@
 setGeneric("exact_extract", function(x, y, ...)
 	standardGeneric("exact_extract"))
 
-#' Extract or summarize values from Raster* objects
+#' Extract or summarize values from rasters
 #'
-#' Extracts the values of cells in a raster that are covered by polygons in a
+#' Extracts the values of cells in a raster (`RasterLayer`, `RasterStack`
+#' `RasterBrick`, or `SpatRaster`) that are covered by polygons in a
 #' simple feature collection (`sf` or `sfc`) or `SpatialPolygonsDataFrame`.
 #' Returns either a summary of the extracted values or the extracted values
 #' themselves.
 #'
 #' @details
 #' `exact_extract` extracts the values of cells in a raster that are covered
-#' by polygons in a simple feature collection (`sf` or `sfc`) or
+#' by polygonal features in a simple feature collection (`sf` or `sfc`) or
 #' `SpatialPolygonDataFrame`, as well as the fraction or area of each cell that
-#' is covered by the polygon. The function can either return these values
-#' directly to the caller, or can return the result of a predefined summary
-#' operation or user-defined R function applied to the values. These three
-#' approaches are described in the subsections below.
+#' is covered by the feature. Pixels covered by all parts of the polygon are
+#' considered. If an (invalid) multipart polygon covers the same pixels more
+#' than once, the pixel may have a coverage fraction greater than one.
 #'
-#' ## Returning extracting values directly
+#' The function can either return pixel values directly to the caller, or can
+#' return the result of a predefined summary operation or user-defined R
+#' function applied to the values. These three approaches are described in the
+#' subsections below.
+#'
+#' ## Returning extracted values directly
 #'
 #' If `fun` is not specified, `exact_extract` will return a list with
 #' one data frame for each feature in the input feature collection. The data
 #' frame will contain a column with cell values from each layer in the input
-#' `Raster*` (and optional weighting `Raster*`) and a column indicating
+#' raster (and optional weighting raster) and a column indicating
 #' the fraction or area of the cell that is covered by the polygon.
 #'
-#' If the input rasters have only one layer, the corresponding columns in the
+#' If the input rasters have only one layer, the value and weight columns in the
 #' data frame will be named `values` or `weights`. When the input rasters have
 #' more than one layer, the columns will be named according to `names(x)` and
 #' `names(weights)`. The column containing pixel coverage will be called
 #' `coverage_fraction` when `coverage_area = FALSE`, or `coverage_area` when
-#' `coverage_area = TRUE`.
+#' `coverage_area = TRUE`. Additional columns can be added to the returned data
+#' frames with the `include_area`, `include_cell`, and `include_xy` arguments.
 #'
-#' If the output data frames are to be combined (e.g., with `rbind`, it may be
-#' useful to include identifying column(s) from the input features in the
-#' returned data frames using `include_cols`. Additional columns can be added
-#' to the returned data frames with the `include_area`, `include_cell`, and
-#' `include_xy` arguments.
+#' If the output data frames for multiple features are to be combined (e.g.,
+#' with `rbind`), it may be useful to include identifying column(s) from the
+#' input features in the returned data frames using `include_cols`.
 #'
 #' ## Predefined summary operations
 #'
 #' Often the individual pixel values are not needed; only one or more summary
-#' statistics (e.g., mean, sum) is required for each polygon. Common summary
+#' statistics (e.g., mean, sum) is required for each feature. Common summary
 #' statistics can be calculated by `exact_extract` directly using a predefined
 #' summary operation. Where possible, this approach is advantageous because it
 #' allows the package to calculate the statistics incrementally, avoiding the
@@ -75,13 +79,13 @@ setGeneric("exact_extract", function(x, y, ...)
 #'
 #' The following summary operations are supported:
 #'
-#'  * `min` - the minimum defined (non-`NA`) value in any raster cell wholly or
+#'  * `min` - the minimum non-`NA` value in any raster cell wholly or
 #'            partially covered by the polygon
-#'  * `max` - the maximum defined (non-`NA`) value in any raster cell wholly or
+#'  * `max` - the maximum non-`NA` value in any raster cell wholly or
 #'            partially covered by the polygon
-#'  * `count` - the sum of fractions of raster cells with defined non-`NA`
+#'  * `count` - the sum of fractions of raster cells with non-`NA`
 #'              values covered by the polygon
-#'  * `sum`   - the sum of defined (non-`NA`) raster cell values, multiplied by
+#'  * `sum`   - the sum of non-`NA` raster cell values, multiplied by
 #'              the fraction of the cell that is covered by the polygon
 #'  * `mean` - the mean cell value, weighted by the fraction of each cell
 #'             that is covered by the polygon
@@ -139,8 +143,8 @@ setGeneric("exact_extract", function(x, y, ...)
 #' With `summarize_df = FALSE`, the function must have the signature
 #' `function(values, coverage_fractions, ...)` when weights are not used, and
 #' `function(values, coverage_fractions, weights, ...)` when weights are used.
-#' If the value and weight rasters are `RasterLayers`, the function arguments
-#' will be vectors; if either is a `RasterStack`, the function arguments will
+#' If the value and weight rasters each have a single layer, the function arguments
+#' will be vectors; if either has multiple layers, the function arguments will
 #' be data frames, with column names taken from the names of the value/weight
 #' rasters. Values brought in through the `include_xy`, `include_area`,
 #' `include_cell`, and `include_cols` arguments will be added to the `values`
@@ -152,7 +156,7 @@ setGeneric("exact_extract", function(x, y, ...)
 #'            object with polygonal geometries
 #' @param     fun an optional function or character vector, as described below
 #' @param     weights  a weighting raster to be used with the `weighted_mean`
-#'                     and `weighted_sum` summary operations, or a user-defined
+#'                     and `weighted_sum` summary operations or a user-defined
 #'                     summary function. When `weights` is set to `'area'`, the
 #'                     cell areas of `x` will be calculated and used as weights.
 #' @param     coverage_area  if `TRUE`, output pixel `coverage_area`
