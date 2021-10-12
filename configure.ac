@@ -27,7 +27,7 @@ GEOS_CONFIG="geos-config"
 GEOS_CONFIG_SET="no"
 
 AC_ARG_WITH([geos-config],
-  AC_HELP_STRING([--with-geos-config=GEOS_CONFIG],
+  AS_HELP_STRING([--with-geos-config=GEOS_CONFIG],
                  [the location of geos-config]),
                  [geos_config=$withval])
 
