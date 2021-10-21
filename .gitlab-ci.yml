@@ -44,12 +44,24 @@ test:geos38:
   image: isciences/exactextract-test-env:geos38
   <<: *unittest_definition
 
+test:geos39:
+  stage: test
+  image: isciences/exactextract-test-env:geos39
+  <<: *unittest_definition
+
+test:geos310:
+  stage: test
+  image: isciences/exactextract-test-env:geos310
+  <<: *unittest_definition
+
 build:
   stage: build
   script:
     - docker login -u ci4isciences -p $DOCKERHUB_PW
     - docker build --pull -t $CONTAINER_TEST_IMAGE .
     - docker push $CONTAINER_TEST_IMAGE
+  only:
+    - master
 
 pages:
   stage: release
