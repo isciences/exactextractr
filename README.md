@@ -323,7 +323,7 @@ are only possible in `exactextractr`.
 ### Dependencies
 
 Installation requires version 3.5 or greater of the
-[GEOS](https://geos.osgeo.org/) geometry processing library.  It is recommended
+[GEOS](https://libgeos.org/) geometry processing library.  It is recommended
 to use the most recent released version (3.8) for best performance. On Windows,
 GEOS will be downloaded automatically as part of package install. On MacOS, it
 can be installed using Homebrew (`brew install geos`). On Linux, it can be
