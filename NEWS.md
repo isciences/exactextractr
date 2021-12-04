@@ -1,3 +1,8 @@
+# version 0.8.0
+
+- Eagerly load more data into memory to provide better performance for
+  suboptimally-chunked rasters
+
 # version 0.7.2
 
 - Fix incorrect coverage fraction calculated for certain sliver-shaped polygons
