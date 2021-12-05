@@ -2,6 +2,8 @@
 
 - Eagerly load more data into memory to provide better performance for
   suboptimally-chunked rasters
+- Add grid_compat_tol argument to exact_extract and relax from previously
+  hardcoded default
 
 # version 0.7.2
 

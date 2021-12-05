@@ -214,6 +214,9 @@ setGeneric("exact_extract", function(x, y, ...)
 #'                                for `fun` (as opposed to a function defined using
 #'                                R code). If a polygon covers more than `max_cells_in_memory`
 #'                                raster cells, it will be processed in multiple chunks.
+#' @param     grid_compat_tol     require value and weight grids to align within
+#'                                `grid_compat_tol` times the smaller of the two
+#'                                grid resolutions.
 #' @param     progress if `TRUE`, display a progress bar during processing
 #' @param     ... additional arguments to pass to `fun`
 #' @return a vector, data frame, or list of data frames, depending on the type
@@ -259,7 +262,8 @@ NULL
                            summarize_df=FALSE,
                            quantiles=NULL,
                            progress=TRUE,
-                           max_cells_in_memory=30000000
+                           max_cells_in_memory=30000000,
+                           grid_compat_tol=1e-3
                            ) {
   area_weights <- is.character(weights) && length(weights) == 1 && weights == 'area'
   if (area_weights) {
@@ -276,6 +280,7 @@ NULL
   .validateFlag(stack_apply, 'stack_apply')
   .validateFlag(summarize_df, 'summarize_df')
   .validateNumericScalar(max_cells_in_memory, 'max_cells_in_memory')
+  .validateNumericScalar(grid_compat_tol, 'grid_compat_tol')
   .validateNumericScalarOrNA(default_value, 'default_value')
   .validateNumericScalarOrNA(default_weight, 'default_weight')
 
@@ -470,7 +475,7 @@ NULL
       }
 
       results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
-        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, quantiles)
+        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, grid_compat_tol, quantiles)
         update_progress()
         return(ret)
       })
@@ -565,7 +570,8 @@ NULL
                                       include_col_values,
                                       value_names,
                                       weight_names,
-                                      warn_on_disaggregate)
+                                      warn_on_disaggregate,
+                                      grid_compat_tol)
         if (coverage_area) {
           coverage_col <- 'coverage_area'
         } else {

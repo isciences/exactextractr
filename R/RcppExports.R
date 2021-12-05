@@ -5,12 +5,12 @@ CPP_coverage_fraction <- function(rast, wkb, crop) {
     .Call('_exactextractr_CPP_coverage_fraction', PACKAGE = 'exactextractr', rast, wkb, crop)
 }
 
-CPP_exact_extract <- function(rast, weights, wkb, default_value, default_weight, include_xy, include_cell_number, include_area, area_weights, coverage_areas, p_area_method, include_cols, src_names, p_weights_names, warn_on_disaggregate) {
-    .Call('_exactextractr_CPP_exact_extract', PACKAGE = 'exactextractr', rast, weights, wkb, default_value, default_weight, include_xy, include_cell_number, include_area, area_weights, coverage_areas, p_area_method, include_cols, src_names, p_weights_names, warn_on_disaggregate)
+CPP_exact_extract <- function(rast, weights, wkb, default_value, default_weight, include_xy, include_cell_number, include_area, area_weights, coverage_areas, p_area_method, include_cols, src_names, p_weights_names, warn_on_disaggregate, grid_compat_tol) {
+    .Call('_exactextractr_CPP_exact_extract', PACKAGE = 'exactextractr', rast, weights, wkb, default_value, default_weight, include_xy, include_cell_number, include_area, area_weights, coverage_areas, p_area_method, include_cols, src_names, p_weights_names, warn_on_disaggregate, grid_compat_tol)
 }
 
-CPP_stats <- function(rast, weights, wkb, default_value, default_weight, coverage_areas, p_area_method, stats, max_cells_in_memory, quantiles) {
-    .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, weights, wkb, default_value, default_weight, coverage_areas, p_area_method, stats, max_cells_in_memory, quantiles)
+CPP_stats <- function(rast, weights, wkb, default_value, default_weight, coverage_areas, p_area_method, stats, max_cells_in_memory, grid_compat_tol, quantiles) {
+    .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, weights, wkb, default_value, default_weight, coverage_areas, p_area_method, stats, max_cells_in_memory, grid_compat_tol, quantiles)
 }
 
 CPP_resample <- function(rast_in, rast_out, stat) {
