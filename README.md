@@ -324,7 +324,7 @@ are only possible in `exactextractr`.
 
 Installation requires version 3.5 or greater of the
 [GEOS](https://libgeos.org/) geometry processing library.  It is recommended
-to use the most recent released version (3.8) for best performance. On Windows,
+to use the most recent released version for best performance. On Windows,
 GEOS will be downloaded automatically as part of package install. On MacOS, it
 can be installed using Homebrew (`brew install geos`). On Linux, it can be
 installed from system package repositories (`apt-get install libgeos-dev` on
