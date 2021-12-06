@@ -22,6 +22,7 @@ Suggests:
     dplyr,
     foreign,
     knitr,
+    ncdf4,
     rgdal,
     rmarkdown,
     testthat,
