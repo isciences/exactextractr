@@ -65,3 +65,52 @@ test_that("message emitted when working area doesn't fit in memory", {
 
   terra::gdalCache(prevCacheSize)
 })
+
+test_that('cropping does not introduce grid incompatibility', {
+  rast_fname <- system.file(file.path('sao_miguel', 'clc2018_v2020_20u1.tif'),
+                            package = 'exactextractr')
+
+  poly_fname <- system.file(file.path('sao_miguel', 'concelhos.gpkg'),
+                            package = 'exactextractr')
+
+  weight_fname <- system.file(file.path('sao_miguel', 'gpw_v411_2020_density_2020.tif'),
+                              package = 'exactextractr')
+
+  r <- terra::rast(rast_fname)
+  p <- st_read(poly_fname, quiet = TRUE)
+  w <- terra::rast(weight_fname)
+
+  expect_silent({
+    exact_extract(r, p, weights = w, grid_compat_tol = 1e-3, progress = FALSE)
+  })
+})
+
+test_that("eager loading does not change values", {
+  # this will fail if terra::crop is not called with snap = 'out'
+
+  rast_fname <- system.file(file.path('sao_miguel', 'clc2018_v2020_20u1.tif'),
+                            package = 'exactextractr')
+
+  poly_fname <- system.file(file.path('sao_miguel', 'concelhos.gpkg'),
+                            package = 'exactextractr')
+
+  weight_fname <- system.file(file.path('sao_miguel', 'gpw_v411_2020_density_2020.tif'),
+                              package = 'exactextractr')
+
+  r <- terra::rast(rast_fname)
+  p <- st_read(poly_fname, quiet = TRUE)
+  w <- terra::rast(weight_fname)
+
+  no_eager_load <- exact_extract(r, p, weights = w,
+                                 include_xy = TRUE,
+                                 include_cell = TRUE,
+                                 max_cells_in_memory = 2000,
+                                 progress = FALSE)
+
+  eager_load <- exact_extract(r, p, weights = w,
+                              include_xy = TRUE,
+                              include_cell = TRUE,
+                              progress = FALSE)
+
+  expect_equal(eager_load, no_eager_load, tol = 2e-7)
+})

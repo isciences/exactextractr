@@ -24,12 +24,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // CPP_exact_extract
-Rcpp::List CPP_exact_extract(Rcpp::S4& rast, Rcpp::Nullable<Rcpp::S4>& weights, const Rcpp::RawVector& wkb, double default_value, double default_weight, bool include_xy, bool include_cell_number, bool include_area, bool area_weights, bool coverage_areas, Rcpp::Nullable<Rcpp::CharacterVector>& p_area_method, Rcpp::Nullable<Rcpp::List>& include_cols, Rcpp::CharacterVector& src_names, Rcpp::Nullable<Rcpp::CharacterVector>& p_weights_names, bool warn_on_disaggregate, double grid_compat_tol);
-RcppExport SEXP _exactextractr_CPP_exact_extract(SEXP rastSEXP, SEXP weightsSEXP, SEXP wkbSEXP, SEXP default_valueSEXP, SEXP default_weightSEXP, SEXP include_xySEXP, SEXP include_cell_numberSEXP, SEXP include_areaSEXP, SEXP area_weightsSEXP, SEXP coverage_areasSEXP, SEXP p_area_methodSEXP, SEXP include_colsSEXP, SEXP src_namesSEXP, SEXP p_weights_namesSEXP, SEXP warn_on_disaggregateSEXP, SEXP grid_compat_tolSEXP) {
+Rcpp::List CPP_exact_extract(Rcpp::S4& rast, Rcpp::Nullable<Rcpp::S4>& rast_uncropped, Rcpp::Nullable<Rcpp::S4>& weights, const Rcpp::RawVector& wkb, double default_value, double default_weight, bool include_xy, bool include_cell_number, bool include_area, bool area_weights, bool coverage_areas, Rcpp::Nullable<Rcpp::CharacterVector>& p_area_method, Rcpp::Nullable<Rcpp::List>& include_cols, Rcpp::CharacterVector& src_names, Rcpp::Nullable<Rcpp::CharacterVector>& p_weights_names, bool warn_on_disaggregate, double grid_compat_tol);
+RcppExport SEXP _exactextractr_CPP_exact_extract(SEXP rastSEXP, SEXP rast_uncroppedSEXP, SEXP weightsSEXP, SEXP wkbSEXP, SEXP default_valueSEXP, SEXP default_weightSEXP, SEXP include_xySEXP, SEXP include_cell_numberSEXP, SEXP include_areaSEXP, SEXP area_weightsSEXP, SEXP coverage_areasSEXP, SEXP p_area_methodSEXP, SEXP include_colsSEXP, SEXP src_namesSEXP, SEXP p_weights_namesSEXP, SEXP warn_on_disaggregateSEXP, SEXP grid_compat_tolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::S4& >::type rast(rastSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::S4>& >::type rast_uncropped(rast_uncroppedSEXP);
     Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::S4>& >::type weights(weightsSEXP);
     Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
     Rcpp::traits::input_parameter< double >::type default_value(default_valueSEXP);
@@ -45,7 +46,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::CharacterVector>& >::type p_weights_names(p_weights_namesSEXP);
     Rcpp::traits::input_parameter< bool >::type warn_on_disaggregate(warn_on_disaggregateSEXP);
     Rcpp::traits::input_parameter< double >::type grid_compat_tol(grid_compat_tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(CPP_exact_extract(rast, weights, wkb, default_value, default_weight, include_xy, include_cell_number, include_area, area_weights, coverage_areas, p_area_method, include_cols, src_names, p_weights_names, warn_on_disaggregate, grid_compat_tol));
+    rcpp_result_gen = Rcpp::wrap(CPP_exact_extract(rast, rast_uncropped, weights, wkb, default_value, default_weight, include_xy, include_cell_number, include_area, area_weights, coverage_areas, p_area_method, include_cols, src_names, p_weights_names, warn_on_disaggregate, grid_compat_tol));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -86,7 +87,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_exactextractr_CPP_coverage_fraction", (DL_FUNC) &_exactextractr_CPP_coverage_fraction, 3},
-    {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 16},
+    {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 17},
     {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 11},
     {"_exactextractr_CPP_resample", (DL_FUNC) &_exactextractr_CPP_resample, 3},
     {NULL, NULL, 0}

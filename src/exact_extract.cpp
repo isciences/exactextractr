@@ -44,6 +44,7 @@ using exactextract::RasterSource;
 
 // [[Rcpp::export]]
 Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
+                             Rcpp::Nullable<Rcpp::S4> & rast_uncropped,
                              Rcpp::Nullable<Rcpp::S4> & weights,
                              const Rcpp::RawVector & wkb,
                              double default_value,
@@ -199,7 +200,12 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     }
 
     if (include_cell_number) {
-      cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+      if (rast_uncropped.isNull()) {
+        cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+      } else {
+        Rcpp::S4 tmp = rast_uncropped.get();
+        cols["cell"] = get_cell_numbers(tmp, cov_grid)[covered];
+      }
     }
 
     if (include_area) {

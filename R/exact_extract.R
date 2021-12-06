@@ -414,6 +414,7 @@ NULL
     strategies = c()
   }
 
+  x_orig <- NULL
   if ('eager_load' %in% strategies && length(geoms) > 1 && (!.isInMemory(x))) {
     # Eagerly load the entire area to be processed into memory. If the raster
     # block sizes are large, this potentially allows us to cache data in memory
@@ -421,6 +422,10 @@ NULL
     # area smaller than a single block). We only do this when the terra package
     # is available, because raster::crop throws an error when we set snap =
     # 'out'.
+    if (include_cell) {
+      # retain a reference to the original so that we can use it for include_cell
+      x_orig <- x
+    }
     x <- .eagerLoad(x, geoms, max_cells_in_memory, message_on_fail = progress)
     weights <- .eagerLoad(weights, geoms, max_cells_in_memory, message_on_fail = progress)
   }
@@ -557,6 +562,7 @@ NULL
         warn_on_disaggregate <- feature_num == 1
 
         col_list <- CPP_exact_extract(x,
+                                      x_orig,
                                       weights,
                                       wkb,
                                       default_value,

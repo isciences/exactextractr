@@ -390,9 +390,14 @@
     ext <- terra::ext(box[c('xmin', 'xmax', 'ymin', 'ymax')])
 
     if (!inherits(r, 'SpatRaster')) {
+      # current CRAN version of terra (1.4-22) does not preserve
+      # names on conversion (https://github.com/rspatial/terra/issues/430)
+      nm <- names(r)
       r <- terra::rast(r)
+      names(r) <- nm
     }
-    r <- terra::crop(r, ext)
+
+    r <- terra::crop(r, ext, snap = 'out')
   } else if (message_on_fail) {
     message('Cannot preload entire working area of ', cells_required,
             ' cells with max_cells_in_memory = ', max_cells_in_memory, '.',
