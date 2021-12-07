@@ -1,9 +1,16 @@
+# version 0.8.0
+
+- Eagerly load more data into memory to provide better performance for
+  suboptimally-chunked rasters
+- Add grid_compat_tol argument to exact_extract and relax from previously
+  hardcoded default
+
 # version 0.7.2
 
 - Fix incorrect coverage fraction calculated for certain sliver-shaped polygons
   with large coordinate values
 
-# verison 0.7.1
+# version 0.7.1
 
 - Fix include_xy and include_cell arguments for terra inputs
 - Support version 3.5 of raster package

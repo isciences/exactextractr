@@ -9,9 +9,8 @@
 `exactextractr` is an R package that quickly and accurately summarizes raster
 values over polygonal areas, commonly referred to as _zonal statistics_. Unlike
 most zonal statistics implementations, it handles grid cells that are partially
-covered by a polygon. Typical performance for real-world applications is orders
-of magnitude faster than the
-[`raster`](https://CRAN.R-project.org/package=raster) package.
+covered by a polygon. Despite this, it performs faster other packages for many
+real-world applications.
 
 ![Example Graphic](https://gitlab.com/isciences/exactextractr/-/raw/assets/readme/brazil_precip.png).
 
@@ -289,42 +288,80 @@ memory. Depending on the analysis being performed, it may be advisable to
 manually loop over the features in the input dataset and combine the generated
 rasters during each iteration.
 
-### Performance and Accuracy
+### Performance
 
-An example benchmark using the example data is shown below. The mean execution
-time for `exactextractr` was 2.6 seconds, vs 136 for `raster`. Timing was
-obtained from execution on an AWS `t2.medium` instance.
+For typical applications, `exactextractr` is much faster than the `raster`
+package and somewhat faster than the `terra` package. An example benchmark
+is below:
 
 ```r
+brazil <- st_as_sf(getData('GADM', country='BRA', level=1))
+brazil_spat <- as(brazil, 'SpatVector')
+
+prec_rast <- getData('worldclim', var='prec', res=10)
+prec_terra <- rast(prec_rast) 
+prec12_rast <- prec_rast[[12]]
+prec12_terra <- rast(prec_rast[[12]])
+
 microbenchmark(
-  a <- exact_extract(prec[[12]], brazil, weighted.mean),
-  b <- extract(prec[[12]], brazil, mean, na.rm=TRUE), times=5)
-  
-# Unit: seconds
-#               expr         min          lq        mean     median          uq        max neval
-# a <- exact_extract(...)    2.5674   2.586868   2.626761   2.587283   2.613296   2.778957     5
-#       b <- extract(...)  136.1710 136.180563 136.741275 136.226435 136.773627 138.354764     5
+  extract(prec_rast, brazil, mean, na.rm = TRUE),
+  extract(prec_terra, brazil_spat, mean, na.rm = TRUE),
+  exact_extract(prec_rast, brazil, 'mean', progress = FALSE),
+  exact_extract(prec_terra, brazil, 'mean', progress = FALSE),
+  extract(prec12_rast, brazil, mean, na.rm = TRUE),
+  extract(prec12_terra, brazil_spat, mean, na.rm = TRUE),
+  exact_extract(prec12_rast, brazil, 'mean', progress = FALSE),
+  exact_extract(prec12_terra, brazil, 'mean', progress = FALSE),
+  times = 5)
+
 ```
+| Package       | Raster Type | Layers | Expression                                                     | Time (ms)    |                     
+| ------------  | ----------- | ------ |---------------------------------------- |--------------------- |
+| raster        | RasterLayer | 1      |          `extract(prec_rast, brazil, mean, na.rm = TRUE)`| 48708           | 
+| terra         | SpatRaster  | 1      | `extract(prec_terra, brazil_spat, mean, na.rm = TRUE)`|   436           | 
+| exactextractr | RasterLayer | 1      | `exact_extract(prec_rast, brazil, "mean", progress = FALSE)`|  1541           | 
+| exactextractr | SpatRaster  | 1      | `exact_extract(prec_terra, brazil, "mean", progress = FALSE)`|   129           | 
+| raster        | RasterStack | 12     |            `extract(prec12_rast, brazil, mean, na.rm = TRUE)`| 10148           | 
+| terra         | SpatRaster  | 12     |      `extract(prec12_terra, brazil_spat, mean, na.rm = TRUE)`|   266           | 
+| exactextractr | RasterLayer | 12     |`exact_extract(prec12_rast, brazil, "mean", progress = FALSE)`|   222           | 
+| exactextractr | SpatRaster  | 12     |`exact_extract(prec12_terra, brazil, "mean", progress = FALSE)`|   112           | 
 
-Results from `exactextractr` are more accurate than other methods because raster
-pixels that are partially covered by polygons are considered. The significance
-of partial coverage increases for polygons that are small or irregularly shaped.
-For the 5500 Brazilian municipalities used in the example, the error introduced
-by incorrectly handling partial coverage is less than 1% for 88% of
-municipalities and reaches a maximum of 9%.
+Actual performance is a complex topic that can vary dramatically depending on
+factors such as:
 
-Although `exactextractr` is fast, it may still be slower than the
-command-line [`exactextract`](https://github.com/isciences/exactextract) tool.
-However, some efficiencies, such as the simultaneous processing of multiple 
-layers in a
-[`RasterStack`](https://www.rdocumentation.org/packages/raster/topics/Raster-class),
-are only possible in `exactextractr`.
+- the number of layers in the input raster(s)
+- the data type of input rasters (for best performance, use a `terra::SpatRaster`)
+- the raster file format (GeoTIFF, netCDF, etc)
+- the chunking strategy used by the raster file (striped, tiled, etc.)
+- the relative size of the area to be read and the GDAL block cache
+
+If `exact_extract` is called with `progress = TRUE`, messages will be emitted
+if the package detects a situation that could lead to poor performance, such
+as a raster chunk size that is too large to allow caching of blocks between
+vector features.
+
+If performance is poor, it may be possible to improve performance by:
+
+- increasing the `max_cells_in_memory` parameter
+- increasing the size of the GDAL block cache
+- rewriting the input rasters to use a different chunking scheme
+- processing inputs as batches of nearby polygons
+
+
+# Accuracy
+
+Results from `exactextractr` are more accurate than other common
+implementations because raster pixels that are partially covered by polygons
+are considered.  The significance of partial coverage increases for polygons
+that are small or irregularly shaped. For the 5500 Brazilian municipalities
+used in the example, the error introduced by incorrectly handling partial
+coverage is less than 1% for 88% of municipalities and reaches a maximum of 9%.
 
 ### Dependencies
 
 Installation requires version 3.5 or greater of the
 [GEOS](https://libgeos.org/) geometry processing library.  It is recommended
-to use the most recent released version (3.8) for best performance. On Windows,
+to use the most recent released version for best performance. On Windows,
 GEOS will be downloaded automatically as part of package install. On MacOS, it
 can be installed using Homebrew (`brew install geos`). On Linux, it can be
 installed from system package repositories (`apt-get install libgeos-dev` on

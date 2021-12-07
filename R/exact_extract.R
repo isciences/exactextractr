@@ -214,6 +214,9 @@ setGeneric("exact_extract", function(x, y, ...)
 #'                                for `fun` (as opposed to a function defined using
 #'                                R code). If a polygon covers more than `max_cells_in_memory`
 #'                                raster cells, it will be processed in multiple chunks.
+#' @param     grid_compat_tol     require value and weight grids to align within
+#'                                `grid_compat_tol` times the smaller of the two
+#'                                grid resolutions.
 #' @param     progress if `TRUE`, display a progress bar during processing
 #' @param     ... additional arguments to pass to `fun`
 #' @return a vector, data frame, or list of data frames, depending on the type
@@ -259,7 +262,8 @@ NULL
                            summarize_df=FALSE,
                            quantiles=NULL,
                            progress=TRUE,
-                           max_cells_in_memory=30000000
+                           max_cells_in_memory=30000000,
+                           grid_compat_tol=1e-3
                            ) {
   area_weights <- is.character(weights) && length(weights) == 1 && weights == 'area'
   if (area_weights) {
@@ -276,6 +280,7 @@ NULL
   .validateFlag(stack_apply, 'stack_apply')
   .validateFlag(summarize_df, 'summarize_df')
   .validateNumericScalar(max_cells_in_memory, 'max_cells_in_memory')
+  .validateNumericScalar(grid_compat_tol, 'grid_compat_tol')
   .validateNumericScalarOrNA(default_value, 'default_value')
   .validateNumericScalarOrNA(default_weight, 'default_weight')
 
@@ -403,20 +408,65 @@ NULL
 
   geoms <- sf::st_geometry(y)
 
-  if (progress && length(geoms) > 1) {
-    n <- length(geoms)
-    pb <- utils::txtProgressBar(min = 0, max = n, initial=0, style=3)
-    update_progress <- function() {
-      i <- 1 + utils::getTxtProgressBar(pb)
-      utils::setTxtProgressBar(pb, i)
-      if (i == n) {
-        close(pb)
-      }
-    }
+  if (requireNamespace('terra', quietly = TRUE)) {
+    strategies <- c('check_block_size', 'eager_load')
   } else {
-    update_progress <- function() {}
+    strategies = c()
   }
 
+  x_orig <- NULL
+  if ('eager_load' %in% strategies && length(geoms) > 1 && (!.isInMemory(x))) {
+    # Eagerly load the entire area to be processed into memory. If the raster
+    # block sizes are large, this potentially allows us to cache data in memory
+    # that would not fit within the GDAL block cache (because we can cache an
+    # area smaller than a single block). We only do this when the terra package
+    # is available, because raster::crop throws an error when we set snap =
+    # 'out'.
+    if (include_cell) {
+      # retain a reference to the original so that we can use it for include_cell
+      x_orig <- x
+    }
+    x <- .eagerLoad(x, geoms, max_cells_in_memory, message_on_fail = progress)
+    weights <- .eagerLoad(weights, geoms, max_cells_in_memory, message_on_fail = progress)
+  }
+
+  # At this point, if the data have not been preloaded into memory, either:
+  # - we don't have the terra package available
+  # - we can't fit the whole processing area in memory
+  # Whether this is a problem depends on how the raster is chunked. If the
+  # raster is poorly chunked, we can't do anything to improve the perormance,
+  # but we try to detect the situation so we can alert the user.
+  if (!.isInMemory(x)) {
+    # - Do we have a RasterStack? Suggest using terra instead.
+    if (inherits(x, 'RasterStack')) {
+        message('exact_extract may perform poorly when extracting from a RasterStack. ',
+                'It is recommended to use a SpatRaster from the terra package instead. ',
+                'Convert using terra::rast(x)')
+    }
+
+    if (('check_block_size' %in% strategies) && inherits(x, 'SpatRaster')) {
+      # Can we fit at least one block from every layer in GDAL's block cache?
+      # If not, warn the user of expected poor performance.
+      block_dim <- .blockSize(x)
+      bytes_per_pixel <- 8L # terra has no datatype function?
+      block_sz_mb <- prod(block_dim[1:2])* bytes_per_pixel / 1024 / 1024
+      cache_sz_mb <- terra::gdalCache()
+
+      min_cache_needed_mb <- ceiling(block_sz_mb) * .numLayers(x)
+
+
+      if (min_cache_needed_mb >= cache_sz_mb) {
+        message('Loading one raster block of data per layer requires approximately ',
+                min_cache_needed_mb, ' MB but the GDAL block size cache is only ',
+                cache_sz_mb, ' MB. This is likely to result in very slow performance. ',
+                'It is recommended to increase the cache size using ',
+                'terra::gdalCache(new_size), reduce the number of layers in the ',
+                'input raster, or rewrite the input raster using a smaller chunk size.')
+      }
+    }
+  }
+
+  update_progress <- .createProgress(progress, length(geoms))
   tryCatch({
     x <- .startReading(x)
     weights <- .startReading(weights)
@@ -430,7 +480,7 @@ NULL
       }
 
       results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
-        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, quantiles)
+        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, grid_compat_tol, quantiles)
         update_progress()
         return(ret)
       })
@@ -512,6 +562,7 @@ NULL
         warn_on_disaggregate <- feature_num == 1
 
         col_list <- CPP_exact_extract(x,
+                                      x_orig,
                                       weights,
                                       wkb,
                                       default_value,
@@ -525,7 +576,8 @@ NULL
                                       include_col_values,
                                       value_names,
                                       weight_names,
-                                      warn_on_disaggregate)
+                                      warn_on_disaggregate,
+                                      grid_compat_tol)
         if (coverage_area) {
           coverage_col <- 'coverage_area'
         } else {

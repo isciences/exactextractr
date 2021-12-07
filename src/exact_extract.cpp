@@ -44,6 +44,7 @@ using exactextract::RasterSource;
 
 // [[Rcpp::export]]
 Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
+                             Rcpp::Nullable<Rcpp::S4> & rast_uncropped,
                              Rcpp::Nullable<Rcpp::S4> & weights,
                              const Rcpp::RawVector & wkb,
                              double default_value,
@@ -57,7 +58,8 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
                              Rcpp::Nullable<Rcpp::List> & include_cols,
                              Rcpp::CharacterVector & src_names,
                              Rcpp::Nullable<Rcpp::CharacterVector> & p_weights_names,
-                             bool warn_on_disaggregate) {
+                             bool warn_on_disaggregate,
+                             double grid_compat_tol) {
   try {
     GEOSAutoHandle geos;
     Rcpp::Function names("names");
@@ -84,11 +86,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
       weights_nlayers = get_nlayers(weights_s4);
       weights_grid = make_grid(weights_s4);
 
-      if (!weights_grid.compatible_with(grid)) {
-        Rcpp::stop("Incompatible extents.");
-      }
-
-      common_grid = grid.common_grid(weights_grid);
+      common_grid = grid.common_grid(weights_grid, grid_compat_tol);
 
       rweights = std::make_unique<S4RasterSource>(weights_s4, default_weight);
       weights_names = p_weights_names.get();
@@ -202,7 +200,12 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     }
 
     if (include_cell_number) {
-      cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+      if (rast_uncropped.isNull()) {
+        cols["cell"] = get_cell_numbers(rast, cov_grid)[covered];
+      } else {
+        Rcpp::S4 tmp = rast_uncropped.get();
+        cols["cell"] = get_cell_numbers(tmp, cov_grid)[covered];
+      }
     }
 
     if (include_area) {
@@ -249,6 +252,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
                               Rcpp::Nullable<Rcpp::CharacterVector> & p_area_method,
                               const Rcpp::StringVector & stats,
                               int max_cells_in_memory,
+                              double grid_compat_tol,
                               const Rcpp::Nullable<Rcpp::NumericVector> & quantiles) {
   try {
     GEOSAutoHandle geos;
@@ -288,7 +292,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     auto bbox = exactextract::geos_get_box(geos.handle, geom.get());
 
     auto grid = weighting == WeightingMethod::RASTER ?
-      rsrc.grid().common_grid(rweights->grid()) : rsrc.grid();
+      rsrc.grid().common_grid(rweights->grid(), grid_compat_tol) : rsrc.grid();
 
     bool disaggregated = (grid.dx() < rsrc.grid().dx() || grid.dy() < rsrc.grid().dy());
 
