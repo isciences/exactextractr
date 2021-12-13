@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 ISciences, LLC.
+# Copyright (c) 2018-2021 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -63,3 +63,17 @@ setMethod('coverage_fraction', signature(x='RasterLayer', y='sfc_MULTIPOLYGON'),
 #' @rdname coverage_fraction
 #' @export
 setMethod('coverage_fraction', signature(x='RasterLayer', y='sfc_POLYGON'), .coverage_fraction)
+
+#' @rdname coverage_fraction
+#' @export
+setMethod('coverage_fraction', signature(x='SpatRaster', y='sf'), function(x, y, crop=FALSE) {
+  coverage_fraction(x, sf::st_geometry(y), crop)
+})
+
+#' @rdname coverage_fraction
+#' @export
+setMethod('coverage_fraction', signature(x='SpatRaster', y='sfc_MULTIPOLYGON'), .coverage_fraction)
+
+#' @rdname coverage_fraction
+#' @export
+setMethod('coverage_fraction', signature(x='SpatRaster', y='sfc_POLYGON'), .coverage_fraction)

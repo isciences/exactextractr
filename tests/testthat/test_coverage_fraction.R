@@ -85,6 +85,24 @@ test_that('Raster returned by coverage_fraction has same properties as the input
   expect_equal(raster::crs(r),    raster::crs(w[[1]]))
 })
 
+test_that('Raster returned by coverage_fraction has same properties as the input (terra)', {
+  r <- terra::rast(xmin=391030, xmax=419780, ymin=5520000, ymax=5547400, crs='EPSG:32618')
+  terra::res(r) = c(100, 100)
+  terra::values(r) <- 1:ncell(r)
+
+  p <- sf::st_as_sfc('POLYGON((397199.680921053 5541748.05921053,402813.496710526 5543125.03289474,407103.299342105 5537246.41447368,398470.733552632 5533962.86184211,397199.680921053 5541748.05921053))',
+                     crs = sf::st_crs(r))
+
+  w <- coverage_fraction(r, p)
+
+  expect_length(w, 1)
+  expect_is(w[[1]], 'SpatRaster')
+
+  expect_equal(terra::res(r), terra::res(w[[1]]))
+  expect_equal(terra::ext(r), terra::ext(w[[1]]))
+  expect_equal(terra::crs(r), terra::crs(w[[1]]))
+})
+
 test_that('Coverage fractions are exact', {
   r <- raster::raster(xmn=391030, xmx=419780, ymn=5520000, ymx=5547400, crs=NA)
   raster::res(r) = c(100, 100)
