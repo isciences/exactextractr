@@ -19,7 +19,7 @@ test-devel:
   image: rocker/geospatial:devel
   script:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
-    - R -e "install.packages('terra')"
+    - R -e "install.packages(c('raster', 'terra'))"
     - R -e "remotes::install_git('https://github.com/r-spatial/sf')"
     - R -e "devtools::document()"
     - R -e "devtools::check()"
