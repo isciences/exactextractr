@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 ISciences, LLC.
+# Copyright (c) 2018-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -172,4 +172,30 @@ test_that('include_ arguments supported with weighted summary function', {
     expect_is(c, 'numeric')
     expect_is(w, 'numeric')
   }, weights=rast2, include_cols = 'id', include_cell = TRUE, include_xy = TRUE)
+})
+
+test_that('we get a zero-row data frame for a polygon not intersecting a raster', {
+  # https://github.com/isciences/exactextractr/issues/68
+
+  rast <- raster(matrix(0, nrow = 100, ncol = 100))
+
+  nonoverlap_poly <- st_sf(st_sfc(st_polygon(list(matrix(c(0, 0, 1, 0, 1,
+                                                           -0.25, 0, -0.25, 0, 0),
+                                                         ncol = 2, byrow = TRUE)))))
+
+  df <- exact_extract(rast, nonoverlap_poly)[[1]]
+  expect_named(df, c('value', 'coverage_fraction'))
+  expect_equal(nrow(df), 0)
+
+  df <- exact_extract(rast, nonoverlap_poly, include_xy = TRUE)[[1]]
+  expect_named(df, c('value', 'x', 'y', 'coverage_fraction'))
+  expect_equal(nrow(df), 0)
+
+  df <- exact_extract(rast, nonoverlap_poly, include_cell = TRUE)[[1]]
+  expect_named(df, c('value', 'cell', 'coverage_fraction'))
+  expect_equal(nrow(df), 0)
+
+  df <- exact_extract(rast, nonoverlap_poly, include_area = TRUE)[[1]]
+  expect_named(df, c('value', 'area', 'coverage_fraction'))
+  expect_equal(nrow(df), 0)
 })

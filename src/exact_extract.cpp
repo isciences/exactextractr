@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 ISciences, LLC.
+// Copyright (c) 2018-2022 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -117,7 +117,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
 
     Rcpp::NumericVector coverage_vec = as_vector(coverage_fractions);
     if (coverage_areas) {
-        auto areas = get_area_raster(area_method, common_grid);
+        auto areas = get_area_raster(area_method, cov_grid);
         Rcpp::NumericVector area_vec = as_vector(*areas);
         coverage_vec = coverage_vec * area_vec;
     }
@@ -144,7 +144,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
       // Since R integers are only 32-bit, we are not going to lose data by
       // converting everything to numeric, although we pay a storage penalty.
       Rcpp::NumericVector value_vec = r->vec();
-      if (grid.dx() != common_grid.dx() || grid.dy() != common_grid.dy() ||
+      if (grid.dx() != cov_grid.dx() || grid.dy() != cov_grid.dy() ||
           value_vec.size() != covered.size()) {
         // Transform values to same grid as coverage fractions
         RasterView<double> rt(*r, cov_grid);
@@ -158,14 +158,14 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     for (int i = 0; i < weights_nlayers; i++) {
       Rcpp::NumericVector weight_vec;
       if (area_weights) {
-        auto weights = get_area_raster(area_method, common_grid);
+        auto weights = get_area_raster(area_method, cov_grid);
         weight_vec = as_vector(*weights);
       } else {
         auto values = rweights->read_box(cov_grid.extent(), i);
         const NumericVectorRaster* r = static_cast<NumericVectorRaster*>(values.get());
         weight_vec = r->vec();
 
-        if (weights_grid.dx() != common_grid.dx() || weights_grid.dy() != common_grid.dy() ||
+        if (weights_grid.dx() != cov_grid.dx() || weights_grid.dy() != cov_grid.dy() ||
             weight_vec.size() != covered.size()) {
           // Transform weights to same grid as coverage fractions
           RasterView<double> rt (*r, cov_grid);
@@ -209,9 +209,8 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     }
 
     if (include_area) {
-      auto area_rast = get_area_raster(area_method, common_grid);
+      auto area_rast = get_area_raster(area_method, cov_grid);
       Rcpp::NumericVector area_vec = as_vector(*area_rast);
-
       cols["area"] = area_vec[covered];
     }
 

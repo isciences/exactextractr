@@ -4,6 +4,7 @@
   suboptimally-chunked rasters
 - Add grid_compat_tol argument to exact_extract and relax from previously
   hardcoded default
+- Avoid error when include_area = TRUE and polygon does not intersect raster
 
 # version 0.7.2
 
