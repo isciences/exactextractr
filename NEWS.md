@@ -5,6 +5,8 @@
 - Add grid_compat_tol argument to exact_extract and relax from previously
   hardcoded default
 - Avoid error when include_area = TRUE and polygon does not intersect raster
+- Produce error instead of incorrect result when processing SpatRaster with
+  duplicate names
 
 # version 0.7.2
 
