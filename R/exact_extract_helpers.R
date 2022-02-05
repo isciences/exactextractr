@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 ISciences, LLC.
+# Copyright (c) 2018-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -131,6 +131,15 @@
 .validateNumericScalarOrNA <- function(value, name) {
   if (!(is.numeric(value) && length(value) == 1)) {
     stop(name, ' must be a single numeric value')
+  }
+}
+
+.validateUniqueNames <- function(x) {
+  nm <- names(x)
+  if (!is.null(nm)) {
+    if (length(nm) != length(unique(nm))) {
+      stop('names of input rasters must be unique')
+    }
   }
 }
 
