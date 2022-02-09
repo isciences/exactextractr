@@ -95,7 +95,7 @@ test_that('terra inputs supported (multi-layer)', {
   )
 })
 
-test_that('terra inputs supported (weighted, multi-layer', {
+test_that('terra inputs supported (weighted, multi-layer)', {
   stk <- raster::stack(list(a = make_square_raster(1:100),
                             a = make_square_raster(101:200)))
   stk <- terra::rast(stk)
