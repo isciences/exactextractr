@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 ISciences, LLC.
+// Copyright (c) 2018-2022 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -50,7 +50,9 @@ static double get_stat_value(const RasterStats<double> & stats, const std::strin
 // [[Rcpp::export]]
 Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
                       Rcpp::S4 & rast_out,
-                      const Rcpp::StringVector & stat) {
+                      const Rcpp::StringVector & stat,
+                      bool coverage_area,
+                      std::string area_method) {
   try {
     Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
     Rcpp::Environment xx = Rcpp::Environment::namespace_env("exactextractr");
@@ -86,6 +88,14 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
         auto coverage_fraction = raster_cell_intersection(grid_in, cell);
 
         auto& cov_grid = coverage_fraction.grid();
+        if (coverage_area) {
+          auto areas = get_area_raster(area_method, cov_grid);
+          for (size_t i = 0; i < coverage_fraction.rows(); i++) {
+            for (size_t j = 0; j < coverage_fraction.cols(); j++) {
+              coverage_fraction(i, j) = coverage_fraction(i, j) * (*areas)(i, j);
+            }
+          }
+        }
 
         if (!cov_grid.empty()) {
           stats.process(coverage_fraction, *values);

@@ -31,3 +31,18 @@ test_that("exact_resample supports SpatRaster arguments", {
 
   expect_equal(terra::rast(dst), dst_terra)
 })
+
+test_that("resampling can be weighted with coverage areas instead of coverage fractions", {
+  r <- terra::rast(nrows = 10, ncols = 10,
+                   xmin = 0, xmax = 10, ymin = 60, ymax = 70, crs = 'EPSG:4326')
+  terra::values(r) <- seq(1, terra::ncell(r))
+
+  r2 <- terra::rast(nrows = 1, ncols = 1,
+                    xmin = 0, xmax = 10, ymin = 60, ymax = 70, crs = 'EPSG:4326')
+
+  unweighted <- exact_resample(r, r2, 'mean')
+
+  area_weighted <- exact_resample(r, r2, 'mean', coverage_area = TRUE)
+
+  expect_true(area_weighted[1] > unweighted[1])
+})

@@ -13,7 +13,7 @@ CPP_stats <- function(rast, weights, wkb, default_value, default_weight, coverag
     .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, weights, wkb, default_value, default_weight, coverage_areas, p_area_method, stats, max_cells_in_memory, grid_compat_tol, quantiles)
 }
 
-CPP_resample <- function(rast_in, rast_out, stat) {
-    .Call('_exactextractr_CPP_resample', PACKAGE = 'exactextractr', rast_in, rast_out, stat)
+CPP_resample <- function(rast_in, rast_out, stat, coverage_area, area_method) {
+    .Call('_exactextractr_CPP_resample', PACKAGE = 'exactextractr', rast_in, rast_out, stat, coverage_area, area_method)
 }
 
