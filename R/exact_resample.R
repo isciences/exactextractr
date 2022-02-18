@@ -19,7 +19,7 @@ setGeneric("exact_resample", function(x, y, ...)
 #' @param x a \code{RasterLayer} or \code{SpatRaster} to be resampled
 #' @param y a raster of the same class as \code{x} with a grid definition to
 #'          which \code{x} should be resampled
-#' @param fun a named summary operation to be used for the resampling
+#' @param fun a named summary operation or R function to be used for the resampling
 #' @param coverage_area use cell coverage areas instead of coverage fractions
 #'                      in \code{fun}
 #' @return a resampled version of \code{x}, returned as a \code{RasterLayer} or
@@ -41,12 +41,24 @@ NULL
     }
   }
 
-  if (length(fun) != 1) {
-    stop("Only a single operation may be used for resampling.")
-  }
+  if (is.character(fun)) {
+    if (length(fun) != 1) {
+      stop("Only a single operation may be used for resampling.")
+    }
 
-  if (startsWith(fun, 'weighted')) {
-    stop("Weighted operations cannot be used for resampling.")
+    if (startsWith(fun, 'weighted')) {
+      stop("Weighted operations cannot be used for resampling.")
+    }
+
+    summary_stat <- fun
+    summary_fun <- NULL
+  } else {
+    if (!is.function(fun)) {
+      stop("fun must be a named summary operation or an R function")
+    }
+
+    summary_stat <- NULL
+    summary_fun <- fun
   }
 
   .validateFlag(coverage_area, 'coverage_area')
@@ -55,7 +67,12 @@ NULL
 
   x <- .startReading(x)
   tryCatch({
-    ret <- CPP_resample(x, y, fun, coverage_area, area_method)
+    ret <- CPP_resample(x,
+                        y,
+                        summary_stat,
+                        summary_fun,
+                        coverage_area,
+                        area_method)
     if (class(x) == 'SpatRaster') {
       terra::rast(ret)
     } else {

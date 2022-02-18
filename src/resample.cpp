@@ -21,6 +21,7 @@
 
 using exactextract::Box;
 using exactextract::RasterStats;
+using exactextract::RasterView;
 
 // TODO merge with nearly-identical code in exact_extract.cpp
 static double get_stat_value(const RasterStats<double> & stats, const std::string & stat_name) {
@@ -50,7 +51,8 @@ static double get_stat_value(const RasterStats<double> & stats, const std::strin
 // [[Rcpp::export]]
 Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
                       Rcpp::S4 & rast_out,
-                      const Rcpp::StringVector & stat,
+                      Rcpp::Nullable<Rcpp::CharacterVector> p_stat,
+                      Rcpp::Nullable<Rcpp::Function> p_fun,
                       bool coverage_area,
                       std::string area_method) {
   try {
@@ -66,8 +68,17 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
     auto grid_in = make_grid(rast_in);
     auto grid_out = make_grid(rast_out);
 
-    std::string stat_name = Rcpp::as<std::string>(stat[0]);
-    bool store_values = requires_stored_values(stat_name);
+    std::string stat_name;
+    bool store_values = false;
+    bool r_summary_function = false;
+
+    if (p_stat.isNotNull()) {
+      Rcpp::CharacterVector stat = p_stat.get();
+      stat_name = Rcpp::as<std::string>(stat[0]);
+      store_values = requires_stored_values(stat_name);
+    } else {
+      r_summary_function = true;
+    }
 
     Rcpp::NumericMatrix values_out = Rcpp::no_init(grid_out.rows(), grid_out.cols());
 
@@ -97,11 +108,37 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
           }
         }
 
-        if (!cov_grid.empty()) {
-          stats.process(coverage_fraction, *values);
-        }
+        if (r_summary_function) {
+          Rcpp::Function summary_fun = p_fun.get();
 
-        values_out(row, col) = get_stat_value(stats, stat_name);
+          // Transform values to same grid as coverage fractions
+          RasterView<double> rt(*values, cov_grid);
+          auto value_vec = as_vector(rt);
+          auto coverage_vec = as_vector(coverage_fraction);
+
+          SEXP result = summary_fun(value_vec, coverage_vec);
+
+          if (Rf_length(result) != 1) {
+            Rcpp::stop("Summary function must return a single value");
+          }
+
+          switch(TYPEOF(result)) {
+          case REALSXP:
+            values_out(row, col) = *(REAL(result));
+            break;
+          case INTSXP:
+            values_out(row, col) = static_cast<double>(*INTEGER(result));
+            break;
+          default:
+            Rcpp::stop("Summary function must return a numeric or integer");
+          }
+        } else {
+          if (!cov_grid.empty()) {
+            stats.process(coverage_fraction, *values);
+          }
+
+          values_out(row, col) = get_stat_value(stats, stat_name);
+        }
       }
     }
 

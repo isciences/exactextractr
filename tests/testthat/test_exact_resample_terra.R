@@ -46,3 +46,56 @@ test_that("resampling can be weighted with coverage areas instead of coverage fr
 
   expect_true(area_weighted[1] > unweighted[1])
 })
+
+test_that("an R function can be used for resampling", {
+  r1 <- make_square_rast(1:100)
+
+  r2 <- terra::rast(nrows = 4, ncols = 4,
+                    xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+                    crs = terra::crs(r1))
+
+  r2_rfun <- exact_resample(r1, r2, function(value, cov_frac) {
+    sum(value * cov_frac)
+  })
+
+  r2_stat <- exact_resample(r1, r2, 'sum')
+
+  expect_equal(terra::values(r2_rfun),
+               terra::values(r2_stat))
+})
+
+test_that("error thrown if R function returns non-scalar value", {
+  r1 <- make_square_rast(1:100)
+
+  r2 <- terra::rast(nrows = 4, ncols = 4,
+                    xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+                    crs = terra::crs(r1))
+
+  expect_error(
+    exact_resample(r1, r2, function(value, cov_frac) {
+      return(1:2)
+    }),
+    'must return a single value'
+  )
+
+  expect_error(
+    exact_resample(r1, r2, function(value, cov_frac) {
+      return(numeric())
+    }),
+    'must return a single value'
+  )
+
+  expect_error(
+    exact_resample(r1, r2, function(value, cov_frac) {
+      return(NULL)
+    }),
+    'must return a single value'
+  )
+
+  expect_error(
+    exact_resample(r1, r2, function(value, cov_frac) {
+      'abc'
+    }),
+    'must return a numeric or integer'
+  )
+})
