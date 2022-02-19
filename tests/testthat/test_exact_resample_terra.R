@@ -64,6 +64,35 @@ test_that("an R function can be used for resampling", {
                terra::values(r2_stat))
 })
 
+test_that("a multi-layer SpatRaster can be provided to an R summary function", {
+  r1 <- make_square_rast(1:100, crs = 'EPSG:4326')
+
+  r2 <- terra::rast(nrows = 4, ncols = 4,
+                    xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+                    crs = terra::crs(r1))
+
+  # calculate an area-weighed mean by putting areas in a second layer
+  r1_area <- terra::cellSize(r1)
+  r1_stk <- terra::rast(list(r1, r1_area))
+  result_a <- exact_resample(r1_stk, r2, function(values, coverage_fraction) {
+    weighted.mean(values[,1], values[,2] * coverage_fraction)
+  })
+
+  # compare this to the more straightforward method of setting coverage_area = TRUE
+  result_b <- exact_resample(r1, r2, 'mean', coverage_area = TRUE)
+
+  expect_equal(
+    terra::values(result_a),
+    terra::values(result_b),
+    tolerance = 1e-3
+  )
+
+  expect_error(
+    exact_resample(r1_stk, r2, 'mean'),
+    'must have a single layer'
+  )
+})
+
 test_that("error thrown if R function returns non-scalar value", {
   r1 <- make_square_rast(1:100)
 
@@ -89,13 +118,13 @@ test_that("error thrown if R function returns non-scalar value", {
     exact_resample(r1, r2, function(value, cov_frac) {
       return(NULL)
     }),
-    'must return a single value'
+    'Not compatible'
   )
 
   expect_error(
     exact_resample(r1, r2, function(value, cov_frac) {
       'abc'
     }),
-    'must return a numeric or integer'
+    'Not compatible'
   )
 })

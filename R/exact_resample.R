@@ -50,6 +50,10 @@ NULL
       stop("Weighted operations cannot be used for resampling.")
     }
 
+    if (.numLayers(x) != 1) {
+      stop("Raster to be resampled must have a single layer.")
+    }
+
     summary_stat <- fun
     summary_fun <- NULL
   } else {

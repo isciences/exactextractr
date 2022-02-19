@@ -53,7 +53,7 @@ make_square_rast <- function(vals, crs=default_proj) {
 
   x <- terra::rast(nrows = n, ncols = n,
                    xmin=0, xmax=n, ymin=0, ymax=n,
-                   crs = gsub("+proj=", "", crs, fixed = TRUE))
+                   crs = gsub("+init=", "", crs, fixed = TRUE))
   terra::values(x) <- vals
   x
 }

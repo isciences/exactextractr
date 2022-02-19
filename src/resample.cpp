@@ -60,6 +60,9 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
     Rcpp::Environment xx = Rcpp::Environment::namespace_env("exactextractr");
     Rcpp::Function rasterFn = raster["raster"];
     Rcpp::Function valuesFn = xx[".setValues"];
+    Rcpp::Function nlyrFn = xx[".numLayers"];
+
+    int numLayers = Rcpp::as<int>(nlyrFn(rast_in));
 
     S4RasterSource rsrc(rast_in);
 
@@ -82,6 +85,8 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
 
     Rcpp::NumericMatrix values_out = Rcpp::no_init(grid_out.rows(), grid_out.cols());
 
+    std::vector<std::unique_ptr<NumericVectorRaster>> values(numLayers);
+
     for (size_t row = 0; row < grid_out.rows(); row++) {
       // Read enough source raster data to process an entire destination row at
       // a time, since getValuesBlock calls have a lot of overhead.
@@ -90,11 +95,15 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
       auto ymax = y + grid_out.dy();
 
       Box row_box{ grid_out.xmin(), ymin, grid_out.xmax(), ymax };
-      auto values = rsrc.read_box(row_box, 0);
+
+      for (int i = 0; i < numLayers; i++) {
+        values[i] = std::unique_ptr<NumericVectorRaster>(
+          static_cast<NumericVectorRaster*>(rsrc.read_box(row_box, i).release()));
+      }
+
+      Rcpp::Rcout << ".";
 
       for (size_t col = 0; col < grid_out.cols(); col++) {
-        RasterStats<double> stats{store_values};
-
         Box cell = grid_cell(grid_out, row, col);
         auto coverage_fraction = raster_cell_intersection(grid_in, cell);
 
@@ -112,29 +121,35 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
           Rcpp::Function summary_fun = p_fun.get();
 
           // Transform values to same grid as coverage fractions
-          RasterView<double> rt(*values, cov_grid);
-          auto value_vec = as_vector(rt);
           auto coverage_vec = as_vector(coverage_fraction);
 
-          SEXP result = summary_fun(value_vec, coverage_vec);
+          Rcpp::NumericVector result;
 
-          if (Rf_length(result) != 1) {
+          if (numLayers == 1) {
+            RasterView<double> rt(*(values[0]), cov_grid);
+            auto value_vec = as_vector(rt);
+            result = summary_fun(value_vec, coverage_vec);
+          } else {
+            Rcpp::NumericMatrix value_mat = Rcpp::no_init(coverage_vec.size(), numLayers);
+            for (int i = 0; i < numLayers; i++) {
+              RasterView<double> rt(*(values[i]), cov_grid);
+              auto value_vec = as_vector(rt);
+              value_mat(Rcpp::_, i) = value_vec;
+            }
+
+            result = summary_fun(value_mat, coverage_vec);
+          }
+
+          if (result.size() != 1) {
             Rcpp::stop("Summary function must return a single value");
           }
 
-          switch(TYPEOF(result)) {
-          case REALSXP:
-            values_out(row, col) = *(REAL(result));
-            break;
-          case INTSXP:
-            values_out(row, col) = static_cast<double>(*INTEGER(result));
-            break;
-          default:
-            Rcpp::stop("Summary function must return a numeric or integer");
-          }
+          values_out(row, col) = result[0];
         } else {
+          RasterStats<double> stats{store_values};
+
           if (!cov_grid.empty()) {
-            stats.process(coverage_fraction, *values);
+            stats.process(coverage_fraction, *(values[0]));
           }
 
           values_out(row, col) = get_stat_value(stats, stat_name);
