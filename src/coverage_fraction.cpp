@@ -24,7 +24,9 @@ using exactextract::RasterView;
 using exactextract::raster_cell_intersection;
 
 // [[Rcpp::export]]
-Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, bool crop)
+Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast,
+                               const Rcpp::RawVector & wkb,
+                               bool crop)
 {
   try {
     GEOSAutoHandle geos;
@@ -50,18 +52,7 @@ Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, boo
       }
     }
 
-    if (rast.inherits("BasicRaster")) {
-      Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
-      Rcpp::Function rasterFn = raster["raster"];
-      Rcpp::Function crsFn = xx[".crs"];
-
-      return rasterFn(weights,
-                      Rcpp::Named("xmn")=grid.xmin(),
-                      Rcpp::Named("xmx")=grid.xmax(),
-                      Rcpp::Named("ymn")=grid.ymin(),
-                      Rcpp::Named("ymx")=grid.ymax(),
-                      Rcpp::Named("crs")=crsFn(rast));
-    } else {
+    if (rast.inherits("SpatRaster")) {
       Rcpp::Environment terra = Rcpp::Environment::namespace_env("terra");
       Rcpp::Function rastFn = terra["rast"];
       Rcpp::Function extFn = terra["ext"];
@@ -72,6 +63,17 @@ Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, boo
       return rastFn(weights,
                     Rcpp::Named("ext") = ext,
                     Rcpp::Named("crs") = crsFn(rast));
+    } else {
+      Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+      Rcpp::Function rasterFn = raster["raster"];
+      Rcpp::Function crsFn = xx[".crs"];
+
+      return rasterFn(weights,
+                      Rcpp::Named("xmn")=grid.xmin(),
+                      Rcpp::Named("xmx")=grid.xmax(),
+                      Rcpp::Named("ymn")=grid.ymin(),
+                      Rcpp::Named("ymx")=grid.ymax(),
+                      Rcpp::Named("crs")=crsFn(rast));
     }
   } catch (std::exception & e) {
     // throw predictable exception class

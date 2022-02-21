@@ -27,6 +27,7 @@ test_that("Coverage fraction function works", {
   rast <- raster::raster(xmn=0, xmx=3, ymn=0, ymx=3, nrows=3, ncols=3, crs=NA)
 
   weights <- coverage_fraction(rast, square)[[1]]
+  expect_s4_class(weights, 'RasterLayer')
 
   expect_equal(as.matrix(weights),
                rbind(
