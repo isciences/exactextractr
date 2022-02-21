@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020 ISciences, LLC.
+// Copyright (c) 2018-2021 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -24,14 +24,13 @@ using exactextract::RasterView;
 using exactextract::raster_cell_intersection;
 
 // [[Rcpp::export]]
-Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, bool crop)
+Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast,
+                               const Rcpp::RawVector & wkb,
+                               bool crop)
 {
   try {
     GEOSAutoHandle geos;
-    Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
     Rcpp::Environment xx = Rcpp::Environment::namespace_env("exactextractr");
-    Rcpp::Function rasterFn = raster["raster"];
-    Rcpp::Function crsFn = xx[".crs"];
 
     auto grid = make_grid(rast);
     auto coverage_fraction = raster_cell_intersection(grid, geos.handle, read_wkb(geos.handle, wkb).get());
@@ -53,12 +52,29 @@ Rcpp::S4 CPP_coverage_fraction(Rcpp::S4 & rast, const Rcpp::RawVector & wkb, boo
       }
     }
 
-    return rasterFn(weights,
-                    Rcpp::Named("xmn")=grid.xmin(),
-                    Rcpp::Named("xmx")=grid.xmax(),
-                    Rcpp::Named("ymn")=grid.ymin(),
-                    Rcpp::Named("ymx")=grid.ymax(),
-                    Rcpp::Named("crs")=crsFn(rast));
+    if (rast.inherits("SpatRaster")) {
+      Rcpp::Environment terra = Rcpp::Environment::namespace_env("terra");
+      Rcpp::Function rastFn = terra["rast"];
+      Rcpp::Function extFn = terra["ext"];
+      Rcpp::Function crsFn = terra["crs"];
+
+      Rcpp::S4 ext = extFn(grid.xmin(), grid.xmax(), grid.ymin(), grid.ymax());
+
+      return rastFn(weights,
+                    Rcpp::Named("ext") = ext,
+                    Rcpp::Named("crs") = crsFn(rast));
+    } else {
+      Rcpp::Environment raster = Rcpp::Environment::namespace_env("raster");
+      Rcpp::Function rasterFn = raster["raster"];
+      Rcpp::Function crsFn = xx[".crs"];
+
+      return rasterFn(weights,
+                      Rcpp::Named("xmn")=grid.xmin(),
+                      Rcpp::Named("xmx")=grid.xmax(),
+                      Rcpp::Named("ymn")=grid.ymin(),
+                      Rcpp::Named("ymx")=grid.ymax(),
+                      Rcpp::Named("crs")=crsFn(rast));
+    }
   } catch (std::exception & e) {
     // throw predictable exception class
 #ifdef __SUNPRO_CC

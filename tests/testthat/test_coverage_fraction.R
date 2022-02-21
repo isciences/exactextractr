@@ -27,6 +27,7 @@ test_that("Coverage fraction function works", {
   rast <- raster::raster(xmn=0, xmx=3, ymn=0, ymx=3, nrows=3, ncols=3, crs=NA)
 
   weights <- coverage_fraction(rast, square)[[1]]
+  expect_s4_class(weights, 'RasterLayer')
 
   expect_equal(as.matrix(weights),
                rbind(
@@ -83,6 +84,24 @@ test_that('Raster returned by coverage_fraction has same properties as the input
   expect_equal(raster::res(r),    raster::res(w[[1]]))
   expect_equal(raster::extent(r), raster::extent(w[[1]]))
   expect_equal(raster::crs(r),    raster::crs(w[[1]]))
+})
+
+test_that('Raster returned by coverage_fraction has same properties as the input (terra)', {
+  r <- terra::rast(xmin=391030, xmax=419780, ymin=5520000, ymax=5547400, crs='EPSG:32618')
+  terra::res(r) = c(100, 100)
+  terra::values(r) <- 1:ncell(r)
+
+  p <- sf::st_as_sfc('POLYGON((397199.680921053 5541748.05921053,402813.496710526 5543125.03289474,407103.299342105 5537246.41447368,398470.733552632 5533962.86184211,397199.680921053 5541748.05921053))',
+                     crs = sf::st_crs(r))
+
+  w <- coverage_fraction(r, p)
+
+  expect_length(w, 1)
+  expect_is(w[[1]], 'SpatRaster')
+
+  expect_equal(terra::res(r), terra::res(w[[1]]))
+  expect_equal(terra::ext(r), terra::ext(w[[1]]))
+  expect_equal(terra::crs(r), terra::crs(w[[1]]))
 })
 
 test_that('Coverage fractions are exact', {
