@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 ISciences, LLC.
+# Copyright (c) 2018-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -131,6 +131,15 @@
 .validateNumericScalarOrNA <- function(value, name) {
   if (!(is.numeric(value) && length(value) == 1)) {
     stop(name, ' must be a single numeric value')
+  }
+}
+
+.validateUniqueNames <- function(x) {
+  nm <- names(x)
+  if (!is.null(nm)) {
+    if (length(nm) != length(unique(nm))) {
+      stop('names of input rasters must be unique')
+    }
   }
 }
 
@@ -387,7 +396,7 @@
 
   if (cells_required <= max_cells_in_memory) {
     box <- sf::st_bbox(geoms)
-    ext <- terra::ext(box[c('xmin', 'xmax', 'ymin', 'ymax')])
+    geom_ext <- terra::ext(box[c('xmin', 'xmax', 'ymin', 'ymax')])
 
     if (!inherits(r, 'SpatRaster')) {
       # current CRAN version of terra (1.4-22) does not preserve
@@ -397,7 +406,15 @@
       names(r) <- nm
     }
 
-    r <- terra::crop(r, ext, snap = 'out')
+    overlap_ext <- terra::intersect(terra::ext(r), geom_ext)
+    if (is.null(overlap_ext)) {
+      # Extents do not overlap, and terra::crop will throw an error
+      # if we try to crop. Return the input raster as-is; nothing will be
+      # read from it anyway.
+      return(r)
+    }
+
+    r <- terra::crop(r, geom_ext, snap = 'out')
   } else if (message_on_fail) {
     message('Cannot preload entire working area of ', cells_required,
             ' cells with max_cells_in_memory = ', max_cells_in_memory, '.',

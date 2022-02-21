@@ -1,4 +1,4 @@
-# Copyright (c) 2021 ISciences, LLC.
+# Copyright (c) 2021-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -92,6 +92,23 @@ test_that('terra inputs supported (multi-layer)', {
   expect_equal(
     exact_extract(stk, circ),
     exact_extract(terra_stk, circ)
+  )
+})
+
+test_that('terra inputs supported (weighted, multi-layer)', {
+  stk <- raster::stack(list(a = make_square_raster(1:100),
+                            a = make_square_raster(101:200)))
+  stk <- terra::rast(stk)
+  names(stk) <- c('a', 'a')
+
+  ras <- terra::rast(make_square_raster(runif(100)))
+  ras <- terra::disagg(ras, 2)
+
+  circ <- make_circle(3, 2, 4, sf::st_crs(ras))
+
+  expect_error(
+    exact_extract(stk, circ, 'mean'),
+    'names.*must be unique'
   )
 })
 

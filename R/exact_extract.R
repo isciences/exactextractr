@@ -284,6 +284,9 @@ NULL
   .validateNumericScalarOrNA(default_value, 'default_value')
   .validateNumericScalarOrNA(default_weight, 'default_weight')
 
+  .validateUniqueNames(x)
+  .validateUniqueNames(weights)
+
   if(!is.null(append_cols)) {
     if (!inherits(y, 'sf')) {
       stop(sprintf('append_cols only supported for sf arguments (received %s)',

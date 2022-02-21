@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 ISciences, LLC.
+# Copyright (c) 2018-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -113,4 +113,16 @@ test_that("eager loading does not change values", {
                               progress = FALSE)
 
   expect_equal(eager_load, no_eager_load, tol = 2e-7)
+})
+
+test_that('eager loading does not error when geometry is outside extent of raster', {
+  ras <- terra::rast(matrix(1:100, nrow=10))
+
+  touches_corner <- make_rect(xmin = 10, xmax = 20, ymin = 10, ymax = 20,
+                              crs = sf::st_crs(ras))
+
+  loaded <- .eagerLoad(ras, touches_corner, Inf, '')
+  expect_equal(
+    nrow(exact_extract(loaded, touches_corner)[[1]]),
+    0)
 })
