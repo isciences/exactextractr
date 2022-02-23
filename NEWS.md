@@ -8,6 +8,9 @@
 - Support terra SpatRaster inputs to coverage_fraction
 - Produce error instead of incorrect result when processing SpatRaster with
   duplicate names
+- Add coverage_area argument to exact_resample
+- Allow use of user-defined summary function in exact_resample
+- Allow multi-layer inputs to exact_resample
 
 # version 0.7.2
 

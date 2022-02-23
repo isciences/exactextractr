@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 ISciences, LLC.
+# Copyright (c) 2018-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -44,4 +44,16 @@ make_square_raster <- function(vals, crs=default_proj) {
   raster::raster(matrix(vals, nrow=n, byrow=TRUE),
                  xmn=0, xmx=n, ymn=0, ymx=n,
                  crs=crs)
+}
+
+make_square_rast <- function(vals, crs=default_proj) {
+  n <- sqrt(length(vals))
+
+  stopifnot(as.integer(n) == n)
+
+  x <- terra::rast(nrows = n, ncols = n,
+                   xmin=0, xmax=n, ymin=0, ymax=n,
+                   crs = gsub("+init=", "", crs, fixed = TRUE))
+  terra::values(x) <- vals
+  x
 }
