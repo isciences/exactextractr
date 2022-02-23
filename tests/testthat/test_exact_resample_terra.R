@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021 ISciences, LLC.
+# Copyright (c) 2020-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -126,5 +126,18 @@ test_that("error thrown if R function returns non-scalar value", {
       'abc'
     }),
     'Not compatible'
+  )
+})
+
+test_that("error thrown if R function has wrong signature", {
+  r1 <- make_square_rast(1:100)
+
+  r2 <- terra::rast(nrows = 4, ncols = 4,
+                    xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+                    crs = terra::crs(r1))
+
+  expect_error(
+    exact_resample(r1, r2, sum),
+    'does not appear to be of the form'
   )
 })

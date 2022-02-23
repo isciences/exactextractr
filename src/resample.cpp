@@ -101,8 +101,6 @@ Rcpp::S4 CPP_resample(Rcpp::S4 & rast_in,
           static_cast<NumericVectorRaster*>(rsrc.read_box(row_box, i).release()));
       }
 
-      Rcpp::Rcout << ".";
-
       for (size_t col = 0; col < grid_out.cols(); col++) {
         Box cell = grid_cell(grid_out, row, col);
         auto coverage_fraction = raster_cell_intersection(grid_in, cell);

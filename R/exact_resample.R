@@ -61,6 +61,11 @@ NULL
       stop("fun must be a named summary operation or an R function")
     }
 
+    if (.num_expected_args(fun) != 2) {
+      stop("exact_extract was called with a function that does not appear to ",
+           "be of the form `function(values, coverage_fractions)`.")
+    }
+
     summary_stat <- NULL
     summary_fun <- fun
   }

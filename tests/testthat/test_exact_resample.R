@@ -1,4 +1,4 @@
-# Copyright (c) 2020 ISciences, LLC.
+# Copyright (c) 2020-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -42,12 +42,16 @@ test_that("exact_resample preserves values", {
                cellStats(dst, 'sum'))
 })
 
-test_that("error thrown if multiple stats provided", {
+test_that("error thrown if multiple or no stats provided", {
   src <- make_square_raster(1:100)
   dst <- make_square_raster(1:4)
 
   expect_error(
     exact_resample(src, dst, c('sum', 'mean')),
+    'Only a single')
+
+  expect_error(
+    exact_resample(src, dst, character()),
     'Only a single')
 })
 
