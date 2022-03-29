@@ -82,7 +82,7 @@ NULL
                         summary_fun,
                         coverage_area,
                         area_method)
-    if (class(x) == 'SpatRaster') {
+    if (inherits(x, 'SpatRaster')) {
       terra::rast(ret)
     } else {
       ret
