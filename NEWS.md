@@ -1,3 +1,8 @@
+# version 0.8.1
+
+- Fix incorrect grid compatibility error with certain combinations of
+  resolutions between value and weighting rasters
+
 # version 0.8.0
 
 - Eagerly load more data into memory to provide better performance for
