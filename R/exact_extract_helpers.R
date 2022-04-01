@@ -11,6 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+.resultColNames <- function(...) {
+  .resultColumns(...)$colname
+}
+
 #' Return column names to be used for summary operations
 #'
 #' @param value_names names of value raster layers
@@ -21,54 +25,73 @@
 #' @param quantiles quantiles to use when \code{stat_names} contains \code{quantile}
 #' @return character vector of column names
 #' @keywords internal
-.resultColNames <- function(value_names, weight_names, fun, full_colnames, quantiles=numeric()) {
+.resultColumns <- function(value_names, weight_names, fun, full_colnames, quantiles=numeric(), unique_values=numeric()) {
   if (inherits(fun, 'standardGeneric')) {
     stat_names <- fun@generic[1]
   } else if (is.function(fun)) {
     stat_names <- 'fun'
+  } else if (is.null(fun)) {
+    stat_names <- ''
   } else {
     stat_names <- fun
   }
 
   quantile_index = which(stat_names == 'quantile')
   if (length(quantile_index) != 0) {
-    stat_names <- c(stat_names[seq_along(stat_names) < quantile_index],
-                    sprintf('q%02d', as.integer(100 * quantiles)),
-                    stat_names[seq_along(stat_names) > quantile_index])
+    stat_names <- splice(stat_names, quantile_index, rep('quantile', length(quantiles)))
+  }
+
+  for (stat in c('frac', 'weighted_frac')) {
+    frac_index = which(stat_names == stat)
+    if (length(frac_index) != 0) {
+      stat_names <- splice(stat_names, frac_index, rep(stat, length(unique_values)))
+    }
   }
 
   ind <- .valueWeightIndexes(length(value_names), length(weight_names))
   vn <- value_names[ind$values]
   wn <- weight_names[ind$weights]
 
-  if (length(vn) > 1 || full_colnames) {
-    # determine all combinations of index and stat
-    z <- expand.grid(index=seq_along(vn),
-                     stat=stat_names, stringsAsFactors=FALSE)
-    z$value <- vn[z$index]
-    if (is.null(wn)) {
-      z$weights <- NA
-    } else {
-      z$weights <- wn[z$index]
+  # determine all combinations of index and stat
+  z <- expand.grid(index=seq_along(vn),
+                   stat_name=stat_names, stringsAsFactors=FALSE)
+
+  z$values <- vn[z$index]
+  z$stat_component <- z$stat_name
+  z$base_value <- NA_real_
+
+  for (stat in c('frac', 'weighted_frac')) {
+    ifrac <- which(z$stat_name == stat)
+    z$base_value[ifrac] <- rep(unique_values, each = length(ifrac) / length(unique_values))
+    z$stat_component[ifrac] <- sprintf('%s_%s', stat, z$base_value[ifrac])
+  }
+
+  iquantile <- which(z$stat_name == 'quantile')
+  z$base_value[iquantile] <- rep(quantiles, each = length(iquantile) / length(quantiles))
+  z$stat_component[iquantile] <- sprintf('q%02d', as.integer(100 * z$base_value[iquantile]))
+
+  if (is.null(wn)) {
+    z$weights <- NA
+  } else {
+    z$weights <- wn[z$index]
+  }
+
+  # construct column names for each index, stat
+  # add weight layer name only if layer is ambiguously weighted
+  z$colname <- mapply(function(stat_name, stat_component, value, weight) {
+    ret <- stat_component
+    if (full_colnames || length(value_names) > 1) {
+      ret <- paste(ret, value, sep='.')
+    }
+    if (.includeWeightInColName(stat_name) && ((full_colnames & length(weight_names) > 0)
+                                                    || length(weight_names) > 1)) {
+      ret <- paste(ret, weight, sep='.')
     }
 
-    # construct column names for each index, stat
-    # add weight layer name only if layer is ambiguously weighted
-    mapply(function(stat, value, weight) {
-      ret <- stat
-      if (full_colnames || length(value_names) > 1) {
-        ret <- paste(ret, value, sep='.')
-      }
-      if (.includeWeightInColName(stat) && ((full_colnames & length(weight_names) > 0)
-                                            || length(weight_names) > 1)) {
-        ret <- paste(ret, weight, sep='.')
-      }
+    return(ret)
+  }, z$stat_name, z$stat_component, z$values, z$weight, USE.NAMES = FALSE)
 
-      return(ret)
-    }, z$stat, z$value, z$weight, USE.NAMES = FALSE)
-  } else {
-    stat_names
-  }
+  return(z)
 }
 
 .includeWeightInColName <- function(fun) {
@@ -76,7 +99,7 @@
 }
 
 .isWeighted <- function(stat_name) {
-  stat_name %in% c('weighted_mean', 'weighted_sum')
+  stat_name %in% c('weighted_mean', 'weighted_sum', 'weighted_frac')
 }
 
 #' Compute indexes for the value and weight layers that should be
@@ -456,4 +479,10 @@
   }
 
   return( (bottom - top + 1) * (right - left + 1) * .numLayers(r) )
+}
+
+splice <- function(x, i, replacement) {
+  c(x[seq_along(x) < i],
+    replacement,
+    x[seq_along(x) > i])
 }

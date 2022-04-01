@@ -240,6 +240,25 @@ enum class WeightingMethod {
   AREA
 };
 
+
+static int get_num_stats(const Rcpp::StringVector & stats,
+                  const std::size_t num_quantiles,
+                  const std::size_t num_unique_values) {
+  int num_stats = 0;
+  for (const auto & stat : stats) {
+      if (stat == std::string("frac") ||
+          stat == std::string("weighted_frac")) {
+        num_stats += static_cast<int>(num_unique_values);
+      } else if (stat == std::string("quantile")) {
+        num_stats += static_cast<int>(num_quantiles);
+      } else {
+        num_stats += 1;
+      }
+  }
+
+  return num_stats;
+}
+
 // Return a matrix with one row per stat and one row per raster layer
 // [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
@@ -296,7 +315,10 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     bool disaggregated = (grid.dx() < rsrc.grid().dx() || grid.dy() < rsrc.grid().dy());
 
     bool store_values = false;
-    int stat_result_size = 0;
+    bool calc_value_set = false;
+    std::size_t num_unique_values = 0;
+    std::size_t num_quantiles = 0;
+
     for (const auto & stat : stats) {
       store_values = store_values || requires_stored_values(stat);
 
@@ -305,9 +327,12 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
         Rcpp::stop("Cannot compute 'count' or 'sum' when value raster is disaggregated to resolution of weights.");
       }
 
-      if (stat == std::string("quantile")) {
-        int num_quantiles = 0;
+      if (stat == std::string("frac") ||
+          stat == std::string("weighted_frac")) {
+        calc_value_set = true;
+      }
 
+      if (stat == std::string("quantile")) {
         if (quantiles.isNotNull()) {
           Rcpp::NumericVector qvec = quantiles.get();
           num_quantiles = qvec.size();
@@ -316,10 +341,6 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
         if (num_quantiles == 0) {
           Rcpp::stop("Quantiles not specified.");
         }
-
-        stat_result_size += num_quantiles;
-      } else {
-        stat_result_size += 1;
       }
     }
 
@@ -330,8 +351,6 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
     for (int i = 0; i < nresults; i++) {
       raster_stats.emplace_back(store_values);
     }
-
-    Rcpp::NumericMatrix stat_results = Rcpp::no_init(nresults, stat_result_size);
 
     if (bbox.intersects(grid.extent())) {
       auto cropped_grid = grid.crop(bbox);
@@ -393,6 +412,27 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
       }
     }
 
+
+    std::set<double> value_set;
+    if (calc_value_set) {
+      for (const auto& rs : raster_stats) {
+        for (const auto& value : rs) {
+          value_set.insert(value);
+        }
+      }
+      num_unique_values = value_set.size();
+    }
+
+    auto stat_result_size = get_num_stats(stats, num_quantiles, num_unique_values);
+    Rcpp::NumericMatrix stat_results = Rcpp::no_init(nresults, stat_result_size);
+
+    if (calc_value_set) {
+      Rcpp::NumericVector unique_values(value_set.begin(), value_set.end());
+      stat_results.attr("unique_values") = unique_values;
+    }
+
+    // rows (j) represent layers
+    // cols (i) represent stats
     for (int j = 0; j < nresults; j++) {
       const auto& rs = raster_stats[j];
 
@@ -427,9 +467,23 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
           }
         }
 
+        else if (stat == std::string("frac")) {
+          for (double v : value_set) {
+            stat_results(j, i++) = rs.frac(v).value_or(0);
+          }
+        }
+
+        else if (stat == std::string("weighted_frac")) {
+          for (double v : value_set) {
+            stat_results(j, i++) = rs.weighted_frac(v).value_or(0);
+          }
+        }
+
         else Rcpp::stop("Unknown stat: " + stat);
       }
     }
+
+    // FIXME set dimnames here
 
     return stat_results;
   } catch (std::exception & e) {
