@@ -183,6 +183,13 @@ setGeneric("exact_extract", function(x, y, ...)
 #'                          This is useful when the results of multiple
 #'                          calls to `exact_extract` are combined with
 #'                          `cbind`.
+#' @param     colname_fun an optional function used to construct column names.
+#'                        Should accept arguments `values` (name of value layer),
+#'                        `weights` (name of weight layer), `fun_name` (value of
+#'                        `fun`), `fun_value` (value associated with `fun`, for
+#'                        `fun %in% c('quantile', 'frac', 'weighted_frac)`
+#'                        `nvalues` (number of value layers), `weights`
+#'                        (number of weight layers)
 #' @param     include_area if `TRUE`, and `fun` is `NULL`, augment
 #'                       the data frame for each feature with a column
 #'                       for the cell area. If the units of the raster CRS are
@@ -269,7 +276,8 @@ NULL
                            quantiles=NULL,
                            progress=TRUE,
                            max_cells_in_memory=30000000,
-                           grid_compat_tol=1e-3
+                           grid_compat_tol=1e-3,
+                           colname_fun=NULL
                            ) {
   area_weights <- is.character(weights) && length(weights) == 1 && weights == 'area'
   if (area_weights) {
@@ -500,7 +508,7 @@ NULL
         unique_values <- numeric()
       }
 
-      result_cols <- .resultColumns(names(x), names(weights), fun, full_colnames, quantiles, unique_values)
+      result_cols <- .resultColumns(names(x), names(weights), fun, full_colnames, quantiles, unique_values, colname_fun = colname_fun)
       consistent_cols <- !(result_cols$stat_name %in% c('frac', 'weighted_frac'))
 
       # Construct an empty matrix that we can populate with stats returned
@@ -553,7 +561,7 @@ NULL
           stop(sprintf("Can't apply function layerwise with stacks of %d value layers and %d layers", num_values, num_weights))
         }
 
-        result_names <- .resultColNames(value_names, weight_names, fun, full_colnames)
+        result_names <- .resultColNames(value_names, weight_names, fun, full_colnames, colname_fun = colname_fun)
         num_results <- max(num_weights, num_values)
         ind <- .valueWeightIndexes(num_values, num_weights)
       } else {

@@ -25,7 +25,7 @@
 #' @param quantiles quantiles to use when \code{stat_names} contains \code{quantile}
 #' @return character vector of column names
 #' @keywords internal
-.resultColumns <- function(value_names, weight_names, fun, full_colnames, quantiles=numeric(), unique_values=numeric()) {
+.resultColumns <- function(value_names, weight_names, fun, full_colnames, quantiles=numeric(), unique_values=numeric(), colname_fun = NULL) {
   if (inherits(fun, 'standardGeneric')) {
     stat_names <- fun@generic[1]
   } else if (is.function(fun)) {
@@ -57,41 +57,61 @@
                    stat_name=stat_names, stringsAsFactors=FALSE)
 
   z$values <- vn[z$index]
-  z$stat_component <- z$stat_name
   z$base_value <- NA_real_
 
   for (stat in c('frac', 'weighted_frac')) {
     ifrac <- which(z$stat_name == stat)
     z$base_value[ifrac] <- rep(unique_values, each = length(ifrac) / length(unique_values))
-    z$stat_component[ifrac] <- sprintf('%s_%s', stat, z$base_value[ifrac])
   }
 
   iquantile <- which(z$stat_name == 'quantile')
   z$base_value[iquantile] <- rep(quantiles, each = length(iquantile) / length(quantiles))
-  z$stat_component[iquantile] <- sprintf('q%02d', as.integer(100 * z$base_value[iquantile]))
 
   if (is.null(wn)) {
     z$weights <- NA
   } else {
     z$weights <- wn[z$index]
   }
+  z$weights[!.includeWeightInColName(z$stat_name)] <- NA
 
-  # construct column names for each index, stat
-  # add weight layer name only if layer is ambiguously weighted
-  z$colname <- mapply(function(stat_name, stat_component, value, weight) {
-    ret <- stat_component
-    if (full_colnames || length(value_names) > 1) {
-      ret <- paste(ret, value, sep='.')
+  if (is.null(colname_fun)) {
+    colname_fun <- function(...) {
+      .makeColname(full_colnames = full_colnames, ...)
     }
-    if (.includeWeightInColName(stat_name) && ((full_colnames & length(weight_names) > 0)
-                                                    || length(weight_names) > 1)) {
-      ret <- paste(ret, weight, sep='.')
-    }
+  }
 
-    return(ret)
-  }, z$stat_name, z$stat_component, z$values, z$weight, USE.NAMES = FALSE)
+  z$colname <- mapply(colname_fun,
+                      fun_name = z$stat_name,
+                      values = z$values,
+                      weights = z$weights,
+                      fun_value = z$base_value,
+                      MoreArgs = list(nvalues = length(value_names),
+                                      nweights = length(weight_names)),
+                      USE.NAMES = FALSE)
 
   return(z)
+}
+
+.makeColname <- function(fun_name, values, weights, fun_value, full_colnames, nvalues, nweights) {
+  # construct column names for each index, stat
+  # add weight layer name only if layer is ambiguously weighted
+  if (fun_name == 'quantile') {
+    fun_component <- sprintf('q%02d', as.integer(100 * fun_value))
+  } else if (fun_name %in% c('frac', 'weighted_frac')) {
+    fun_component <- sprintf('%s_%s', fun_name, fun_value)
+  } else {
+    fun_component <- fun_name
+  }
+
+  ret <- fun_component
+  if (full_colnames || nvalues > 1) {
+    ret <- paste(ret, values, sep='.')
+  }
+  if ((!is.na(weights)) && ((full_colnames & nweights > 0) || nweights > 1)) {
+    ret <- paste(ret, weights, sep='.')
+  }
+
+  return(ret)
 }
 
 .includeWeightInColName <- function(fun) {

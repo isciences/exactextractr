@@ -1018,6 +1018,17 @@ test_that('generated column names follow expected pattern', {
                  'weighted_mean.v1', 'weighted_mean.v2', 'weighted_mean.v3'))
   expect_equal(.resultColNames(values, weights[1], test_mean, FALSE),
                c('fun.v1', 'fun.v2', 'fun.v3'))
+
+  # custom colnames_fun
+  expect_equal(
+    .resultColNames(values, weights[1], stats, full_colnames = FALSE,
+                    colname_fun = function(fun_name, values, weights, ...) {
+                      paste(weights, values, fun_name, sep = '-')
+                    }),
+    c('NA-v1-mean', 'NA-v2-mean', 'NA-v3-mean',
+      'w1-v1-weighted_mean', 'w1-v2-weighted_mean', 'w1-v3-weighted_mean')
+
+  )
 })
 
 test_that('We can replace NA values in the value and weighting rasters with constants', {
