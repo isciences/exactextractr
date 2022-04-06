@@ -1,7 +1,7 @@
 # version 0.8.1
 
-- Fix incorrect grid compatibility error with certain combinations of
-  resolutions between value and weighting rasters
+- Fix incorrect grid compatibility error with certain value and weighting 
+  raster resolutions
 
 # version 0.8.0
 
