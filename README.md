@@ -74,8 +74,9 @@ The following summary operations are supported:
 | `variance`             | The population variance of cell values, weighted by the fraction of each cell that is covered by the polygon. |
 | `stdev`                | The population standard deviation of cell values, weighted by the fraction of each cell that is covered by the polygon. |
 | `coefficient_of_variation` | The population coefficient of variation of cell values, weighted by the fraction of each cell that is covered by the polygon. |
+| `frac`                 | Fraction of covered cells that are occupied by each distinct raster value. |
 
-Two additional summary operations require the use of a second weighting raster,
+Three additional summary operations require the use of a second weighting raster,
 provided in the `weights` argument to 
 [`exact_extract`](https://isciences.gitlab.io/exactextractr/reference/exact_extract.html):
 
@@ -83,6 +84,7 @@ provided in the `weights` argument to
 | ---------------------- |--------------- |
 | `weighted_mean`        | Mean defined value of cells that intersect the polygon, weighted by the product of the coverage fraction and the value of a second weighting raster. |
 | `weighted_sum`         | Sum of defined values of raster cells that intersect the polygon, multiplied by the coverage fraction and the value of a second weighting raster. |
+| `weighted_frac`        | Fraction of covered cells that are occupied by each distinct raster value, with coverage fractions multiplied by the value of a second weighting raster. |
 
 Weighted usage is discussed in more detail [below](#weighted-usage).
 
