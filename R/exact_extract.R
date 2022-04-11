@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 ISciences, LLC.
+# Copyright (c) 2018-2022 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -120,6 +120,12 @@ setGeneric("exact_extract", function(x, y, ...)
 #'                     the fraction of each cell that is covered by the polygon
 #'                     and the value of a second weighting raster provided
 #'                     as `weights`
+#'  * `frac` - returns one column for each possible value of `x`, with the
+#'             the fraction of defined raster cells that are equal to that
+#'             value.
+#'  * `weighted_frac` - returns one column for each possible value of `x`,
+#'                      with the fraction of defined cells that are equal
+#'                      to that value, weighted by `weights.`
 #'
 #' In all of the summary operations, `NA` values in the the primary raster (`x`)
 #' raster are ignored (i.e., `na.rm = TRUE`.) If `NA` values occur in the
@@ -177,6 +183,13 @@ setGeneric("exact_extract", function(x, y, ...)
 #'                          This is useful when the results of multiple
 #'                          calls to `exact_extract` are combined with
 #'                          `cbind`.
+#' @param     colname_fun an optional function used to construct column names.
+#'                        Should accept arguments `values` (name of value layer),
+#'                        `weights` (name of weight layer), `fun_name` (value of
+#'                        `fun`), `fun_value` (value associated with `fun`, for
+#'                        `fun %in% c('quantile', 'frac', 'weighted_frac)`
+#'                        `nvalues` (number of value layers), `weights`
+#'                        (number of weight layers)
 #' @param     include_area if `TRUE`, and `fun` is `NULL`, augment
 #'                       the data frame for each feature with a column
 #'                       for the cell area. If the units of the raster CRS are
@@ -263,7 +276,8 @@ NULL
                            quantiles=NULL,
                            progress=TRUE,
                            max_cells_in_memory=30000000,
-                           grid_compat_tol=1e-3
+                           grid_compat_tol=1e-3,
+                           colname_fun=NULL
                            ) {
   area_weights <- is.character(weights) && length(weights) == 1 && weights == 'area'
   if (area_weights) {
@@ -482,38 +496,49 @@ NULL
         stop("Weighted stat requested but no weights provided.")
       }
 
-      results <- sapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
+      results <- lapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
         ret <- CPP_stats(x, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, grid_compat_tol, quantiles)
         update_progress()
         return(ret)
       })
 
-      if (!is.matrix(results) && !force_df) {
-        # Single stat? Return a vector unless asked otherwise via force_df.
-        return(results)
+      if ('frac' %in% fun || 'weighted_frac' %in% fun) {
+        unique_values <- unique(Reduce(c, lapply(results, function(r) attr(r, 'unique_values'))))
       } else {
-        # Return a data frame with a column for each stat
-        colnames <- .resultColNames(names(x), names(weights), fun, full_colnames, quantiles)
-
-        if (is.matrix(results)) {
-          results <- t(results)
-        } else {
-          results <- matrix(results, nrow=length(results))
-        }
-
-        dimnames(results) <- list(NULL, colnames)
-        ret <- as.data.frame(results)
-
-        # drop duplicated columns (occurs when an unweighted stat is
-        # requested alongside a weighted stat, with a stack of weights)
-        ret <- ret[, unique(names(ret)), drop = FALSE]
-
-        if (!is.null(append_cols)) {
-          ret <- cbind(sf::st_drop_geometry(y[, append_cols]), ret)
-        }
-
-        return(ret)
+        unique_values <- numeric()
       }
+
+      result_cols <- .resultColumns(names(x), names(weights), fun, full_colnames, quantiles, unique_values, colname_fun = colname_fun)
+      consistent_cols <- !(result_cols$stat_name %in% c('frac', 'weighted_frac'))
+
+      # Construct an empty matrix that we can populate with stats returned
+      # for each geometry, with 0 as a default where a geometry does not
+      # return a stat (e.g., 'frac' for a specific value). Then convert the
+      # filled matrix to a data frame. (This is faster than populating the
+      # data frame directly, because the data frame assignment operator is
+      # slow.)
+      result_mat <- matrix(0.0, nrow = length(geoms), ncol = nrow(result_cols))
+      for (i in seq_along(results)) {
+        cols <- consistent_cols | result_cols$base_value %in% attr(results[[i]], 'unique_values')
+        result_mat[i, cols] <- results[[i]]
+      }
+      colnames(result_mat) <- result_cols$colname
+
+      result_df <- as.data.frame(result_mat)
+
+      if (ncol(result_df) == 1 && !force_df) {
+        return(result_df[[1]])
+      }
+
+      # drop duplicated columns (occurs when an unweighted stat is
+      # requested alongside a weighted stat, with a stack of weights)
+      result_df <- result_df[, unique(names(result_df)), drop = FALSE]
+
+      if (!is.null(append_cols)) {
+        result_df <- cbind(sf::st_drop_geometry(y[, append_cols]), result_df)
+      }
+
+      return(result_df)
     } else {
       num_values <- .numLayers(x)
       value_names <- names(x)
@@ -536,7 +561,7 @@ NULL
           stop(sprintf("Can't apply function layerwise with stacks of %d value layers and %d layers", num_values, num_weights))
         }
 
-        result_names <- .resultColNames(value_names, weight_names, fun, full_colnames)
+        result_names <- .resultColNames(value_names, weight_names, fun, full_colnames, colname_fun = colname_fun)
         num_results <- max(num_weights, num_values)
         ind <- .valueWeightIndexes(num_values, num_weights)
       } else {

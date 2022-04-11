@@ -66,7 +66,9 @@ bool requires_stored_values(T s) {
     s == "minority" ||
     s == "variety" ||
     s == "median" ||
-    s == "quantile";
+    s == "quantile" ||
+    s == "frac" ||
+    s == "weighted_frac";
 }
 
 template<typename T, typename G>

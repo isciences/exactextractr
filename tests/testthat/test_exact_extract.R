@@ -91,6 +91,74 @@ test_that('Weighted stat functions work', {
                (0.25*7 + 0.5*8 + 0.25*9))
 })
 
+test_that('Grouped stat functions work', {
+  rast <- raster::raster(matrix(rep(1:3, each = 3), nrow=3, byrow=TRUE),
+                         xmn=0, xmx=3, ymn=0, ymx=3,
+                         crs='+proj=longlat +datum=WGS84')
+
+  weights <- raster::raster(matrix(rep(3:1, each = 3), nrow = 3, byrow=TRUE),
+                            xmn=0, xmx=3, ymn=0, ymx=3,
+                            crs='+proj=longlat +datum=WGS84')
+
+
+  square1 <- make_rect(0.5, 0.5, 2.5, 2.5, sf::st_crs(rast))
+  square2 <- make_rect(0.5, 0.5, 1.0, 1.0, sf::st_crs(rast))
+
+  squares <- c(square1, square2)
+
+  expect_equal(
+    exact_extract(rast, squares, c('count', 'frac'), progress = FALSE),
+    rbind(
+      data.frame(count = 4.00, frac_1 = 0.25, frac_2 = 0.5, frac_3 = 0.25),
+      data.frame(count = 0.25, frac_1 = 0,    frac_2 = 0,   frac_3 = 1.00)))
+
+  expect_equal(
+    exact_extract(rast, squares, c('weighted_frac', 'sum'), weights = weights, progress = FALSE),
+    rbind(
+      data.frame(weighted_frac_1 = 0.375, weighted_frac_2 = 0.5, weighted_frac_3 = 0.125, sum = 8),
+      data.frame(weighted_frac_1 =     0, weighted_frac_2 =   0, weighted_frac_3 =     1, sum = 0.75)
+    ))
+})
+
+test_that('Grouped stat functions work (multilayer)', {
+  rast <- raster::raster(matrix(rep(1:3, each = 3), nrow=3, byrow=TRUE),
+                         xmn=0, xmx=3, ymn=0, ymx=3,
+                         crs='+proj=longlat +datum=WGS84')
+  rast <- raster::stack(list(a = rast, b = rast + 1))
+
+  weights <- raster::raster(matrix(rep(3:1, each = 3), nrow = 3, byrow=TRUE),
+                            xmn=0, xmx=3, ymn=0, ymx=3,
+                            crs='+proj=longlat +datum=WGS84')
+
+  square1 <- make_rect(0.5, 0.5, 2.5, 2.5, sf::st_crs(rast))
+  square2 <- make_rect(0.5, 0.5, 1.0, 1.0, sf::st_crs(rast))
+  squares <- c(square1, square2)
+
+  stats <- c('count', 'frac', 'quantile')
+  quantiles <- c(0.25, 0.75)
+
+  single_layer_a <- exact_extract(rast[['a']], squares, stats, quantiles = quantiles, progress = FALSE)
+  single_layer_b <- exact_extract(rast[['b']], squares, stats, quantiles = quantiles, progress = FALSE)
+  multi_layer <- exact_extract(rast, squares, stats, quantiles = quantiles, progress = FALSE)
+
+  # for each layer (a, b) we get a column with the coverage fraction of each
+  # value that occurs in a OR b. If a value does not occur for a given layer,
+  # the values in its associated column will be zero.
+  for (col in unique(c(names(single_layer_a), names(single_layer_b)))) {
+    if (col %in% names(single_layer_a)) {
+      expect_equal(single_layer_a[[col]], multi_layer[[paste(col, 'a', sep='.')]])
+    } else {
+      expect_equal(c(0, 0), multi_layer[[paste(col, 'a', sep='.')]])
+    }
+
+    if (col %in% names(single_layer_b)) {
+      expect_equal(single_layer_b[[col]], multi_layer[[paste(col, 'b', sep='.')]])
+    } else {
+      expect_equal(c(0, 0), multi_layer[[paste(col, 'b', sep='.')]])
+    }
+  }
+})
+
 test_that('Raster NA values are correctly handled', {
   data <- matrix(1:100, nrow=10, byrow=TRUE)
   data[7:10, 1:4] <- NA # cut out lower-left corner
@@ -926,6 +994,9 @@ test_that('generated column names follow expected pattern', {
                  'weighted_mean.v1.w1', 'weighted_mean.v1.w2', 'weighted_mean.v1.w3'))
   expect_equal(.resultColNames(values[1], weights, test_mean, TRUE),
                c('fun.v1.w1', 'fun.v1.w2', 'fun.v1.w3'))
+  expect_equal(.resultColNames(values[1], weights, 'weighted_frac', full_colnames = TRUE, unique_values = c(4, 8)),
+               c('weighted_frac_4.v1.w1', 'weighted_frac_4.v1.w2', 'weighted_frac_4.v1.w3',
+                 'weighted_frac_8.v1.w1', 'weighted_frac_8.v1.w2', 'weighted_frac_8.v1.w3'))
 
   # here the values are always the same so we don't bother adding them to the names
   expect_equal(.resultColNames(values[1], weights, stats, FALSE),
@@ -947,6 +1018,17 @@ test_that('generated column names follow expected pattern', {
                  'weighted_mean.v1', 'weighted_mean.v2', 'weighted_mean.v3'))
   expect_equal(.resultColNames(values, weights[1], test_mean, FALSE),
                c('fun.v1', 'fun.v2', 'fun.v3'))
+
+  # custom colnames_fun
+  expect_equal(
+    .resultColNames(values, weights[1], stats, full_colnames = FALSE,
+                    colname_fun = function(fun_name, values, weights, ...) {
+                      paste(weights, values, fun_name, sep = '-')
+                    }),
+    c('NA-v1-mean', 'NA-v2-mean', 'NA-v3-mean',
+      'w1-v1-weighted_mean', 'w1-v2-weighted_mean', 'w1-v3-weighted_mean')
+
+  )
 })
 
 test_that('We can replace NA values in the value and weighting rasters with constants', {

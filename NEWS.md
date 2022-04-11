@@ -1,3 +1,8 @@
+# version 0.9.0
+
+- Add `frac` and `weighted_frac` summary operations, for summarizing categorical rasters
+- Add `colname_fun` argument to `exact_extract`, for controlling constructed column names
+
 # version 0.8.1
 
 - Fix incorrect grid compatibility error with certain value and weighting 
