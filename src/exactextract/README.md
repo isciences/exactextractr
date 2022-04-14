@@ -39,7 +39,7 @@ The weighting raster does not need to have the same resolution and extent as the
 * A C++14 compiler (e.g., gcc 5.0+)
 * CMake 3.8+
 * [GEOS](https://github.com/libgeos/geos) version 3.5+
-* [GDAL](https://github.com/osgeo/GDAL) version 2.0+
+* [GDAL](https://github.com/osgeo/GDAL) version 2.0+ (For CLI binary)
 
 It can be built as follows on Linux as follows:
 
@@ -51,6 +51,23 @@ cd cmake-build-release
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 sudo make install
+```
+
+There are three options available to control what gets compiled. They are each ON by default.
+- `BUILD_CLI` will build main program (which requires GDAL)
+- `BUILD_TEST` will build the catch_test suite
+- `BUILD_DOC` will build the doxygen documentation if doxygen is available
+
+To build just the library (static and dynamic) and test suite, you can use these options as follows to turn off the CLI (which means GDAL isn't required) and disable the documentation build. The tests and libary are built, the tests run, and the library installed if the tests were run successfully:
+
+```bash
+git clone https://github.com/isciences/exactextract
+cd exactextract
+mkdir cmake-build-release
+cd cmake-build-release
+cmake -DBUILD_CLI:=OFF -DBUILD_DOC:=OFF -DCMAKE_BUILD_TYPE=Release ..
+make
+./catch_tests && sudo make install
 ```
 
 ### Using `exactextract`
@@ -156,8 +173,8 @@ The area covered by the polygon is shaded purple.
 | weighted_mean  | (&Sigma;x<sub>i</sub>c<sub>i</sub>w<sub>i</sub>)/(&Sigma;c<sub>i</sub>w<sub>i</sub>) | Mean value of cells that intersect the polygon, weighted by the product over the coverage fraction and the weighting raster. | Population-weighted average temperature | 31.5 / (0.5&times;5 + 0&times;6 + 1.0&times;7 + 0.25&times;8) = 2.74
 | min            | -                                                                                    | Minimum value of cells that intersect the polygon, not taking coverage fractions or weighting raster values into account. | Minimum elevation | 1 |
 | max            | -                                                                                    | Maximum value of cells that intersect the polygon, not taking coverage fractions or weighting raster values into account.  | Maximum temperature | 4 |
-| minority       | -                                                                                    | The raster value occupying the least number of cells, taking into account cell coverage fractions but not weighting raster values. | Most common land cover type | - |
-| majority       | -                                                                                    | The raster value occupying the greatest number of cells, taking into account cell coverage fractions but not weighting raster values. | Least common land cover type | - |
+| minority       | -                                                                                    | The raster value occupying the least number of cells, taking into account cell coverage fractions but not weighting raster values. | Least common land cover type | - |
+| majority       | -                                                                                    | The raster value occupying the greatest number of cells, taking into account cell coverage fractions but not weighting raster values. | Most common land cover type | - |
 | variety        | -                                                                                    | The number of distinct raster values in cells wholly or partially covered by the polygon. | Number of land cover types | - |
 | variance       | (&Sigma;c<sub>i</sub>(x<sub>i</sub> - x&#773;)<sup>2</sup>)/(&Sigma;c<sub>i</sub>)                | Population variance of cell values that intersect the polygon, taking into account coverage fraction. | - | 1.10 |
 | stdev          | &Sqrt;variance                                                                       | Population standard deviation of cell values that intersect the polygon, taking into account coverage fraction. | - | 1.05 |
