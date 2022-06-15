@@ -13,6 +13,10 @@ CPP_stats <- function(rast, weights, wkb, default_value, default_weight, coverag
     .Call('_exactextractr_CPP_stats', PACKAGE = 'exactextractr', rast, weights, wkb, default_value, default_weight, coverage_areas, p_area_method, stats, max_cells_in_memory, grid_compat_tol, quantiles)
 }
 
+CPP_update_max_coverage <- function(extent, res, max_coverage, max_coverage_index, tot_coverage, wkb, index) {
+    invisible(.Call('_exactextractr_CPP_update_max_coverage', PACKAGE = 'exactextractr', extent, res, max_coverage, max_coverage_index, tot_coverage, wkb, index))
+}
+
 CPP_resample <- function(rast_in, rast_out, p_stat, p_fun, coverage_area, area_method) {
     .Call('_exactextractr_CPP_resample', PACKAGE = 'exactextractr', rast_in, rast_out, p_stat, p_fun, coverage_area, area_method)
 }

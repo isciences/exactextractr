@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020 ISciences, LLC.
+// Copyright (c) 2018-2022 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -23,6 +23,12 @@ Grid make_grid(const Rcpp::S4 & rast) {
   Rcpp::NumericVector extent = extentFn(rast);
   Rcpp::NumericVector res = resFn(rast);
 
+  return make_grid(extent, res);
+}
+
+Grid make_grid(const Rcpp::NumericVector & extent,
+		const Rcpp::NumericVector & res)
+{
   return {{
     extent[0],
     extent[1],
