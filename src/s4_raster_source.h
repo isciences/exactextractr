@@ -36,6 +36,21 @@ public:
     m_grid = make_grid(rast);
   }
 
+  S4RasterSource(SEXP rast,
+                 const Rcpp::NumericVector & ext,
+                 const Rcpp::NumericVector & res,
+                 double default_value = std::numeric_limits<double>::quiet_NaN()) :
+    m_grid(exactextract::Grid<exactextract::bounded_extent>::make_empty()),
+    m_rast(rast),
+    m_last_box(std::numeric_limits<double>::quiet_NaN(),
+               std::numeric_limits<double>::quiet_NaN(),
+               std::numeric_limits<double>::quiet_NaN(),
+               std::numeric_limits<double>::quiet_NaN()),
+    m_default_value(default_value)
+  {
+    m_grid = make_grid(ext, res);
+  }
+
   const exactextract::Grid<exactextract::bounded_extent> &grid() const {
     return m_grid;
   }

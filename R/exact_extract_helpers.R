@@ -379,7 +379,7 @@
   if (inherits(r, 'BasicRaster')) {
     return(raster::inMemory(r))
   } else if (inherits(r, 'SpatRaster')) {
-    return(terra::inMemory(r[[1]]))
+    return(terra::inMemory(r)[1])
   } else {
     stop('Unknown type: ', class(r))
   }

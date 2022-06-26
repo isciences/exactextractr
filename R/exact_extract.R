@@ -447,6 +447,10 @@ NULL
     weights <- .eagerLoad(weights, geoms, max_cells_in_memory, message_on_fail = progress)
   }
 
+  # Calculate extent and resolution outside of loop for performance (yes, really)
+  x_ext <- .extent(x)
+  x_res <- .res(x)
+
   # At this point, if the data have not been preloaded into memory, either:
   # - we don't have the terra package available
   # - we can't fit the whole processing area in memory
@@ -497,7 +501,7 @@ NULL
       }
 
       results <- lapply(sf::st_as_binary(geoms, EWKB=TRUE), function(wkb) {
-        ret <- CPP_stats(x, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, grid_compat_tol, quantiles)
+        ret <- CPP_stats(x, x_ext, x_res, weights, wkb, default_value, default_weight, coverage_area, area_method, fun, max_cells_in_memory, grid_compat_tol, quantiles)
         update_progress()
         return(ret)
       })
@@ -590,6 +594,8 @@ NULL
         warn_on_disaggregate <- feature_num == 1
 
         col_list <- CPP_exact_extract(x,
+                                      x_ext,
+                                      x_res,
                                       x_orig,
                                       weights,
                                       wkb,

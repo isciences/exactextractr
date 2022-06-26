@@ -44,6 +44,8 @@ using exactextract::RasterSource;
 
 // [[Rcpp::export]]
 Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
+                             const Rcpp::NumericVector & rast_ext,
+                             const Rcpp::NumericVector & rast_res,
                              Rcpp::Nullable<Rcpp::S4> & rast_uncropped,
                              Rcpp::Nullable<Rcpp::S4> & weights,
                              const Rcpp::RawVector & wkb,
@@ -68,7 +70,7 @@ Rcpp::List CPP_exact_extract(Rcpp::S4 & rast,
     auto weights_grid = exactextract::Grid<bounded_extent>::make_empty();
     auto common_grid = grid;
 
-    S4RasterSource rsrc(rast, default_value);
+    S4RasterSource rsrc(rast, rast_ext, rast_res, default_value);
     int src_nlayers = get_nlayers(rast);
 
     std::unique_ptr<S4RasterSource> rweights;
@@ -262,6 +264,8 @@ static int get_num_stats(const Rcpp::StringVector & stats,
 // Return a matrix with one row per stat and one row per raster layer
 // [[Rcpp::export]]
 Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
+                              const Rcpp::NumericVector & rast_ext,
+                              const Rcpp::NumericVector & rast_res,
                               Rcpp::Nullable<Rcpp::S4> weights,
                               const Rcpp::RawVector & wkb,
                               double default_value,
@@ -281,7 +285,7 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
 
     int nlayers = get_nlayers(rast);
 
-    S4RasterSource rsrc(rast, default_value);
+    S4RasterSource rsrc(rast, rast_ext, rast_res, default_value);
 
     std::unique_ptr<S4RasterSource> rweights;
     std::string area_method;
