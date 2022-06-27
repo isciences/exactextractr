@@ -2,6 +2,8 @@
 
 - Add `frac` and `weighted_frac` summary operations, for summarizing categorical rasters
 - Add `colname_fun` argument to `exact_extract`, for controlling constructed column names
+- Add `rasterize_polygons` function to rasterize a polygon coverage, assigning cells to
+  polygon with greatest coverage area
 
 # version 0.8.2
 

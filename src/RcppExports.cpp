@@ -71,6 +71,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// CPP_update_max_coverage
+void CPP_update_max_coverage(Rcpp::NumericVector& extent, Rcpp::NumericVector& res, Rcpp::NumericMatrix& max_coverage, Rcpp::IntegerMatrix& max_coverage_index, Rcpp::NumericMatrix& tot_coverage, const Rcpp::RawVector& wkb, int index);
+RcppExport SEXP _exactextractr_CPP_update_max_coverage(SEXP extentSEXP, SEXP resSEXP, SEXP max_coverageSEXP, SEXP max_coverage_indexSEXP, SEXP tot_coverageSEXP, SEXP wkbSEXP, SEXP indexSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector& >::type extent(extentSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector& >::type res(resSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix& >::type max_coverage(max_coverageSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerMatrix& >::type max_coverage_index(max_coverage_indexSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix& >::type tot_coverage(tot_coverageSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::RawVector& >::type wkb(wkbSEXP);
+    Rcpp::traits::input_parameter< int >::type index(indexSEXP);
+    CPP_update_max_coverage(extent, res, max_coverage, max_coverage_index, tot_coverage, wkb, index);
+    return R_NilValue;
+END_RCPP
+}
 // CPP_resample
 Rcpp::S4 CPP_resample(Rcpp::S4& rast_in, Rcpp::S4& rast_out, Rcpp::Nullable<Rcpp::CharacterVector> p_stat, Rcpp::Nullable<Rcpp::Function> p_fun, bool coverage_area, std::string area_method);
 RcppExport SEXP _exactextractr_CPP_resample(SEXP rast_inSEXP, SEXP rast_outSEXP, SEXP p_statSEXP, SEXP p_funSEXP, SEXP coverage_areaSEXP, SEXP area_methodSEXP) {
@@ -92,6 +108,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_exactextractr_CPP_coverage_fraction", (DL_FUNC) &_exactextractr_CPP_coverage_fraction, 3},
     {"_exactextractr_CPP_exact_extract", (DL_FUNC) &_exactextractr_CPP_exact_extract, 17},
     {"_exactextractr_CPP_stats", (DL_FUNC) &_exactextractr_CPP_stats, 11},
+    {"_exactextractr_CPP_update_max_coverage", (DL_FUNC) &_exactextractr_CPP_update_max_coverage, 7},
     {"_exactextractr_CPP_resample", (DL_FUNC) &_exactextractr_CPP_resample, 6},
     {NULL, NULL, 0}
 };

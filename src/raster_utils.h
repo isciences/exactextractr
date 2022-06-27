@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 ISciences, LLC.
+// Copyright (c) 2018-2022 ISciences, LLC.
 // All rights reserved.
 //
 // This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -23,6 +23,7 @@
 
 // Construct a grid corresponding to 'rast'
 exactextract::Grid<exactextract::bounded_extent> make_grid(const Rcpp::S4 & rast);
+exactextract::Grid<exactextract::bounded_extent> make_grid(const Rcpp::NumericVector & extent, const Rcpp::NumericVector & res);
 
 // Return the number of layers in 'rast'
 int get_nlayers(Rcpp::S4 & rast);
