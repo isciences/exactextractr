@@ -3,3 +3,4 @@ reference:
   - exact_extract
   - coverage_fraction
   - exact_resample
+  - rasterize_polygons
