@@ -507,7 +507,7 @@ NULL
       })
 
       if ('frac' %in% fun || 'weighted_frac' %in% fun) {
-        unique_values <- unique(Reduce(c, lapply(results, function(r) attr(r, 'unique_values'))))
+        unique_values <- unique(do.call(c, lapply(results, function(r) attr(r, 'unique_values'))))
       } else {
         unique_values <- numeric()
       }
