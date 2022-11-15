@@ -1,3 +1,9 @@
+# version 0.9.1
+
+- Fix incorrect results for `frac` and `weighted_frac` when different polygons intersect
+  different subsets of available categorical values
+- Improve performance of `frac` and `weighted_frac` for large sets of input polygons
+
 # version 0.9.0
 
 - Add `frac` and `weighted_frac` summary operations, for summarizing categorical rasters

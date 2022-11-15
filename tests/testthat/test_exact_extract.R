@@ -101,22 +101,22 @@ test_that('Grouped stat functions work', {
                             crs='+proj=longlat +datum=WGS84')
 
 
-  square1 <- make_rect(0.5, 0.5, 2.5, 2.5, sf::st_crs(rast))
-  square2 <- make_rect(0.5, 0.5, 1.0, 1.0, sf::st_crs(rast))
+  square1 <- make_rect(0.5, 0.5, 1.0, 1.0, sf::st_crs(rast))
+  square2 <- make_rect(0.5, 0.5, 2.5, 2.5, sf::st_crs(rast))
 
   squares <- c(square1, square2)
 
   expect_equal(
     exact_extract(rast, squares, c('count', 'frac'), progress = FALSE),
     rbind(
-      data.frame(count = 4.00, frac_1 = 0.25, frac_2 = 0.5, frac_3 = 0.25),
-      data.frame(count = 0.25, frac_1 = 0,    frac_2 = 0,   frac_3 = 1.00)))
+      data.frame(count = 0.25, frac_1 = 0,    frac_2 = 0,   frac_3 = 1.00),
+      data.frame(count = 4.00, frac_1 = 0.25, frac_2 = 0.5, frac_3 = 0.25)))
 
   expect_equal(
     exact_extract(rast, squares, c('weighted_frac', 'sum'), weights = weights, progress = FALSE),
     rbind(
-      data.frame(weighted_frac_1 = 0.375, weighted_frac_2 = 0.5, weighted_frac_3 = 0.125, sum = 8),
-      data.frame(weighted_frac_1 =     0, weighted_frac_2 =   0, weighted_frac_3 =     1, sum = 0.75)
+      data.frame(weighted_frac_1 =     0, weighted_frac_2 =   0, weighted_frac_3 =     1, sum = 0.75),
+      data.frame(weighted_frac_1 = 0.375, weighted_frac_2 = 0.5, weighted_frac_3 = 0.125, sum = 8)
     ))
 })
 
