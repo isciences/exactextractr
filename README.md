@@ -3,8 +3,8 @@
 [![Build Status](https://gitlab.com/isciences/exactextractr/badges/master/pipeline.svg)](https://gitlab.com/isciences/exactextractr/-/pipelines)
 [![coverage report](https://gitlab.com/isciences/exactextractr/badges/master/coverage.svg)](https://isciences.gitlab.io/exactextractr/coverage.html)
 [![CRAN](http://www.r-pkg.org/badges/version/exactextractr)](https://cran.r-project.org/package=exactextractr)
-[![cran checks](https://cranchecks.info/badges/worst/exactextractr)](https://cran.r-project.org/web/checks/check_results_exactextractr.html)
-
+[![cran checks](https://badges.cranchecks.info/worst/exactextractr.svg)](https://cran.r-project.org/web/checks/check_results_exactextractr.html)
+ 
 `exactextractr` is an R package that quickly and accurately summarizes raster
 values over polygonal areas, commonly referred to as _zonal statistics_. Unlike
 most zonal statistics implementations, it handles grid cells that are partially
