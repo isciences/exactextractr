@@ -23,7 +23,6 @@ Suggests:
     foreign,
     knitr,
     ncdf4,
-    rgdal,
     rmarkdown,
     testthat,
     terra (>= 1.5.17)
