@@ -8,7 +8,7 @@ PKG_CXXFLAGS = -std=c++14 -I$(RWINLIB)/include/geos
 
 EE = exactextract/src
 
-SOURCES = $(EE)/area.cpp $(EE)/box.cpp $(EE)/cell.cpp $(EE)/coordinate.cpp $(EE)/floodfill.cpp $(EE)/geos_utils.cpp $(EE)/grid.cpp $(EE)/perimeter_distance.cpp $(EE)/raster_cell_intersection.cpp $(EE)/side.cpp $(EE)/traversal.cpp $(EE)/traversal_areas.cpp $(EE)/weighted_quantiles.cpp
+SOURCES = $(EE)/measures.cpp $(EE)/box.cpp $(EE)/cell.cpp $(EE)/coordinate.cpp $(EE)/floodfill.cpp $(EE)/geos_utils.cpp $(EE)/grid.cpp $(EE)/perimeter_distance.cpp $(EE)/raster_cell_intersection.cpp $(EE)/side.cpp $(EE)/traversal.cpp $(EE)/traversal_areas.cpp $(EE)/weighted_quantiles.cpp
 OBJECTS = RcppExports.o exact_extract.o raster_utils.o coverage_fraction.o rasterize.o resample.o $(SOURCES:.cpp=.o)
 
 all: clean winlibs
