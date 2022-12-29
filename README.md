@@ -81,8 +81,10 @@ provided in the `weights` argument to
 
 | Name                   | Description    |                     
 | ---------------------- |--------------- |
-| `weighted_mean`        | Mean defined value of cells that intersect the polygon, weighted by the product of the coverage fraction and the value of a second weighting raster. |
-| `weighted_sum`         | Sum of defined values of raster cells that intersect the polygon, multiplied by the coverage fraction and the value of a second weighting raster. |
+| `weighted_mean`        | Mean value of defined (non-`NA`) cells that intersect the polygon, weighted by the product of the coverage fraction and the value of a second weighting raster. |
+| `weighted_sum`         | Sum of defined (non-`NA`) values of raster cells that intersect the polygon, multiplied by the coverage fraction and the value of a second weighting raster. |
+| `weighted_variance`    | Population variance of defined (non-`NA`) values of cells that intersect the polygon, weighted by the product of the coverage fraction and the value of a second weighting raster. |
+| `weighted_stdev`       | Population standard deviation of defined (non-`NA`) values of raster cells that intersect the polygon, multiplied by the coverage fraction and the value of a second weighting raster. |
 | `weighted_frac`        | Fraction of covered cells that are occupied by each distinct raster value, with coverage fractions multiplied by the value of a second weighting raster. |
 
 Weighted usage is discussed in more detail [below](#weighted-usage).

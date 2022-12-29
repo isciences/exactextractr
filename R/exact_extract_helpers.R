@@ -119,7 +119,7 @@
 }
 
 .isWeighted <- function(stat_name) {
-  stat_name %in% c('weighted_mean', 'weighted_sum', 'weighted_frac')
+  stat_name %in% c('weighted_mean', 'weighted_sum', 'weighted_frac', 'weighted_stdev', 'weighted_variance')
 }
 
 #' Compute indexes for the value and weight layers that should be
