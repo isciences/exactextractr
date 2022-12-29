@@ -99,7 +99,7 @@ test_that('Weighted stat functions work', {
                (0.25*7 + 0.5*8 + 0.25*9))
 
   expect_equal(exact_extract(rast, square, 'weighted_stdev', weights=bottom_row_only),
-               0.7071068) # Weighted.Desc.Stat::w.sd(x = c(7, 8, 9), mu = c(0.25, 0.5, 0.25)))
+               0.7071068, tolerance = 1e-7) # Weighted.Desc.Stat::w.sd(x = c(7, 8, 9), mu = c(0.25, 0.5, 0.25)))
 
   expect_equal(exact_extract(rast, square, 'weighted_variance', weights=bottom_row_only),
                0.5) # Weighted.Desc.Stat::w.var(x = c(7, 8, 9), mu = c(0.25, 0.5, 0.25)))
