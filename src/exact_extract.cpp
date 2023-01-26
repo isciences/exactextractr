@@ -464,6 +464,9 @@ Rcpp::NumericMatrix CPP_stats(Rcpp::S4 & rast,
         else if (stat == std::string("stdev")) stat_results(j, i++) = rs.stdev();
         else if (stat == std::string("coefficient_of_variation")) stat_results(j, i++) = rs.coefficient_of_variation();
 
+        else if (stat == std::string("weighted_variance")) stat_results(j, i++) = rs.weighted_variance();
+        else if (stat == std::string("weighted_stdev")) stat_results(j, i++) = rs.weighted_stdev();
+
         else if (stat == std::string("quantile")) {
           Rcpp::NumericVector qvec = quantiles.get();
           for (double q : qvec) {

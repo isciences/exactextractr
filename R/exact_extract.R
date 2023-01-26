@@ -120,6 +120,14 @@ setGeneric("exact_extract", function(x, y, ...)
 #'                     the fraction of each cell that is covered by the polygon
 #'                     and the value of a second weighting raster provided
 #'                     as `weights`
+#'  * `weighted_stdev` - the population standard deviation of cell values,
+#'                       weighted by the product of the fraction of each cell
+#'                       covered by the polygon and the value of a second
+#'                       weighting raster provided as `weights`
+#'  * `weighted_variance` - the population variance of cell values, weighted by
+#'                          the product of the fraction of each cell covered by
+#'                          the polygon and the value of a second weighting
+#'                          raster provided as `weights`
 #'  * `frac` - returns one column for each possible value of `x`, with the
 #'             the fraction of defined raster cells that are equal to that
 #'             value.

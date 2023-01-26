@@ -78,17 +78,31 @@ test_that('Weighted stat functions work', {
 
   square <- make_rect(0.5, 0.5, 2.5, 2.5, sf::st_crs(rast))
 
+  # equal weights
   expect_equal(exact_extract(rast, square, 'weighted_mean', weights=equal_weights),
                exact_extract(rast, square, 'mean'))
 
   expect_equal(exact_extract(rast, square, 'weighted_sum', weights=equal_weights),
                exact_extract(rast, square, 'sum'))
 
+  expect_equal(exact_extract(rast, square, 'weighted_stdev', weights=equal_weights),
+               exact_extract(rast, square, 'stdev'))
+
+  expect_equal(exact_extract(rast, square, 'weighted_variance', weights=equal_weights),
+               exact_extract(rast, square, 'variance'))
+
+  # unequal weights
   expect_equal(exact_extract(rast, square, 'weighted_mean', weights=bottom_row_only),
                (0.25*7 + 0.5*8 + 0.25*9)/(0.25 + 0.5 + 0.25))
 
   expect_equal(exact_extract(rast, square, 'weighted_sum', weights=bottom_row_only),
                (0.25*7 + 0.5*8 + 0.25*9))
+
+  expect_equal(exact_extract(rast, square, 'weighted_stdev', weights=bottom_row_only),
+               0.7071068, tolerance = 1e-7) # Weighted.Desc.Stat::w.sd(x = c(7, 8, 9), mu = c(0.25, 0.5, 0.25)))
+
+  expect_equal(exact_extract(rast, square, 'weighted_variance', weights=bottom_row_only),
+               0.5) # Weighted.Desc.Stat::w.var(x = c(7, 8, 9), mu = c(0.25, 0.5, 0.25)))
 })
 
 test_that('Grouped stat functions work', {

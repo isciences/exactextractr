@@ -1,3 +1,7 @@
+# version 0.10.0
+
+- Add `weighted_variance` and `weighted_stdev` operations
+
 # version 0.9.1
 
 - Fix incorrect results for `frac` and `weighted_frac` when different polygons intersect
