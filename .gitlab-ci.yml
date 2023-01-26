@@ -17,7 +17,7 @@ test-latest:
 
 test-devel:
   stage: test
-  image: rocker/geospatial:devel
+  image: rocker/geospatial:dev-osgeo
   script:
     - apt-get update && apt-get install --no-install-recommends -y devscripts
     - R -e "install.packages(c('raster', 'terra'))"
