@@ -1,4 +1,4 @@
-# Copyright (c) 2021 ISciences, LLC.
+# Copyright (c) 2021-2023 ISciences, LLC.
 # All rights reserved.
 #
 # This software is licensed under the Apache License, Version 2.0 (the "License").
@@ -30,20 +30,22 @@ test_that('blockSize reports block size in row-col order', {
   # netCDF uses a different code path, so copy our test input to netCDF format
   # and repeat. GDAL doesn't let us control the block size, so hopefully it
   # is stable.
-  nc_fname <- tempfile(fileext = '.nc')
-  suppressWarnings({
-    terra::writeRaster(terra::rast(landcov_fname), nc_fname, gdal=c('FORMAT=NC4', 'COMPRESS=DEFLATE'))
-  })
+  if ('netCDF' %in% terra::gdal(drivers=TRUE)$name) {
+    nc_fname <- tempfile(fileext = '.nc')
+    suppressWarnings({
+      terra::writeRaster(terra::rast(landcov_fname), nc_fname, gdal=c('FORMAT=NC4', 'COMPRESS=DEFLATE'))
+    })
 
-  expect_equal(
-    .blockSize(raster::raster(nc_fname)),
-    c(1, 3840)
-  )
+    expect_equal(
+      .blockSize(raster::raster(nc_fname)),
+      c(1, 3840)
+    )
 
-  expect_equal(
-    .blockSize(terra::rast(nc_fname)),
-    c(1, 3840)
-  )
+    expect_equal(
+      .blockSize(terra::rast(nc_fname)),
+      c(1, 3840)
+    )
 
-  file.remove(nc_fname)
+    file.remove(nc_fname)
+  }
 })
