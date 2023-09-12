@@ -4,8 +4,7 @@ Version: 0.10.0
 Authors@R: c(
         person("Daniel Baston", email = "dbaston@isciences.com", role = c("aut", "cre")),
         person("ISciences, LLC", role="cph"))
-Description: Provides a replacement for the 'extract' function from the 'raster' package
-    that is suitable for extracting raster values using 'sf' polygons.
+Description: Quickly and accurately summarizes raster values over polygonal areas ("zonal statistics").
 Depends: R (>= 3.4.0)
 License: Apache License (== 2.0)
 SystemRequirements:
