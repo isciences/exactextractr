@@ -357,7 +357,15 @@ NULL
     warning("No CRS specified for polygons; assuming they have the same CRS as the raster.")
   } else if(sf::st_crs(x) != sf::st_crs(y)) {
     y <- sf::st_transform(y, sf::st_crs(x))
-    warning("Polygons transformed to raster CRS (EPSG:", sf::st_crs(x)$epsg, ")")
+    msg <- "Polygons transformed to raster CRS"
+    if (!is.na(sf::st_crs(x)$epsg)) {
+      msg <- paste0(msg, " (EPSG: ", sf::st_crs(x)$epsg, ") ")
+    }
+    msg <- paste0(msg, ". ",
+                  "To avoid on-the-fly coordinate transformation, ensure that ",
+                  "st_crs() returns the same result for both raster and polygon ",
+                  "inputs.")
+    warning(msg)
   }
   if(area_weights || include_area || coverage_area) {
     area_method <- .areaMethod(analysis_crs)
