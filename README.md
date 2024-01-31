@@ -8,7 +8,7 @@
 `exactextractr` is an R package that quickly and accurately summarizes raster
 values over polygonal areas, commonly referred to as _zonal statistics_. Unlike
 most zonal statistics implementations, it handles grid cells that are partially
-covered by a polygon. Despite this, it performs faster other packages for many
+covered by a polygon. Despite this, it performs faster than other packages for many
 real-world applications.
 
 ![Example Graphic](https://gitlab.com/isciences/exactextractr/-/raw/assets/readme/brazil_precip.png).
