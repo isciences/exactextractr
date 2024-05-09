@@ -124,3 +124,27 @@ test_that('include_* arguments supported for terra inputs', {
     exact_extract(ras, circ, include_cell = TRUE, include_xy = TRUE)
   )
 })
+
+test_that('terra vector inputs supported', {
+  ras <- make_square_raster(1:100)
+
+  terra_ras <- terra::rast(ras)
+
+  circ <- make_circle(3, 2, 4, sf::st_crs(ras))
+  circ_vect <- terra::vect(circ)
+
+  expect_equal(
+    exact_extract(terra_ras, circ),
+    exact_extract(terra_ras, circ_vect)
+  )
+
+  expect_equal(
+    exact_extract(terra_ras, circ, 'mean'),
+    exact_extract(terra_ras, circ_vect, 'mean')
+  )
+
+  expect_equal(
+    exact_extract(terra_ras, circ, weighted.mean),
+    exact_extract(terra_ras, circ_vect, weighted.mean)
+  )
+})
