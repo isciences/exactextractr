@@ -849,7 +849,7 @@ setMethod('exact_extract', signature(x='SpatRaster', y='SpatialPolygons'),
 #' @rdname exact_extract
 #' @export
 setMethod('exact_extract', signature(x='SpatRaster', y='SpatVector'),
-          function(x, y, ...) .exact_extract(x, .terra_to_sf(y), ...))
+          function(x, y, ...) .exact_extract(x, sf::st_as_sf(y), ...))
 
 #' @useDynLib exactextractr
 #' @rdname exact_extract
