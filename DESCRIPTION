@@ -2,7 +2,7 @@ Package: exactextractr
 Title: Fast Extraction from Raster Datasets using Polygons
 Version: 0.10.0
 Authors@R: c(
-        person("Daniel Baston", email = "dbaston@isciences.com", role = c("aut", "cre")),
+        person("Daniel", "Baston", email = "dbaston@isciences.com", role = c("aut", "cre")),
         person("ISciences, LLC", role="cph"))
 Description: Quickly and accurately summarizes raster values over polygonal areas ("zonal statistics").
 Depends: R (>= 3.4.0)
