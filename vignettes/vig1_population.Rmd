@@ -236,7 +236,7 @@ pixel areas as:
 $$
 \bar{x}_\mathrm{pop} = \frac{ \Sigma_{i=0}^n {x_ic_id_ia_i}}{\Sigma_{i=0}^n{c_id_ia_i}}
 $$
-where $x_i$ is the population of pixel $i$, $c_i$ is the fraction of pixel $i$ 
+where $x_i$ is the elevation of pixel $i$, $c_i$ is the fraction of pixel $i$ 
 that is covered by a polygon, $d_i$ is the population density of pixel $i$, and
 $a_i$ is the area of pixel $i$.
 
