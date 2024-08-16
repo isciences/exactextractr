@@ -19,7 +19,7 @@ test-devel:
   stage: test
   image: rocker/geospatial:dev-osgeo
   script:
-    - apt-get update && apt-get install --no-install-recommends -y devscripts
+    - apt-get update && apt-get install --no-install-recommends -y devscripts libproj22 libgdal30
     - R -e "install.packages(c('raster', 'terra', 'ncdf4'))"
     - R -e "remotes::install_git('https://github.com/r-spatial/sf')"
     - R -e "devtools::document()"
