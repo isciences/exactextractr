@@ -209,7 +209,7 @@
 .num_expected_args <- function(fun) {
   a <- formals(args(fun))
   a <- a[names(a) != '...']
-  sum(sapply(a, nchar) == 0)
+  sum(sapply(a, nchar) == 0, na.rm = TRUE)
 }
 
 .startReading <- function(r) {
