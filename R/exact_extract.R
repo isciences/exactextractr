@@ -315,6 +315,10 @@ NULL
                    paste(class(y), collapse = ' ')))
     }
 
+    if (class(append_cols) != 'character') {
+      stop('append_cols must be a list of column names')
+    }
+
     force_df <- TRUE
   }
 
@@ -322,6 +326,10 @@ NULL
     if (!inherits(y, 'sf')) {
       stop(sprintf('include_cols only supported for sf arguments (received %s)',
                    paste(class(y), collapse = ' ')))
+    }
+
+    if (class(include_cols) != 'character') {
+      stop('include_cols must be a list of column names')
     }
   }
 

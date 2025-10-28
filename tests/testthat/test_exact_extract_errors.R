@@ -307,6 +307,11 @@ test_that('Error is thrown when using include_cols or append_cols with nonexisti
   )
 
   expect_error(
+    exact_extract(rast, circles, 'mean', append_cols = TRUE, progress = FALSE),
+    'must be a list of column names'
+  )
+
+  expect_error(
     exact_extract(rast, circles, weighted.mean, append_cols = 'fidd', progress = FALSE),
     'undefined columns'
   )
@@ -321,6 +326,12 @@ test_that('Error is thrown when using include_cols or append_cols with nonexisti
   expect_error(
     exact_extract(rast, circles, include_cols = 'fidd', progress = FALSE),
     'undefined columns'
+  )
+
+  # include_cols has wrong type
+  expect_error(
+    exact_extract(rast, circles, include_cols = TRUE, progress = FALSE),
+    'must be a list of column names'
   )
 })
 
@@ -424,7 +435,7 @@ test_that('Error thrown if append_cols set where not applicable', {
   circle <- st_sf(make_circle(7.5, 5.5, 4, sf::st_crs(rast)))
 
   expect_error(
-    exact_extract(rast, circle, append_cols = TRUE),
+    exact_extract(rast, circle, append_cols = 'name'),
     'can only be used when .* is a summary operation or function'
   )
 })
