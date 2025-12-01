@@ -1,3 +1,11 @@
+# version 0.10.1
+
+- Improve warning on CRS mismatch
+- Fix for bug in .num_expected_args() when fun is supplied that has any default
+  argument values of NA or NULL (Mike Koontz)
+- Raise error when include_cols or append_cols has wrong type
+- Various internal updates to satisfy CRAN changes
+
 # version 0.10.0
 
 - Add `weighted_variance` and `weighted_stdev` operations
