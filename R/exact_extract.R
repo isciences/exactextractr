@@ -315,7 +315,7 @@ NULL
                    paste(class(y), collapse = ' ')))
     }
 
-    if (class(append_cols) != 'character') {
+    if (!is.character(append_cols)) {
       stop('append_cols must be a list of column names')
     }
 
@@ -328,7 +328,7 @@ NULL
                    paste(class(y), collapse = ' ')))
     }
 
-    if (class(include_cols) != 'character') {
+    if (!is.character(include_cols)) {
       stop('include_cols must be a list of column names')
     }
   }
