@@ -1,7 +1,4 @@
-
-CXX_STD = CXX14
 PKG_LIBS = -lgeos_c -lgeos
-PKG_CXXFLAGS = -std=c++14
 
 EE = exactextract/src
 
