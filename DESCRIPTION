@@ -1,6 +1,6 @@
 Package: exactextractr
 Title: Fast Extraction from Raster Datasets using Polygons
-Version: 0.10.0
+Version: 0.10.1
 Authors@R: c(
         person("Daniel", "Baston", email = "dbaston@isciences.com", role = c("aut", "cre")),
         person("ISciences, LLC", role="cph"))
@@ -26,5 +26,5 @@ Suggests:
     testthat,
     terra (>= 1.5.17)
 Encoding: UTF-8
-RoxygenNote: 7.1.2
+RoxygenNote: 7.3.2
 VignetteBuilder: knitr
