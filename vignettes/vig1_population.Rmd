@@ -26,8 +26,8 @@ par(mar = c(1, 1, 1, 1))
 
 This vignette describes the use of `exactextractr` to summarize population 
 and elevation data from the
-[Gridded Population of the World](https://sedac.ciesin.columbia.edu/data/collection/gpw-v4)
-and [EU-DEM](https://www.eea.europa.eu/data-and-maps/data/copernicus-land-monitoring-service-eu-dem)
+[Gridded Population of the World](https://www.earthdata.nasa.gov/data/projects/gpw)
+and [EU-DEM](https://www.eea.europa.eu/en/datahub/dataset-redirect/DAT-193-en)
 datasets. 
 The `exactextractr` package includes samples of both of these datasets,
 cropped to the extent of São Miguel, the largest and most populous island of the
