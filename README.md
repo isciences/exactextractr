@@ -31,15 +31,14 @@ method in the
 The snippet below demonstrates the use of this function to compute monthly mean precipitation for each municipality in Brazil.
 
 ```r
-library(raster)
-library(sf)
 library(exactextractr)
+library(sf)
 
 # Pull municipal boundaries for Brazil
-brazil <- st_as_sf(getData('GADM', country='BRA', level=2))
+brazil <- st_as_sf(geodata::gadm(country='BRA', level=2, path='.'))
 
 # Pull gridded precipitation data
-prec <- getData('worldclim', var='prec', res=10)
+prec <- geodata::worldclim_global(var = 'prec', res = 10, path = '.')
 
 # Calculate vector of mean December precipitation amount for each municipality
 brazil$mean_dec_prec <- exact_extract(prec[[12]], brazil, 'mean')
